@@ -1,0 +1,12 @@
+declare namespace NodeJS {
+  interface ProcessEnv {
+    BASE_URL: string
+    BETTER_AUTH_SECRET: string
+    NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY: string
+    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: string
+    NEXT_PUBLIC_GOOGLE_MAPS_API_MAPID: string
+    NEXT_PUBLIC_REALTIME_ENDPOINT: string
+    NEXT_PUBLIC_REALTIME_REGION: string
+    NEXT_PUBLIC_IDENTITY_POOL: string
+  }
+}

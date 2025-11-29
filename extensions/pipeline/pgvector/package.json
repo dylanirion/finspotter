@@ -1,0 +1,15 @@
+{
+  "name": "@finspotter/pgvector",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./sst": "./src/sst/index.ts",
+    "./sst/*": "./src/sst/*.ts",
+    "./*": "./src/*.ts",
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-rds-data": "^3.918.0",
+    "@finspotter/pipeline": "workspace:*"
+  }
+}

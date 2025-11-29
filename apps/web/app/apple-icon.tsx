@@ -1,0 +1,21 @@
+import { ImageResponse } from "next/og"
+import { SiteLogo } from "components/ui/logos/SiteLogo"
+
+export const size = {
+  width: 512,
+  height: 512,
+}
+export const contentType = "image/png"
+
+export default function Icon() {
+  return new ImageResponse(
+    (
+      <div tw="flex w-full h-full items-center justify-center">
+        <SiteLogo style={{ height: "512px", width: "512px" }} />
+      </div>
+    ),
+    {
+      ...size,
+    }
+  )
+}

@@ -1,0 +1,427 @@
+{
+  "StartAt": "Set status to initialised",
+  "States": {
+    "Set status to initialised": {
+      "Next": "Do detection?",
+      "Type": "Task",
+      "ResultPath": null,
+      "Resource": "arn:aws:states:::dynamodb:putItem",
+      "Parameters": {
+        "Item": {
+          "pk": {
+            "S.$": "$.id"
+          },
+          "sk": {
+            "S.$": "$.id"
+          },
+          "status": {
+            "S": "Initialised"
+          },
+          "expires": {
+            "N.$": "$.expires"
+          }
+        },
+        "TableName.$": "$$.Execution.Input.TableName"
+      }
+    },
+    "Do detection?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.detect.functionName",
+          "IsPresent": true,
+          "Next": "Update status to detecting"
+        }
+      ],
+      "Default": "No detection"
+    },
+    "No detection": {
+      "Type": "Pass",
+      "Next": "Do extraction?"
+    },
+    "Do extraction?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.extract.functionName",
+          "IsPresent": true,
+          "Next": "Update status to extracting"
+        }
+      ],
+      "Default": "No extraction"
+    },
+    "Iterate images": {
+      "Type": "Map",
+      "Next": "Do extraction?",
+      "Parameters": {
+        "payload.$": "$$.Map.Item.Value",
+        "functionName.$": "$.detect.functionName"
+      },
+      "OutputPath": "$.merged",
+      "ResultSelector": {
+        "merged.$": "States.JsonMerge($$.Execution.Input, States.StringToJson(States.Format('\\{\"payload\": {}\\}', States.JsonToString($[*][*]))), false)"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Update status to failed"
+        }
+      ],
+      "ItemsPath": "$.payload",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Invoke detection function",
+        "States": {
+          "Invoke detection function": {
+            "End": true,
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload": {
+                "payload.$": "$.payload"
+              },
+              "FunctionName.$": "$.functionName"
+            },
+            "ResultPath": "$",
+            "OutputPath": "$.Payload"
+          }
+        }
+      }
+    },
+    "Update status to detecting": {
+      "Next": "Iterate images",
+      "Type": "Task",
+      "ResultPath": null,
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "Key": {
+          "pk": {
+            "S.$": "$.id"
+          },
+          "sk": {
+            "S.$": "$.id"
+          }
+        },
+        "TableName.$": "$$.Execution.Input.TableName",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "Detecting"
+          }
+        },
+        "UpdateExpression": "SET #status = :status"
+      }
+    },
+    "Update status to failed": {
+      "Next": "Failed",
+      "Type": "Task",
+      "ResultPath": null,
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "Key": {
+          "pk": {
+            "S.$": "$.id"
+          },
+          "sk": {
+            "S.$": "$.id"
+          }
+        },
+        "TableName.$": "$$.Execution.Input.TableName",
+        "ExpressionAttributeNames": {
+          "#status": "status",
+          "#result": "result"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "Failed"
+          },
+          ":result": {
+            "S.$": "$.error.Cause"
+          }
+        },
+        "UpdateExpression": "SET #status = :status, #result = :result"
+      }
+    },
+    "Iterate detections": {
+      "Type": "Map",
+      "ResultPath": "$.payload",
+      "Next": "Do similarity search?",
+      "Parameters": {
+        "payload.$": "$$.Map.Item.Value",
+        "functionName.$": "$.extract.functionName"
+      },
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Update status to failed"
+        }
+      ],
+      "ItemsPath": "$.payload",
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "Invoke feature extraction function",
+        "States": {
+          "Invoke feature extraction function": {
+            "End": true,
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "Payload": {
+                "payload.$": "$.payload"
+              },
+              "FunctionName.$": "$.functionName"
+            },
+            "ResultPath": "$",
+            "OutputPath": "$.Payload"
+          }
+        }
+      }
+    },
+    "Update status to extracting": {
+      "Next": "Iterate detections",
+      "Type": "Task",
+      "ResultPath": null,
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "Key": {
+          "pk": {
+            "S.$": "$.id"
+          },
+          "sk": {
+            "S.$": "$.id"
+          }
+        },
+        "TableName.$": "$$.Execution.Input.TableName",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "Extracting"
+          }
+        },
+        "UpdateExpression": "SET #status = :status"
+      }
+    },
+    "Do similarity search?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.search.functionName",
+          "IsPresent": true,
+          "Next": "Build search index?"
+        }
+      ],
+      "Default": "No similarity search"
+    },
+    "No extraction": {
+      "Type": "Pass",
+      "Next": "Do similarity search?"
+    },
+    "No similarity search": {
+      "Type": "Pass",
+      "Next": "Get Presigned URL for result"
+    },
+    "Get Presigned URL for result": {
+      "Next": "Update status to completed",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.ClientExecutionTimeoutException",
+            "Lambda.ServiceException",
+            "Lambda.AWSLambdaException",
+            "Lambda.SdkClientException"
+          ],
+          "IntervalSeconds": 2,
+          "MaxAttempts": 6,
+          "BackoffRate": 2
+        }
+      ],
+      "Type": "Task",
+      "OutputPath": "$.Payload",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "arn:aws:lambda:us-east-1:401298686804:function:staging-next-finspotter-A-getPresignedUrlFunction5-xErs9snC5KaT",
+        "Payload.$": "$"
+      }
+    },
+    "Invoke search function": {
+      "Next": "Get Presigned URL for result",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload": {
+          "payload.$": "$.payload"
+        },
+        "FunctionName.$": "$.search.functionName"
+      },
+      "ResultSelector": {
+        "merged.$": "States.JsonMerge($$.Execution.Input, States.StringToJson(States.Format('\\{\"payload\": {}\\}', States.JsonToString(States.Array($.Payload)))), false)"
+      },
+      "OutputPath": "$.merged",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.EFSMountTimeoutException"
+          ],
+          "MaxAttempts": 3,
+          "MaxDelaySeconds": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Update status to failed"
+        }
+      ]
+    },
+    "Update status to searching": {
+      "Next": "Invoke search function",
+      "Type": "Task",
+      "ResultPath": null,
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "Key": {
+          "pk": {
+            "S.$": "$.id"
+          },
+          "sk": {
+            "S.$": "$.id"
+          }
+        },
+        "TableName.$": "$$.Execution.Input.TableName",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "Searching"
+          }
+        },
+        "UpdateExpression": "SET #status = :status"
+      }
+    },
+    "Use existing index": {
+      "Type": "Pass",
+      "Next": "Update status to searching"
+    },
+    "Invoke indexing function": {
+      "Next": "Update status to searching",
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "Payload": {
+          "payload.$": "$.payload"
+        },
+        "FunctionName.$": "$.search.index.functionName"
+      },
+      "ResultSelector": {
+        "merged.$": "States.JsonMerge($$.Execution.Input, States.StringToJson(States.Format('\\{\"payload\": {}\\}', States.JsonToString(States.Array($.Payload)))), false)"
+      },
+      "OutputPath": "$.merged",
+      "Retry": [
+        {
+          "ErrorEquals": [
+            "Lambda.EFSMountTimeoutException"
+          ],
+          "MaxAttempts": 3,
+          "MaxDelaySeconds": 2
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": [
+            "States.ALL"
+          ],
+          "ResultPath": "$.error",
+          "Next": "Update status to failed"
+        }
+      ]
+    },
+    "Update status to indexing": {
+      "Next": "Invoke indexing function",
+      "Type": "Task",
+      "ResultPath": null,
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "Key": {
+          "pk": {
+            "S.$": "$.id"
+          },
+          "sk": {
+            "S.$": "$.id"
+          }
+        },
+        "TableName.$": "$$.Execution.Input.TableName",
+        "ExpressionAttributeNames": {
+          "#status": "status"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "Indexing"
+          }
+        },
+        "UpdateExpression": "SET #status = :status"
+      }
+    },
+    "Build search index?": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.search.index.functionName",
+          "IsPresent": true,
+          "Next": "Update status to indexing"
+        }
+      ],
+      "Default": "Use existing index"
+    },
+    "Update status to completed": {
+      "End": true,
+      "Type": "Task",
+      "ResultPath": null,
+      "Resource": "arn:aws:states:::dynamodb:updateItem",
+      "Parameters": {
+        "Key": {
+          "pk": {
+            "S.$": "$.id"
+          },
+          "sk": {
+            "S.$": "$.id"
+          }
+        },
+        "TableName.$": "$$.Execution.Input.TableName",
+        "ExpressionAttributeNames": {
+          "#status": "status",
+          "#result": "result"
+        },
+        "ExpressionAttributeValues": {
+          ":status": {
+            "S": "Completed"
+          },
+          ":result": {
+            "S.$": "$.payload"
+          }
+        },
+        "UpdateExpression": "SET #status = :status, #result = :result"
+      }
+    },
+    "Failed": {
+      "Type": "Fail"
+    }
+  }
+}

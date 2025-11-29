@@ -1,0 +1,10 @@
+{
+  "extends": "@tsconfig/node22/tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "preserve",
+  },
+  "include": ["./**/*.ts"],
+  "exclude": ["node_modules"]
+}

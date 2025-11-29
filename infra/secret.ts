@@ -1,0 +1,15 @@
+export const secret = {
+  RDSDbIdentifier: new sst.Secret("RDS_DB_IDENTIFIER"),
+  DbDatabase: new sst.Secret("DB_DATABASE"),
+  DbUser: new sst.Secret("DB_USER"),
+  DbPassword: new sst.Secret("DB_PASSWORD"),
+  BetterAuthSecret: new sst.Secret("BETTER_AUTH_SECRET"),
+  EmailHost: new sst.Secret("EMAIL_HOST"),
+  EmailPort: new sst.Secret("EMAIL_PORT"),
+  EmailUser: new sst.Secret("EMAIL_USER"),
+  EmailPassword: new sst.Secret("EMAIL_PASSWORD"),
+  EmailFrom: new sst.Secret("EMAIL_FROM"),
+  EmailNoReply: new sst.Secret("EMAIL_NOREPLY"),
+  GoogleMapsApiKey: new sst.Secret("GOOGLE_MAPS_API_KEY"),
+  GoogleMapsMapId: new sst.Secret("GOOGLE_MAPS_API_MAPID"),
+}

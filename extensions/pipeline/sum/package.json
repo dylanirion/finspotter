@@ -1,0 +1,16 @@
+{
+  "name": "@finspotter/sum",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./sst": "./src/sst/index.ts",
+    "./*": "./src/*.ts",
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.918.0",
+    "@aws-sdk/client-s3": "^3.918.0",
+    "@aws-sdk/lib-dynamodb": "^3.918.0",
+    "@finspotter/pipeline": "workspace:*"
+  }
+}

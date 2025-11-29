@@ -1,0 +1,13 @@
+{
+  "name": "@finspotter/faiss",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./sst": "./src/sst/index.ts",
+    "./*": "./src/*.ts",
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@finspotter/pipeline": "workspace:*"
+  }
+}

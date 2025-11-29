@@ -1,0 +1,36 @@
+{
+  "name": "@finspotter/annotations",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./init": "./src/init.ts",
+    "./null/*": "./src/null/*.ts",
+    "./react": "./src/react/index.tsx",
+    "./react/*": "./src/react/*.tsx",
+    "./*": "./src/*.ts",
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@finspotter/canvas": "workspace:*",
+    "@finspotter/config": "workspace:*",
+    "@finspotter/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@floating-ui/react": "^0.27.16",
+    "@headlessui/react": "^2.2.9",
+    "@heroicons/react": "^2.2.0",
+    "@tanstack/react-query": "^5.90.5",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@xstate/react": "^6.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-tailwindcss": "^3.18.2",
+    "prettier-plugin-tailwindcss": "^0.7.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hot-toast": "^2.6.0",
+    "xstate": "^5.23.0"
+  }
+}

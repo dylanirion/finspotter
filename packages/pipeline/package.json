@@ -1,0 +1,21 @@
+{
+  "name": "@finspotter/pipeline",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./ImageProcessingPipeline": "./src/ImageProcessingPipeline/index.ts",
+    "./ImageProcessingPipeline/*": "./src/ImageProcessingPipeline/*.ts",
+    "./invoke": "./src/invoke.ts",
+    "./StepFunction": "./src/StepFunction/index.ts",
+    "./StepFunction/*": "./src/StepFunction/*.ts",
+    "./*": "./src/*/index.ts",
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sfn": "^3.918.0",
+    "@finspotter/annotations": "workspace:*"
+  },
+  "devDependencies": {
+    "@pulumi/eslint-plugin": "^0.3.1"
+  }
+}

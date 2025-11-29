@@ -1,0 +1,3 @@
+opencv-python-headless
+pyhesaff
+numpy<2.3.0

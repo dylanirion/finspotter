@@ -1,0 +1,7 @@
+.sst
+.venv
+.env
+node_modules
+.open-next
+.next
+.rendered

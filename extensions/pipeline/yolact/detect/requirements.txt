@@ -1,0 +1,6 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+cython
+opencv-python-headless
+torch
+pycocotools
+numpy

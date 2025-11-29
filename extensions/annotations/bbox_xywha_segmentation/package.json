@@ -1,0 +1,18 @@
+{
+  "name": "@finspotter/annotation-bbox_xywha_segmentation",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./react": "./src/react.tsx",
+    "./*": "./src/*.ts",
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@finspotter/annotations": "workspace:*",
+    "@finspotter/canvas": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.2",
+    "xstate": "^5.23.0"
+  }
+}

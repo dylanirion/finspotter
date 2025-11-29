@@ -1,0 +1,21 @@
+{
+  "name": "@finspotter/annotation-bbox_xywha",
+  "version": "0.0.0",
+  "private": true,
+  "exports": {
+    "./react": "./src/react.tsx",
+    "./*": "./src/*.ts",
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@finspotter/annotation-bbox_xywh": "workspace:*",
+    "@finspotter/annotations": "workspace:*",
+    "@finspotter/canvas": "workspace:*"
+  },
+  "devDependencies": {
+    "@heroicons/react": "^2.2.0",
+    "@types/react": "^19.2.2",
+    "@xstate/react": "^6.0.0",
+    "xstate": "^5.23.0"
+  }
+}

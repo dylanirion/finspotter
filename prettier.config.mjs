@@ -1,0 +1,24 @@
+/** @type {import('prettier').Config} */
+export default {
+  endOfLine: "lf",
+  semi: false,
+  singleQuote: false,
+  tabWidth: 2,
+  trailingComma: "es5",
+  importOrder: [
+    "^(react/(.*)$)|^(react$)",
+    "^(next/(.*)$)|^(next$)",
+    "<THIRD_PARTY_MODULES>",
+    "",
+    "^types$",
+    "^/hooks/(.*)$",
+    "^/components/ui/(.*)$",
+    "^/components/(.*)$",
+    "^/styles/(.*)$",
+    "^/app/(.*)$",
+    "",
+    "^[./]",
+  ],
+  importOrderParserPlugins: ["typescript", "jsx", "decorators-legacy"],
+  plugins: ["@ianvs/prettier-plugin-sort-imports"],
+}

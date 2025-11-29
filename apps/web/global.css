@@ -1,0 +1,8 @@
+@import "tailwindcss";
+@source "./node_modules/@finspotter/annotations/src/**/*.{js,jsx,ts,tsx}";
+@source "./node_modules/@finspotter/canvas/src/**/*.{js,jsx,ts,tsx}";
+@source "../../extensions/annotations/{*, !node_modules}/src/*.{js,jsx,ts,tsx}";
+
+@variant dark (&:where(.dark, .dark *));
+
+.grecaptcha-badge { visibility: hidden; }
