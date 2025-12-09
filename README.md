@@ -1,4 +1,4 @@
-This is a (mostly) serverless [Next.js](https://nextjs.org/) project, deployed to AWS with [sst](https://sst.dev)
+Fin Spotter is a (mostly) serverless [Next.js](https://nextjs.org/) project, deployed to AWS with [sst](https://sst.dev) It is an extensible, modular computer vision, machine learning and identity matching pipeline with pairwise and indexed similarity search, ratio test, and RANSAC refinement. It includes an XState-based annotation interface, managed backend infrastructure (RDS, DynamoDB, Aurora Serverless), and coordinated server-side processing pipelines (Step Functions, Lambda Functions).
 
 ## Prerequisites
 ```bash
