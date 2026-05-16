@@ -1,5 +1,5 @@
 import { createPipelineFunction } from "@finspotter/pipeline/createPipelineFunction"
-import { type MatchRefinementFunction } from "@finspotter/pipeline/ImageProcessingPipeline/PipelinePackage"
+import { type MatchRefinementFunction } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
 
 export const refine: MatchRefinementFunction = ({ bucket, table }) =>
   createPipelineFunction(

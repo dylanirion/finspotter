@@ -7,8 +7,10 @@ import {
 import {
   PipelinePackage,
   type SearchFunction,
-} from "@finspotter/pipeline/ImageProcessingPipeline/PipelinePackage"
+} from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
+import { type ZodType } from "zod"
 
+import { pgVectorConfigSchema } from "./schema"
 import { indexed } from "./sst"
 import { db } from "./sst/db"
 
@@ -29,85 +31,90 @@ class PGVectorPipelinePackage
   public readonly pkg: string
   public readonly name: string
   public search?: Record<"indexed", SearchFunction>
-  public configType: string | Partial<Record<"indexed", string>>
-  private embeddingTables: $util.Output<string[]>
+  public config: ZodType | Partial<Record<"indexed", ZodType>>
+  private embeddings: Record<string, number> = {}
 
   constructor() {
     this.pkg = "@finspotter/pgvector"
     this.name = "pgvector"
-    this.configType = { indexed: `{}` }
-    this.embeddingTables = $util.output([])
-    $util
-      .all([db.database, db.secretArn, db.clusterArn])
-      .apply(async ([database, secretArn, clusterArn]) => {
-        return await executeWithRetry(() =>
-          rds.send(
-            new ExecuteStatementCommand({
-              secretArn,
-              resourceArn: clusterArn,
-              database,
-              sql: "create extension if not exists vector",
-            })
-          )
-        )
-      })
+    this.config = pgVectorConfigSchema
   }
-  vector(embeddings: Record<string, number>) {
-    const keys = Object.keys(embeddings)
-    const createTableTasks = keys.map((key) =>
-      $util
-        .all([db.database, db.secretArn, db.clusterArn])
-        .apply(([database, secretArn, clusterArn]) =>
-          $util.all([
-            executeWithRetry(() =>
-              rds.send(
-                new ExecuteStatementCommand({
-                  secretArn,
-                  resourceArn: clusterArn,
-                  database,
-                  sql: `create table if not exists ${key} (id bigserial primary key, annotation_id varchar(255) not null, feature_id integer not null, category varchar(255), embedding vector(${embeddings[key]}))`,
-                })
-              )
-            ),
-            executeWithRetry(() =>
-              rds.send(
-                new ExecuteStatementCommand({
-                  secretArn,
-                  resourceArn: clusterArn,
-                  database,
-                  sql: `create index if not exists idx_hnsw on ${key} using hnsw (embedding vector_l2_ops)`,
-                })
-              )
-            ),
-            executeWithRetry(() =>
-              rds.send(
-                new ExecuteStatementCommand({
-                  secretArn,
-                  resourceArn: clusterArn,
-                  database,
-                  sql: `create index if not exists idx_annotation_id on ${key} (annotation_id)`,
-                })
-              )
-            ),
-            executeWithRetry(() =>
-              rds.send(
-                new ExecuteStatementCommand({
-                  secretArn,
-                  resourceArn: clusterArn,
-                  database,
-                  sql: `create index if not exists idx_category on ${key} (category)`,
-                })
-              )
-            ),
-          ])
-        )
-    )
 
-    // Once all tables are created, track their names
-    this.embeddingTables = $util.all(createTableTasks).apply(() => keys)
+  vector(embeddings: Record<string, number>) {
+    this.embeddings = embeddings
+
     this.search = {
-      indexed: ({ bucket, table, bus }) =>
-        indexed({ bucket, table, bus, tables: this.embeddingTables }),
+      indexed: ({ bucket, table, bus }) => {
+        const dbReady = $util
+          .all([db.database, db.secretArn, db.clusterArn])
+          .apply(async ([database, secretArn, clusterArn]) => {
+            await executeWithRetry(() =>
+              rds.send(
+                new ExecuteStatementCommand({
+                  secretArn,
+                  resourceArn: clusterArn,
+                  database,
+                  sql: "create extension if not exists vector",
+                })
+              )
+            )
+            return { database, secretArn, clusterArn }
+          })
+
+        const keys = Object.keys(this.embeddings)
+        const tables = $util
+          .all(
+            keys.map((key) =>
+              dbReady.apply(async ({ database, secretArn, clusterArn }) => {
+                await executeWithRetry(() =>
+                  rds.send(
+                    new ExecuteStatementCommand({
+                      secretArn,
+                      resourceArn: clusterArn,
+                      database,
+                      sql: `create table if not exists ${key} (id bigserial primary key, annotation_id varchar(255) not null, feature_id integer not null, category varchar(255), embedding vector(${embeddings[key]}))`,
+                    })
+                  )
+                )
+                await Promise.all([
+                  executeWithRetry(() =>
+                    rds.send(
+                      new ExecuteStatementCommand({
+                        secretArn,
+                        resourceArn: clusterArn,
+                        database,
+                        sql: `create index if not exists idx_hnsw on ${key} using hnsw (embedding vector_l2_ops)`,
+                      })
+                    )
+                  ),
+                  executeWithRetry(() =>
+                    rds.send(
+                      new ExecuteStatementCommand({
+                        secretArn,
+                        resourceArn: clusterArn,
+                        database,
+                        sql: `create index if not exists idx_annotation_id on ${key} (annotation_id)`,
+                      })
+                    )
+                  ),
+                  executeWithRetry(() =>
+                    rds.send(
+                      new ExecuteStatementCommand({
+                        secretArn,
+                        resourceArn: clusterArn,
+                        database,
+                        sql: `create index if not exists idx_category on ${key} (category)`,
+                      })
+                    )
+                  ),
+                ])
+              })
+            )
+          )
+          .apply(() => keys)
+
+        return indexed({ bucket, table, bus, tables })
+      },
     }
     return this
   }

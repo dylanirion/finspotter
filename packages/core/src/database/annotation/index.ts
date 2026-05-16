@@ -33,7 +33,7 @@ import { mediaTable } from "../media/sql"
 import { annotationsIncrementerTable, annotationsTable } from "./sql"
 
 type DetectionFunctions =
-  keyof typeof Resource.ImageProcessingPipeline.detectionFunctions
+  keyof typeof Resource.MediaProcessingPipeline.detectionFunctions
 
 export type Annotation = {
   [T in AnnotationType]: {

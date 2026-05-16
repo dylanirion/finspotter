@@ -105,7 +105,7 @@ export async function doSubmission({
     detect: {
       //TODO: get default detection function from database, if no detection function? - extract features on entire image? wait for bbox?
       functionName:
-        Resource.ImageProcessingPipeline.detectionFunctions["yolact"],
+        Resource.MediaProcessingPipeline.detectionFunctions["yolact"],
       //TODO: get config from database
       config: {
         model: {
@@ -127,26 +127,26 @@ export async function doSubmission({
     },
     extract: {
       functionName:
-        Resource.ImageProcessingPipeline.extractionFunctions["hesaff"],
+        Resource.MediaProcessingPipeline.extractionFunctions["hesaff"],
       config: { rotation_invariance: true },
     },
     search: {
       type: "pairwise",
       functionName:
-        Resource.ImageProcessingPipeline.searchFunctions["faiss:pairwise"],
+        Resource.MediaProcessingPipeline.searchFunctions["faiss:pairwise"],
       config: null,
     },
     refine: [
       {
-        functionName: Resource.ImageProcessingPipeline.refineFunctions["ratio"],
+        functionName: Resource.MediaProcessingPipeline.refineFunctions["ratio"],
         config: { threshold: 0.625 },
       },
       {
-        functionName: Resource.ImageProcessingPipeline.refineFunctions["homog"],
+        functionName: Resource.MediaProcessingPipeline.refineFunctions["homog"],
         config: { ransacReprojThreshold: 50 },
       },
       {
-        functionName: Resource.ImageProcessingPipeline.refineFunctions["sum"],
+        functionName: Resource.MediaProcessingPipeline.refineFunctions["sum"],
         config: null,
       },
     ],
@@ -250,7 +250,7 @@ function addMediaToSubmissionTable(
   encounters: Omit<EncounterSubmissionData, "presignedUrl" | "file" | "xhr">[]
 ) {
   return putItems(
-    Resource.ImageProcessingPipeline.table,
+    Resource.MediaProcessingPipeline.table,
     encounters.map(({ id, src, type }) => ({
       pk: submissionId,
       sk: `media#${id}`,
@@ -268,7 +268,7 @@ function addMediaToSubmissionTableAsResult(
   encounters: Omit<EncounterSubmissionData, "presignedUrl" | "file" | "xhr">[]
 ) {
   return putItems(
-    Resource.ImageProcessingPipeline.table,
+    Resource.MediaProcessingPipeline.table,
     encounters.map(({ id, src, type }) => ({
       pk: submissionId,
       sk: `media#${id}`,
@@ -283,7 +283,7 @@ function addMediaToSubmissionTableAsResult(
 }
 
 function setStatusSubmitted(submissionId: string) {
-  return putItem(Resource.ImageProcessingPipeline.table, {
+  return putItem(Resource.MediaProcessingPipeline.table, {
     pk: submissionId,
     sk: "status",
     status: "submitted",

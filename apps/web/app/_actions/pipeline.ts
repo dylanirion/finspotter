@@ -81,7 +81,7 @@ export async function createDemoJob({
   const createdAt = now.toISOString()
   const expires = Math.floor((now.getTime() + 1 * 24 * 60 * 60 * 1000) / 1000)
 
-  await putItems(Resource.ImageProcessingPipeline.table, [
+  await putItems(Resource.MediaProcessingPipeline.table, [
     {
       pk: submissionId,
       sk: `media#${mediaId}`,
@@ -115,7 +115,7 @@ export async function createDemoJob({
     detect: {
       //TODO: get default detection function from database
       functionName:
-        Resource.ImageProcessingPipeline.detectionFunctions["yolact"],
+        Resource.MediaProcessingPipeline.detectionFunctions["yolact"],
       //TODO: get config from database
       config: {
         model: {
@@ -137,13 +137,13 @@ export async function createDemoJob({
     },
     extract: {
       functionName:
-        Resource.ImageProcessingPipeline.extractionFunctions["hesaff"],
+        Resource.MediaProcessingPipeline.extractionFunctions["hesaff"],
       config: null,
     },
     search: {
       type: "indexed",
       functionName:
-        Resource.ImageProcessingPipeline.searchFunctions["pgvector:indexed"],
+        Resource.MediaProcessingPipeline.searchFunctions["pgvector:indexed"],
       config: null,
     },
     expires,
@@ -162,7 +162,7 @@ export async function createDetectionJob(mediaId: string[]) {
   if (!media) throw new Error("No media found")
 
   //TODO: this is probably very similar to what happens in submission?
-  await putItems(Resource.ImageProcessingPipeline.table, [
+  await putItems(Resource.MediaProcessingPipeline.table, [
     ...media.map((item) => ({
       pk: submissionId,
       sk: `media#${item.id}`,
@@ -195,7 +195,7 @@ export async function createDetectionJob(mediaId: string[]) {
     detect: {
       //TODO: get default detection function from database
       functionName:
-        Resource.ImageProcessingPipeline.detectionFunctions["yolact"],
+        Resource.MediaProcessingPipeline.detectionFunctions["yolact"],
       //TODO: get config from database
       config: {
         model: {
@@ -217,7 +217,7 @@ export async function createDetectionJob(mediaId: string[]) {
     },
     extract: {
       functionName:
-        Resource.ImageProcessingPipeline.extractionFunctions["hesaff"],
+        Resource.MediaProcessingPipeline.extractionFunctions["hesaff"],
       config: null,
     },
     expires: null,
@@ -242,7 +242,7 @@ export async function getItemsForReview(
     final: boolean
     locked_at: string
   }>(
-    Resource.ImageProcessingPipeline.table,
+    Resource.MediaProcessingPipeline.table,
     {
       gsi1pk: "result",
       final: true,
@@ -267,7 +267,7 @@ export async function getPipelineActivity(
   //TODO check permissions? will need to filter only items that user has permission to see
 
   return queryItems<StatusItem>(
-    Resource.ImageProcessingPipeline.table,
+    Resource.MediaProcessingPipeline.table,
     {
       gsi1pk: "status",
       status: { operator: "not_in", value: ["succeeded", "failed"] },
@@ -285,7 +285,7 @@ export async function getPipelineActivity(
 //TODO: what happens when the same image is in the pipeline multiple times?
 export async function getSingleMedia(id: string) {
   const { items } = await queryItems<MediaItem | DetectionItem>(
-    Resource.ImageProcessingPipeline.table,
+    Resource.MediaProcessingPipeline.table,
     { media_id: id },
     undefined,
     "gsi2",
@@ -332,7 +332,7 @@ export async function getDetection(key: {
   sk: string
 }): Promise<Partial<DetectionItem>> {
   const { type, category, data, score } = await getItem<DetectionItem>(
-    Resource.ImageProcessingPipeline.table,
+    Resource.MediaProcessingPipeline.table,
     key
   )
   return { type, category, data, score }
@@ -342,7 +342,7 @@ export async function getDetections(key: {
   pk: string
 }): Promise<Partial<DetectionItem>[]> {
   const { items } = await queryItems<DetectionItem>(
-    Resource.ImageProcessingPipeline.table,
+    Resource.MediaProcessingPipeline.table,
     {
       pk: key.pk,
       sk: { operator: "starts_with", value: "detection" },

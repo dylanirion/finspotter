@@ -8,6 +8,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@finspotter/pipeline": "workspace:*"
+    "@finspotter/pipeline": "workspace:*",
+    "zod": "^4.1.12"
   }
 }

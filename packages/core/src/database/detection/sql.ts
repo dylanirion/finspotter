@@ -20,7 +20,7 @@ import { usersTable } from "../auth/user/sql"
 import { mediaTable } from "../media/sql"
 
 type DetectionFunctions =
-  keyof typeof Resource.ImageProcessingPipeline.detectionFunctions
+  keyof typeof Resource.MediaProcessingPipeline.detectionFunctions
 
 export const detectionsTable = mysqlTable(
   "detections",
@@ -34,7 +34,7 @@ export const detectionsTable = mysqlTable(
     detectionId: int("detection_id").notNull(),
     source: mysqlEnum("source", [
       "manual",
-      ...Object.keys(Resource.ImageProcessingPipeline.detectionFunctions),
+      ...Object.keys(Resource.MediaProcessingPipeline.detectionFunctions),
     ]).$type<"manual" | DetectionFunctions>(),
     category: varchar("category", { length: 255 }),
     type: mysqlEnum("type", AnnotationTypes).$type<AnnotationType>(),

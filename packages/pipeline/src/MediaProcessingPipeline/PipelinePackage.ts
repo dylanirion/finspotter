@@ -1,3 +1,5 @@
+import { type ZodType } from "zod"
+
 export interface ObjectLambdaConfig {
   type: string
   lambdaArn: $util.Output<string>
@@ -9,7 +11,7 @@ export type DetectionFunction = ({
   bucket,
   table,
 }: {
-  bucket: aws.s3.BucketV2
+  bucket: aws.s3.Bucket
   table: sst.aws.Dynamo
 }) => $util.Output<aws.lambda.Function>
 
@@ -17,7 +19,7 @@ export type ExtractionFunction = ({
   bucket,
   table,
 }: {
-  bucket: aws.s3.BucketV2
+  bucket: aws.s3.Bucket
   table: sst.aws.Dynamo
 }) => $util.Output<aws.lambda.Function>
 
@@ -26,7 +28,7 @@ export type SearchFunction = ({
   table,
   bus,
 }: {
-  bucket: aws.s3.BucketV2
+  bucket: aws.s3.Bucket
   table: sst.aws.Dynamo
   bus: aws.cloudwatch.EventBus
 }) => $util.Output<aws.lambda.Function>
@@ -35,7 +37,7 @@ export type MatchRefinementFunction = ({
   bucket,
   table,
 }: {
-  bucket: aws.s3.BucketV2
+  bucket: aws.s3.Bucket
   table: sst.aws.Dynamo
 }) => $util.Output<aws.lambda.Function>
 
@@ -43,7 +45,7 @@ export type ScoringFunction = ({
   bucket,
   table,
 }: {
-  bucket: aws.s3.BucketV2
+  bucket: aws.s3.Bucket
   table: sst.aws.Dynamo
 }) => $util.Output<aws.lambda.Function>
 
@@ -52,7 +54,7 @@ type SearchType = "pairwise" | "indexed"
 interface BasePipelineConfig {
   pkg: string
   name: string
-  configType: string
+  config?: ZodType
 }
 
 export type PipelineConfig =
@@ -60,7 +62,7 @@ export type PipelineConfig =
   | (BasePipelineConfig & { extract: ExtractionFunction })
   | (Omit<BasePipelineConfig, "configType"> & {
       search: Partial<Record<SearchType, SearchFunction>>
-      configType: Partial<Record<SearchType, string>>
+      config?: Partial<Record<SearchType, ZodType>>
     })
   | (BasePipelineConfig & { refine: MatchRefinementFunction })
   | (BasePipelineConfig & { score: ScoringFunction })
@@ -74,7 +76,7 @@ export class PipelinePackage {
   public search?: Partial<Record<SearchType, SearchFunction>>
   public refine?: MatchRefinementFunction
   public score?: ScoringFunction
-  public configType: string | Partial<Record<SearchType, string>>
+  public config?: ZodType | Partial<Record<SearchType, ZodType>>
 
   constructor(config: PipelineConfig) {
     this.pkg = config.pkg
@@ -84,7 +86,7 @@ export class PipelinePackage {
     if ("search" in config) this.search = config.search
     if ("refine" in config) this.refine = config.refine
     if ("score" in config) this.score = config.score
-    this.configType = config.configType
+    this.config = config.config
   }
 }
 

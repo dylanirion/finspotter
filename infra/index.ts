@@ -1,9 +1,6 @@
-import {
-  generateExports,
-  type AnnotationPackage,
-} from "@finspotter/annotations/init"
-import { ImageProcessingPipeline } from "@finspotter/pipeline/ImageProcessingPipeline"
-import { PipelinePackage } from "@finspotter/pipeline/ImageProcessingPipeline/PipelinePackage"
+import { type AnnotationPackage } from "@finspotter/annotations/init"
+import { MediaProcessingPipeline } from "@finspotter/pipeline/MediaProcessingPipeline"
+import { PipelinePackage } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
 
 import { db } from "./database"
 import { domain } from "./domain"
@@ -16,8 +13,6 @@ export function init(
   pipelinePackages: PipelinePackage[],
   annotationPackages: AnnotationPackage[]
 ) {
-  generateExports(annotationPackages)
-
   new sst.x.DevCommand("ImageProxy", {
     link: [bucket],
     dev: {
@@ -26,7 +21,7 @@ export function init(
     },
   })
 
-  const pipeline = new ImageProcessingPipeline("ImageProcessingPipeline", {
+  const pipeline = new MediaProcessingPipeline("MediaProcessingPipeline", {
     packages: pipelinePackages,
     bucket: bucket,
   })
@@ -60,5 +55,5 @@ export function init(
     },
   })
 
-  return { db, bucket, email, pipeline, secret, web }
+  return { db, /*bucket, email, pipeline,*/ secret /*, web*/ }
 }

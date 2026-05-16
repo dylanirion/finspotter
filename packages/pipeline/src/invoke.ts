@@ -180,7 +180,7 @@ export async function invoke<
   S extends SearchFunction | undefined = undefined,
   R extends MatchRefinementFunction[] | undefined = undefined,
 >(input: JobProps<D, E, S, R>) {
-  const arn = Resource.ImageProcessingPipeline.pipeline
+  const arn = Resource.MediaProcessingPipeline.pipeline
   const command = new StartExecutionCommand({
     stateMachineArn: arn,
     input: JSON.stringify(input),

@@ -5,6 +5,6 @@
     "moduleResolution": "Bundler",
     "jsx": "preserve",
   },
-  "include": ["./**/*.ts"],
+  "include": ["./**/*.ts", "../../extensions/pipeline/*/config.d.ts"],
   "exclude": ["node_modules"]
 }

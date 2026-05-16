@@ -9,7 +9,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.918.0",
-    "@finspotter/pipeline": "workspace:*"
+    "@finspotter/pipeline": "workspace:*",
+    "zod": "^4.1.12"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.156"

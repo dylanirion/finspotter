@@ -62,7 +62,7 @@ export class Map extends StateBase implements Retryable {
             {
               Effect: "Allow",
               Action: "states:StartExecution",
-              // TODO: narrow this to finspotter-dylan-ImageProcessingPipeline
+              // TODO: narrow this to finspotter-dylan-MediaProcessingPipeline
               Resource: [
                 //$util.interpolate`arn:aws:states:${region}:${accountId}:stateMachine:*`,
                 "arn:aws:states:*:*:stateMachine:*",

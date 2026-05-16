@@ -1,5 +1,5 @@
 import { createPipelineFunction } from "@finspotter/pipeline/createPipelineFunction"
-import { type SearchFunction } from "@finspotter/pipeline/ImageProcessingPipeline/PipelinePackage"
+import { type SearchFunction } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
 
 export const pairwise: SearchFunction = ({ bucket, table }) =>
   createPipelineFunction(

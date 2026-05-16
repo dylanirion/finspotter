@@ -4,5 +4,6 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
   },
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules"],
+  "include": ["**/*.ts", "../../extensions/pipeline/*/config.d.ts"]
 }
