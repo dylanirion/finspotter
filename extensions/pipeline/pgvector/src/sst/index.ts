@@ -11,7 +11,7 @@ export const indexed = ({
   bus,
   tables,
 }: {
-  bucket: aws.s3.BucketV2
+  bucket: aws.s3.Bucket
   table: sst.aws.Dynamo
   bus: aws.cloudwatch.EventBus
   tables: $util.Output<string[]>

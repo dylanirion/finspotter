@@ -23,7 +23,7 @@ import featuresB from "./pPOw_71i_1XGE4dvWHG_yolact_0_hesaff.json"
 //TODO: z index from layer ordering?
 //TODO: hide match pairs not in view
 //TODO: clear MediaLayers on render
-//TODO: rotate canvas
+//TODO: rotate canvas, pick side by side top or bottom
 
 export function Compare({ ids }: { ids: [string, string] }) {
   const [container, setContainer] = useState<HTMLDivElement | null>()

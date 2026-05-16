@@ -1,11 +1,11 @@
 import { domain } from "./domain"
 
 //TODO: SSL only
-export const bucket = new aws.s3.BucketV2("UploadAssets", {
+export const bucket = new aws.s3.Bucket("UploadAssets", {
   bucket: `${$app.name}-${$app.stage}-uploadassets`,
 })
 
-new aws.s3.BucketCorsConfigurationV2("UploadAssetsCORS", {
+new aws.s3.BucketCorsConfiguration("UploadAssetsCORS", {
   bucket: bucket.id,
   corsRules: [
     {
@@ -18,7 +18,7 @@ new aws.s3.BucketCorsConfigurationV2("UploadAssetsCORS", {
   ],
 })
 
-new aws.s3.BucketLifecycleConfigurationV2("UploadAssetsLifecycle", {
+new aws.s3.BucketLifecycleConfiguration("UploadAssetsLifecycle", {
   bucket: bucket.id,
   rules: [
     {
@@ -37,7 +37,7 @@ new aws.s3.BucketLifecycleConfigurationV2("UploadAssetsLifecycle", {
   ],
 })
 
-sst.Linkable.wrap(aws.s3.BucketV2, (provider) => ({
+sst.Linkable.wrap(aws.s3.Bucket, (provider) => ({
   properties: { name: provider.id, arn: provider.arn },
   include: [
     sst.aws.permission({
