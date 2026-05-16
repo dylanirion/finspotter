@@ -1,4 +1,7 @@
-import { type AnnotationPackage } from "@finspotter/annotations/init"
+import {
+  generateExports,
+  type AnnotationPackage,
+} from "@finspotter/annotations/init"
 import { MediaProcessingPipeline } from "@finspotter/pipeline/MediaProcessingPipeline"
 import { PipelinePackage } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
 
@@ -13,6 +16,8 @@ export function init(
   pipelinePackages: PipelinePackage[],
   annotationPackages: AnnotationPackage[]
 ) {
+  generateExports(annotationPackages)
+
   new sst.x.DevCommand("ImageProxy", {
     link: [bucket],
     dev: {
