@@ -1,19 +1,13 @@
-import { secret } from "./secret"
-
-const dbInstance = aws.rds.Instance.get(
-  "DatabaseInstance",
-  secret.RDSDbIdentifier.value
-)
+const project = new neon.Project("NeonProject", {
+  name: `${$app.name}-${$app.stage}`,
+  pgVersion: 18,
+  //regionId: `aws-{aws.getRegionOutput().region}`,
+  regionId: "aws-eu-central-1",
+  historyRetentionSeconds: 0,
+})
 
 export const db = new sst.Linkable("Database", {
   properties: {
-    host: dbInstance.address,
-    database: secret.DbDatabase.value,
-    user: secret.DbUser.value,
-    password: secret.DbPassword.value,
-    port: 3306,
+    host: project.connectionUri,
   },
 })
-
-//TODO: manage database in pulumi?
-//https://www.pulumi.com/registry/packages/mysql/api-docs/database/

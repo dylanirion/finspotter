@@ -8,14 +8,15 @@ export default $config({
       home: "aws",
       providers: {
         aws: {
-          region: process.env.AWS_REGION,
-          profile: process.env.AWS_PROFILE,
+          profile:
+            input.stage === "production" ? "finspotter-prod" : "finspotter-dev",
         },
         "docker-build": "latest",
         gcp: {
-          project: process.env.GCP_PROJECT,
+          version: "latest",
+          project: "finspotter",
         },
-        "aws-native": "1.30.0",
+        neon: "latest",
       },
     }
   },

@@ -30,10 +30,12 @@ new gcp.projects.IAMMember("AwsPoolRecaptchaPermission", {
   member: $util.interpolate`principalSet://iam.googleapis.com/${gcpIdentityPool.name}/*`,
 })
 
+//TODO: enterprise!?
 export const recaptcha = new gcp.recaptcha.EnterpriseKey("Recaptcha", {
   displayName: $dev ? "Development" : "Production",
   webSettings: {
     integrationType: "SCORE",
+    //TODO: domain!
     allowedDomains: [$dev ? "localhost" : "caperadd.com"],
   },
   ...($dev && {
@@ -42,3 +44,35 @@ export const recaptcha = new gcp.recaptcha.EnterpriseKey("Recaptcha", {
     },
   }),
 })
+
+
+/*
+import * as gcp from "@pulumi/gcp";
+
+// Enable the Maps JavaScript API
+const mapsApi = new gcp.projects.Service("maps-js-api", {
+    service: "maps-backend.googleapis.com", // Official service name
+});
+
+// Enable the Places API
+const placesApi = new gcp.projects.Service("places-api", {
+    service: "places-backend.googleapis.com",
+});
+
+const googleMapsKey = new gcp.projects.ApiKey("google-maps-key", {
+    displayName: "Maps Production Key",
+    restrictions: {
+        // Restrict this key to only work with Maps APIs
+        apiTargets: [
+            { service: "maps-backend.googleapis.com" },
+            { service: "places-backend.googleapis.com" },
+        ],
+        // Restrict to your specific website domain for security
+        browserKeyRestrictions: {
+            allowedReferrers: ["https://yourdomain.com*"],
+        },
+    },
+}, { dependsOn: [mapsApi, placesApi] }); // Ensure APIs are enabled first
+
+export const apiKey = googleMapsKey.keyString;
+*/
