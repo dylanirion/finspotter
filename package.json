@@ -11,7 +11,7 @@
     "dev": "sst dev",
     "update": "pnpm up -riL",
     "reset-deps": "rm -rf node_modules pnpm-lock.yaml && pnpm store prune && pnpm install",
-    "copy-media": "tsx src/copyMediaWithShell.ts"
+    "sso": "aws sso login --sso-session=dylanirion"
   },
   "dependencies": {
     "@finspotter/annotation-bbox_xywh": "workspace:*",
@@ -28,7 +28,7 @@
     "@finspotter/sum": "workspace:*",
     "@finspotter/web": "workspace:*",
     "@finspotter/yolact": "workspace:*",
-    "sst": "3.17.21"
+    "sst": "4.12.11"
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "^3.918.0",
