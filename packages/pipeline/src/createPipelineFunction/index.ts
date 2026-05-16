@@ -11,7 +11,7 @@ type PipelineFunctionFactoryArgs =
 export function createPipelineFunction(
   name: string,
   args: PipelineFunctionFactoryArgs,
-  bucket: aws.s3.BucketV2,
+  bucket: aws.s3.Bucket,
   table: sst.aws.Dynamo
 ): $util.Output<aws.lambda.Function> {
   const role = new aws.iam.Role(`${name}Role`, {
