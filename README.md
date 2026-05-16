@@ -1,30 +1,17 @@
-Fin Spotter is a (mostly) serverless [Next.js](https://nextjs.org/) project, deployed to AWS with [sst](https://sst.dev) It is an extensible, modular computer vision, machine learning and identity matching pipeline with pairwise and indexed similarity search, ratio test, and RANSAC refinement. It includes an XState-based annotation interface, managed backend infrastructure (RDS, DynamoDB, Aurora Serverless), and coordinated server-side processing pipelines (Step Functions, Lambda Functions).
+Fin Spotter is a serverless [Next.js](https://nextjs.org/) project, deployed to AWS with [sst](https://sst.dev) and [pulumi](https://www.pulumi.com/) It is an extensible, modular computer vision, machine learning and identity matching pipeline with pairwise and indexed similarity search, ratio test, and RANSAC refinement. It includes an XState-based annotation interface, managed backend infrastructure (RDS, DynamoDB, Aurora Serverless), and coordinated server-side processing pipelines (Step Functions, Lambda Functions).
 
 ## Prerequisites
+AWS and Google Cloud accounts are required to deploy the project. A good guide for setting up an AWS account can be found [here](https://sst.dev/docs/aws-accounts/).
+
 ```bash
 gcloud auth login
+pnpm run sso
 ```
 
-Despite being (mostly) serverless, there are still some prerequisites. Namely, a database, and an email server. `./infra/database.ts` references a pre-exisitng RDS database instance, and `./infra/email.ts` a pre-existing SMTP server. Set up the necessary Secrets to connect, or optionally modify `./infra/database.ts` and `./infra/email.ts` to provision a new database and email service for your project.
-
-- TODO: add commented/conditional provisioning example to `./infra/database.ts` with notes about modifying drizzle connections.
-- TODO: add commented/conditional SES example to `./infra/email.ts` (Does this change anything in package/email?)
-- TODO: required AWS environment
+A few secrets also need to be set up.
 
 ```bash
-npx sst secret set RDS_DB_IDENTIFIER '<example-rds-identifier>' [--stage <stagename>] [--fallback]
-npx sst secret set DB_DATABASE '<example database>' [--stage <stagename>] [--fallback]
-npx sst secret set DB_USER '<example username>' [--stage <stagename>] [--fallback]
-npx sst secret set DB_PASSWORD '<example password>' [--stage <stagename>] [--fallback]
-npx sst secret set EMAIL_HOST 'host.example.com' [--stage <stagename>] [--fallback]
-npx sst secret set EMAIL_PORT '465' [--stage <stagename>] [--fallback]
-npx sst secret set EMAIL_USER 'user@example.com' [--stage <stagename>] [--fallback]
-npx sst secret set EMAIL_PASSWORD '<example password>' [--stage <stagename>] [--fallback]
-npx sst secret set EMAIL_FROM '<Example Name>' [--stage <stagename>] [--fallback]
-npx sst secret set EMAIL_NOREPLY 'noreply@example.com' [--stage <stagename>] [--fallback]
 openssl rand -hex 32 | xargs npx sst secret set BETTER_AUTH_SECRET [--stage <stagename>] [--fallback]
-npx sst secret set GOOGLE_MAPS_API_KEY '<example api key>' [--stage <stagename>] [--fallback]
-npx sst secret set GOOGLE_MAPS_API_MAPID '<example_map_id>' [--stage <stagename>] [--fallback]
 ```
 
 ## Local development
