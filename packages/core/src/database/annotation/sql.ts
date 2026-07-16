@@ -3,19 +3,19 @@ import { type ExtractionFunction } from "@finspotter/config/pipeline"
 import {
   foreignKey,
   index,
-  int,
+  integer,
   json,
-  mysqlTable,
+  pgTable,
   primaryKey,
   timestamp,
   varchar,
-} from "drizzle-orm/mysql-core"
+} from "drizzle-orm/pg-core"
 
 import { detectionsTable } from "../detection/sql"
 import { individualsTable } from "../individual/sql"
 import { mediaTable } from "../media/sql"
 
-export const annotationsTable = mysqlTable(
+export const annotationsTable = pgTable(
   "annotations",
   {
     id: varchar("id", { length: 36 })
@@ -28,7 +28,7 @@ export const annotationsTable = mysqlTable(
         onUpdate: "cascade",
       })
       .notNull(),
-    detectionId: int("detection_id").notNull(),
+    detectionId: integer("detection_id").notNull(),
     //TODO: remove this? replace with individual?
     individualId: varchar("individual_id", { length: 36 }).references(
       () => individualsTable.id,
@@ -55,7 +55,7 @@ export const annotationsTable = mysqlTable(
   ]
 )
 
-export const annotationMetaTable = mysqlTable(
+export const annotationMetaTable = pgTable(
   "annotation_meta",
   {
     annotationId: varchar("annotation_id", { length: 36 })
@@ -73,16 +73,13 @@ export const annotationMetaTable = mysqlTable(
   ]
 )
 
-export const annotationsIncrementerTable = mysqlTable(
-  "annotation_incrementer",
-  {
-    mediaId: varchar("media_id", { length: 36 })
-      .references(() => mediaTable.id, {
-        onDelete: "cascade",
-        onUpdate: "cascade",
-      })
-      .primaryKey()
-      .notNull(),
-    lastId: int("last_id").notNull().default(0),
-  }
-)
+export const annotationsIncrementerTable = pgTable("annotation_incrementer", {
+  mediaId: varchar("media_id", { length: 36 })
+    .references(() => mediaTable.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    })
+    .primaryKey()
+    .notNull(),
+  lastId: integer("last_id").notNull().default(0),
+})

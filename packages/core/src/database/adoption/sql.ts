@@ -1,25 +1,19 @@
-import {
-  date,
-  index,
-  mediumtext,
-  mysqlTable,
-  varchar,
-} from "drizzle-orm/mysql-core"
+import { date, index, pgTable, text, varchar } from "drizzle-orm/pg-core"
 
-import { individualsTable } from "../individual/sql"
 import { usersTable } from "../auth/user/sql"
+import { individualsTable } from "../individual/sql"
 
 //TODO: organization (non-user) adoptions?
-export const adoptionsTable = mysqlTable(
+export const adoptionsTable = pgTable(
   "adoptions",
   {
     id: varchar("id", { length: 100 }).primaryKey().notNull(),
-    image: mediumtext("image"), //TODO: create a user and get this from user image
-    quote: mediumtext("quote"),
+    image: text("image"), //TODO: create a user and get this from user image
+    quote: text("quote"),
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
     type: varchar("type", { length: 100 }),
-    notes: mediumtext("notes"),
+    notes: text("notes"),
     orderId: varchar("order_id", { length: 100 }), //TODO rename may break woocommerce? not sure where that insert occurs (in woocommerce or finspotter?)
     userId: varchar("user_id", { length: 255 })
       .references(() => usersTable.id, {

@@ -1,17 +1,17 @@
 import {
+  bytea,
   index,
-  mysqlTable,
+  pgTable,
   primaryKey,
   timestamp,
-  varbinary,
   varchar,
-} from "drizzle-orm/mysql-core"
+} from "drizzle-orm/pg-core"
 
 import { organizationsTable } from "../auth/organization/sql"
 import { usersTable } from "../auth/user/sql"
 import { mediaTable } from "../media/sql"
 
-export const submissionsTable = mysqlTable(
+export const submissionsTable = pgTable(
   "submissions",
   {
     mediaId: varchar("media_id", { length: 36 })
@@ -34,7 +34,7 @@ export const submissionsTable = mysqlTable(
       { onDelete: "restrict", onUpdate: "cascade" } // Cannot delete organization if they have submissions
     ),
     submittedAt: timestamp("submitted_at").defaultNow(),
-    submittedFrom: varbinary("submitted_from", { length: 16 }), // IP address
+    submittedFrom: bytea("submitted_from", { length: 16 }), // IP address
   },
   (table) => [
     index("media_idx").on(table.mediaId),

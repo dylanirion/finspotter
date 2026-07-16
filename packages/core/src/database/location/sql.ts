@@ -1,3 +1,6 @@
+//TODO: https://orm.drizzle.team/docs/guides/postgis-geometry-point
+//https://neon.com/docs/extensions/postgis
+//pulumi?
 import { sql } from "drizzle-orm"
 import { customType, double, mysqlTable, varchar } from "drizzle-orm/mysql-core"
 import { Geometry } from "wkx"

@@ -1,6 +1,6 @@
-import { mediumtext, mysqlTable, varchar } from "drizzle-orm/mysql-core"
+import { pgTable, text, varchar } from "drizzle-orm/pg-core"
 
-export const individualsTable = mysqlTable("individuals", {
+export const individualsTable = pgTable("individuals", {
   id: varchar("id", { length: 36 }).primaryKey().notNull(),
-  comments: mediumtext("comments"),
+  comments: text("comments"),
 })

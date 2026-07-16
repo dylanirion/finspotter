@@ -1,10 +1,10 @@
 import { randomUUID } from "crypto"
-import { datetime, index, mysqlTable, varchar } from "drizzle-orm/mysql-core"
+import { index, pgTable, timestamp, varchar } from "drizzle-orm/pg-core"
 
 import { organizationsTable } from "../organization/sql"
 import { usersTable } from "../user/sql"
 
-export const sessionsTable = mysqlTable(
+export const sessionsTable = pgTable(
   "session",
   {
     id: varchar("id", { length: 255 }).primaryKey().$defaultFn(randomUUID),
@@ -23,9 +23,9 @@ export const sessionsTable = mysqlTable(
     ipAddress: varchar("ip_address", { length: 255 }),
     userAgent: varchar("user_agent", { length: 255 }),
     token: varchar("token", { length: 255 }).notNull(),
-    createdAt: datetime("created_at", { mode: "date" }).notNull(),
-    updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
-    expiresAt: datetime("expires_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull(),
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
     impersonatedBy: varchar("impersonated_by", { length: 255 }).references(
       () => usersTable.id,
       {

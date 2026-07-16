@@ -1,10 +1,10 @@
 import { randomUUID } from "crypto"
 import { sql } from "drizzle-orm"
-import { datetime, index, mysqlTable, varchar } from "drizzle-orm/mysql-core"
+import { index, pgTable, timestamp, varchar } from "drizzle-orm/pg-core"
 
 import { usersTable } from "../user/sql"
 
-export const organizationsTable = mysqlTable(
+export const organizationsTable = pgTable(
   "organization",
   {
     id: varchar("id", { length: 255 }).primaryKey().$defaultFn(randomUUID),
@@ -13,7 +13,7 @@ export const organizationsTable = mysqlTable(
     slug: varchar("slug", { length: 255 }).notNull(),
     logo: varchar("logo", { length: 255 }),
     metadata: varchar("metadata", { length: 255 }),
-    createdAt: datetime("created_at", { mode: "date" })
+    createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
       .default(sql`now()`),
   },
@@ -37,7 +37,7 @@ export const membersTable = mysqlTable(
       })
       .notNull(),
     role: varchar("role", { length: 255 }).notNull(),
-    createdAt: datetime("created_at", { mode: "date" })
+    createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
       .default(sql`now()`),
   },
@@ -47,7 +47,7 @@ export const membersTable = mysqlTable(
   ]
 )
 
-export const invitationsTable = mysqlTable(
+export const invitationsTable = pgTable(
   "invitation",
   {
     id: varchar("id", { length: 255 }).primaryKey().$defaultFn(randomUUID),
@@ -71,8 +71,8 @@ export const invitationsTable = mysqlTable(
       .notNull(),
     role: varchar("role", { length: 255 }).notNull(),
     status: varchar("status", { length: 255 }).notNull(),
-    expiresAt: datetime("expires_at", { mode: "date" }).notNull(),
-    createdAt: datetime("created_at", { mode: "date" })
+    expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
       .default(sql`now()`),
   },

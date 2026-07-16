@@ -1,9 +1,9 @@
-import { index, mysqlTable, primaryKey, varchar } from "drizzle-orm/mysql-core"
+import { index, pgTable, primaryKey, varchar } from "drizzle-orm/pg-core"
 
 import { usersTable } from "../auth/user/sql"
 import { mediaTable } from "../media/sql"
 
-export const subscribersTable = mysqlTable(
+export const subscribersTable = pgTable(
   "subscribers",
   {
     mediaId: varchar("media_id", { length: 36 })

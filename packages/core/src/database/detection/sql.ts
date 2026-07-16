@@ -4,16 +4,16 @@ import {
   type AnnotationType,
 } from "@finspotter/annotations"
 import {
-  float,
   index,
-  int,
+  integer,
   json,
-  mysqlEnum,
-  mysqlTable,
+  pgEnum,
+  pgTable,
   primaryKey,
+  real,
   timestamp,
   varchar,
-} from "drizzle-orm/mysql-core"
+} from "drizzle-orm/pg-core"
 import { Resource } from "sst"
 
 import { usersTable } from "../auth/user/sql"
@@ -22,7 +22,7 @@ import { mediaTable } from "../media/sql"
 type DetectionFunctions =
   keyof typeof Resource.MediaProcessingPipeline.detectionFunctions
 
-export const detectionsTable = mysqlTable(
+export const detectionsTable = pgTable(
   "detections",
   {
     mediaId: varchar("media_id", { length: 36 })
@@ -31,14 +31,14 @@ export const detectionsTable = mysqlTable(
         onUpdate: "cascade",
       })
       .notNull(),
-    detectionId: int("detection_id").notNull(),
-    source: mysqlEnum("source", [
+    detectionId: integer("detection_id").notNull(),
+    source: pgEnum("source", [
       "manual",
       ...Object.keys(Resource.MediaProcessingPipeline.detectionFunctions),
     ]).$type<"manual" | DetectionFunctions>(),
     category: varchar("category", { length: 255 }),
-    type: mysqlEnum("type", AnnotationTypes).$type<AnnotationType>(),
-    score: float("score"),
+    type: pgEnum("type", AnnotationTypes).$type<AnnotationType>(),
+    score: real("score"),
     data: json("data").$type<AnnotationDataTypes[AnnotationType]>(),
     createdAt: timestamp("created_at").defaultNow(),
     createdBy: varchar("created_by", { length: 255 }).references(

@@ -1,3 +1,4 @@
+import { neon } from "@neondatabase/serverless"
 import {
   and,
   count,
@@ -10,9 +11,8 @@ import {
   type AnyColumn,
   type SQL,
 } from "drizzle-orm"
-import { type MySqlColumn, type MySqlTable } from "drizzle-orm/mysql-core"
-import { drizzle, type MySql2Database } from "drizzle-orm/mysql2"
-import { createPool } from "mysql2/promise"
+import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http"
+import { type PgColumn, type PgTable } from "drizzle-orm/pg-core"
 import { Resource } from "sst"
 
 import { Sort as _Sort, type Where as _Where, type Operation } from "../"
@@ -22,47 +22,36 @@ export type Where<Key extends string = string> = _Where<Key, AnyColumn>
 export type Sort<Key extends string = string> = _Sort<Key>
 
 export type MaybeAliased<T> = {
-  [K in keyof T]: T[K] | SQL.Aliased | MySqlColumn
+  [K in keyof T]: T[K] | SQL.Aliased | PgColumn
 }
-
-const { host, database, user, password, port } = Resource.Database
 
 // Connect only once to the database
 // https://github.com/vercel/next.js/discussions/26427#discussioncomment-898067
 declare const globalThis: {
-  drizzleGlobal: MySql2Database<typeof schema> | undefined
+  drizzleGlobal: NeonHttpDatabase<typeof schema> | undefined
 } & typeof global
 
 function connectOnceToDatabase() {
   if (!globalThis.drizzleGlobal) {
-    globalThis.drizzleGlobal = drizzle(
-      createPool({
-        host,
-        database,
-        user,
-        password,
-        port,
-        maxIdle: 0,
-      }),
-      {
-        schema,
-        mode: "default",
-        logger: process.env.NODE_ENV === "development" ? true : false,
-      }
-    )
+    globalThis.drizzleGlobal = drizzle({
+      client: neon(Resource.Database.host),
+      schema,
+      mode: "default",
+      logger: process.env.NODE_ENV === "development" ? true : false,
+    })
   }
   return globalThis.drizzleGlobal
 }
 
 export const db = connectOnceToDatabase()
 
-type ColumnKeys<T, TAlias extends string = string> = T extends MySqlTable
+type ColumnKeys<T, TAlias extends string = string> = T extends PgTable
   ? keyof T["_"]["columns"] & string
   : T extends Subquery<TAlias, infer S>
     ? keyof S & string
     : never
 
-export function buildOrderClause<TSource extends MySqlTable | Subquery>(
+export function buildOrderClause<TSource extends PgTable | Subquery>(
   table: TSource,
   sorting: Sort<ColumnKeys<TSource>>
 ) {
@@ -123,7 +112,7 @@ function buildCondition(
   }
 }
 
-export function buildWhereClause<TSource extends MySqlTable | Subquery>(
+export function buildWhereClause<TSource extends PgTable | Subquery>(
   table: TSource,
   where?: Where<ColumnKeys<TSource>>
 ): SQL | undefined {
@@ -147,7 +136,7 @@ export function buildWhereClause<TSource extends MySqlTable | Subquery>(
   return and(
     ...Object.entries(where)
       .map(([col, op]) => {
-        const column = table[col as keyof TSource] as MySqlColumn
+        const column = table[col as keyof TSource] as PgColumn
         if (!column) {
           throw new Error(
             `${col} not found in ${"name" in table._ ? table._.name : (table._.alias ?? "table")}`
@@ -160,7 +149,7 @@ export function buildWhereClause<TSource extends MySqlTable | Subquery>(
 }
 
 type Facet<
-  TSource extends MySqlTable | Subquery,
+  TSource extends PgTable | Subquery,
   TCol extends keyof TSource & string,
 > = {
   table: TSource
@@ -169,10 +158,10 @@ type Facet<
 }
 
 export function buildFacetCTE<
-  TSource extends MySqlTable | Subquery,
+  TSource extends PgTable | Subquery,
   TCol extends keyof TSource & string,
 >(name: string, source: TSource, colName: TCol) {
-  const column = source[colName] as MySqlColumn
+  const column = source[colName] as PgColumn
 
   return db.$with(name).as(
     db
@@ -186,7 +175,7 @@ export function buildFacetCTE<
 }
 
 export function buildFacetCounts<
-  TSource extends MySqlTable | Subquery,
+  TSource extends PgTable | Subquery,
   TCol extends keyof TSource & string,
 >(specs: Facet<TSource, TCol>[]) {
   const entries = specs.map(

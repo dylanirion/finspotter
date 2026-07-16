@@ -1,7 +1,7 @@
 import { randomUUID } from "crypto"
-import { index, mysqlTable, primaryKey, varchar } from "drizzle-orm/mysql-core"
+import { index, pgTable, primaryKey, varchar } from "drizzle-orm/pg-core"
 
-export const mediaTable = mysqlTable(
+export const mediaTable = pgTable(
   "media",
   {
     id: varchar("id", { length: 36 })
@@ -14,7 +14,7 @@ export const mediaTable = mysqlTable(
   (table) => [index("content_hash_idx").on(table.contentHash)]
 )
 
-export const mediaMetaTable = mysqlTable(
+export const mediaMetaTable = pgTable(
   "media_meta",
   {
     mediaId: varchar("media_id", { length: 36 })

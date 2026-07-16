@@ -1,9 +1,9 @@
-import { index, mysqlTable, varchar } from "drizzle-orm/mysql-core"
+import { index, pgTable, varchar } from "drizzle-orm/pg-core"
 
 import { individualsTable } from "../individual/sql"
 
 //TODO generic tag types
-export const tagsTable = mysqlTable(
+export const tagsTable = pgTable(
   "tags",
   {
     id: varchar("id", { length: 255 }).primaryKey().notNull(), //drop this

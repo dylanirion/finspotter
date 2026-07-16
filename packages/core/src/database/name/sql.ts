@@ -1,18 +1,12 @@
-import {
-  index,
-  mediumtext,
-  mysqlEnum,
-  mysqlTable,
-  varchar,
-} from "drizzle-orm/mysql-core"
+import { index, pgEnum, pgTable, text, varchar } from "drizzle-orm/pg-core"
 
-import { individualsTable } from "../individual/sql"
 import { organizationsTable } from "../auth/organization/sql"
+import { individualsTable } from "../individual/sql"
 
 // where to put name prefixes? separate prefix from number? then we can suggest next name per species
 // should this be a more generic key value store
 //TODO; allow adoption badge colour preferences
-export const namesTable = mysqlTable(
+export const namesTable = pgTable(
   "names",
   {
     individualId: varchar("individual_id", { length: 36 })
@@ -27,8 +21,8 @@ export const namesTable = mysqlTable(
         onUpdate: "cascade",
       })
       .notNull(),
-    type: mysqlEnum("type", ["canonical", "nickname", "adoption"]).notNull(),
-    value: mediumtext("value").notNull(),
+    type: pgEnum("type", ["canonical", "nickname", "adoption"]).notNull(),
+    value: text("value").notNull(),
   },
   (table) => [
     index("individual_idx").on(table.individualId),

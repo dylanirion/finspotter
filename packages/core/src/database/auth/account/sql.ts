@@ -1,15 +1,9 @@
 import { randomUUID } from "crypto"
-import {
-  datetime,
-  index,
-  mysqlTable,
-  text,
-  varchar,
-} from "drizzle-orm/mysql-core"
+import { index, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core"
 
 import { usersTable } from "../user/sql"
 
-export const accountsTable = mysqlTable(
+export const accountsTable = pgTable(
   "account",
   {
     id: varchar("id", { length: 255 }).primaryKey().$defaultFn(randomUUID),
@@ -23,12 +17,12 @@ export const accountsTable = mysqlTable(
       length: 36,
     }).notNull(),
     providerId: varchar("provider_id", { length: 255 }).notNull(),
-    createdAt: datetime("created_at", { mode: "date" }).notNull(),
-    updatedAt: datetime("updated_at", { mode: "date" }).notNull(),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).notNull(),
     accessToken: text("access_token"),
-    accessTokenexpiresAt: datetime("access_token_expires_at", { mode: "date" }),
+    accessTokenexpiresAt: timestamp("access_token_expires_at"),
     refreshToken: text("refresh_token"),
-    refreshTokenexpiresAt: datetime("refresh_token_expires_at", {
+    refreshTokenexpiresAt: timestamp("refresh_token_expires_at", {
       mode: "date",
     }),
     scope: text("scope"),
