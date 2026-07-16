@@ -10,13 +10,14 @@
       ["cx\\(([^)]*)\\)", "(?:'|\"|`)([^']*)(?:'|\"|`)"],
     ],
     "python.analysis.typeCheckingMode": "basic",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "python.terminal.activateEnvironment": false,
     "files.watcherExclude": {
       ".venv/**": true,
       ".sst/**": true,
       "**/node_modules/**": true,
     },
-    "typescript.tsserver.watchOptions": "vscode"
+    "js/ts.tsserver.watchOptions": "vscode"
   },
   "launch": {
     "version": "0.2.0",

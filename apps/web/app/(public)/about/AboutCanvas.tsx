@@ -26,6 +26,7 @@ export function AboutCanvas({ id, media }: { id: string; media?: Media }) {
     >
       <MediaLayer media={media}>
         {annotations.map((annotation, i) => {
+          //TODO: just write type to database
           const type = getAnnotationTypes[annotation.type]
           const { AnnotationLayer } = getAnnotationComponents(type ?? "null")
           return (

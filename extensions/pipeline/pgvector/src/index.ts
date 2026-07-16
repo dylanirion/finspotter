@@ -48,6 +48,7 @@ class PGVectorPipelinePackage
         const dbReady = $util
           .all([db.database, db.secretArn, db.clusterArn])
           .apply(async ([database, secretArn, clusterArn]) => {
+            //TODO: can this be managed with pulumi?
             await executeWithRetry(() =>
               rds.send(
                 new ExecuteStatementCommand({
