@@ -7,6 +7,7 @@
     "@heroicons/react": "^2.2.0"
   },
   "exports": {
+    "./pipeline": "./src/pipeline.ts",
     "./*": [
       "./src/*.ts"
     ]

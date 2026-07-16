@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto"
-import { type ExtractionFunction } from "@finspotter/pipeline"
+import { type ExtractionFunction } from "@finspotter/config/pipeline"
 import {
   foreignKey,
   index,

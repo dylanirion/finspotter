@@ -1,6 +1,6 @@
 import { type HesaffConfig } from "./src/schema"
 
-declare module "@finspotter/pipeline" {
+declare module "@finspotter/config/pipeline" {
   interface ExtractionRegistry {
     hesaff: { config: HesaffConfig }
   }

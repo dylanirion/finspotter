@@ -18,7 +18,7 @@ import {
   toAbbreviated,
   type Species,
 } from "@finspotter/config/species"
-import { type Annotation } from "@finspotter/core/annotation"
+import { type Annotation } from "../annotation"
 import { Spinner } from "@finspotter/web/components/ui/spinners/Spinner"
 import {
   Listbox,

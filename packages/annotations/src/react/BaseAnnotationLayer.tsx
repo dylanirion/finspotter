@@ -12,7 +12,7 @@ import {
   type Transform,
 } from "@finspotter/canvas"
 import { useImage } from "@finspotter/canvas/media"
-import { type Annotation } from "@finspotter/core/annotation"
+import { type Annotation } from "../annotation"
 import { useActorRef } from "@xstate/react"
 import { flushSync } from "react-dom"
 import { type Actor, type SnapshotFrom } from "xstate"

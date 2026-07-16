@@ -444,9 +444,6 @@ importers:
       '@finspotter/config':
         specifier: workspace:*
         version: link:../config
-      '@finspotter/core':
-        specifier: workspace:*
-        version: link:../core
     devDependencies:
       '@floating-ui/react':
         specifier: ^0.27.16
@@ -548,15 +545,15 @@ importers:
       '@aws-sdk/client-dynamodb':
         specifier: ^3.918.0
         version: 3.918.0
+      '@finspotter/annotations':
+        specifier: workspace:*
+        version: link:../annotations
       '@finspotter/config':
         specifier: workspace:*
         version: link:../config
       '@finspotter/email':
         specifier: workspace:*
         version: link:../email
-      '@finspotter/pipeline':
-        specifier: workspace:*
-        version: link:../pipeline
       '@google-cloud/recaptcha-enterprise':
         specifier: ^6.3.1
         version: 6.3.1
@@ -582,9 +579,6 @@ importers:
       '@aws-sdk/s3-presigned-post':
         specifier: ^3.918.0
         version: 3.918.0
-      '@finspotter/annotations':
-        specifier: workspace:^
-        version: link:../annotations
       '@smithy/types':
         specifier: ^4.8.0
         version: 4.8.0
@@ -637,6 +631,9 @@ importers:
       '@finspotter/annotations':
         specifier: workspace:*
         version: link:../annotations
+      '@finspotter/config':
+        specifier: workspace:*
+        version: link:../config
       zod:
         specifier: ^4.1.12
         version: 4.1.12
