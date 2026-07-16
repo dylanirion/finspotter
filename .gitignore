@@ -5,3 +5,5 @@ node_modules
 .open-next
 .next
 .rendered
+.github
+graphify-out
