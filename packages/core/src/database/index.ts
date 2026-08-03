@@ -120,64 +120,75 @@ export type Where<Key extends string = string, TColumn = never> =
 type StringKeys<T> = Extract<keyof T, string>
 type AugmentKeys<Base, Extra> = StringKeys<Base> | StringKeys<Extra>
 
-export interface Repository<
-  T,
-  TOne = T,
-  TAll = T,
-  TInsert = T,
-  TUpdate = T,
-  TAugmented = never,
-  TColumn = never,
-> {
+export interface RepositoryTypes {
+  one: unknown
+  all: unknown
+  insert: unknown
+  update: unknown
+  augmented: unknown
+  column: unknown
+}
+
+type Defaults<T> = {
+  one: T
+  all: T
+  insert: Omit<T, "id">
+  update: T
+  augmented: never
+  column: never
+}
+
+type ResolveTypes<T, O extends Partial<RepositoryTypes>> = Omit<
+  Defaults<T>,
+  keyof O
+> &
+  O
+
+export interface Repository<T, O extends Partial<RepositoryTypes> = {}> {
   findOne: <
-    W extends Where<AugmentKeys<TOne, TAugmented>, TColumn> = Where<
-      AugmentKeys<TOne, TAugmented>,
-      TColumn
+    W extends Where<
+      AugmentKeys<ResolveTypes<T, O>["one"], ResolveTypes<T, O>["augmented"]>,
+      ResolveTypes<T, O>["column"]
     >,
   >(
     where: W
-  ) => Promise<TOne | null>
+  ) => Promise<ResolveTypes<T, O>["one"] | null>
   findMany: <
-    W extends Where<AugmentKeys<TOne, TAugmented>, TColumn> = Where<
-      AugmentKeys<TOne, TAugmented>,
-      TColumn
+    W extends Where<
+      AugmentKeys<ResolveTypes<T, O>["one"], ResolveTypes<T, O>["augmented"]>,
+      ResolveTypes<T, O>["column"]
     >,
   >(
     where: W
-  ) => Promise<TOne[] | null>
+  ) => Promise<ResolveTypes<T, O>["one"][] | null>
   findAll: <
-    W extends Where<AugmentKeys<TAll, TAugmented>, TColumn> = Where<
-      AugmentKeys<TAll, TAugmented>,
-      TColumn
+    W extends Where<
+      AugmentKeys<ResolveTypes<T, O>["all"], ResolveTypes<T, O>["augmented"]>,
+      ResolveTypes<T, O>["column"]
     >,
-    S extends Sort<AugmentKeys<TAll, TAugmented>> = Sort<
-      AugmentKeys<TAll, TAugmented>
+    S extends Sort<
+      AugmentKeys<ResolveTypes<T, O>["all"], ResolveTypes<T, O>["augmented"]>
     >,
-  >({
-    limit,
-    offset,
-    where,
-    sort,
-  }: {
+  >(args: {
     limit: number
     offset: number
     where: W
     sort: S
   }) => Promise<{
-    items: TAll[]
+    items: ResolveTypes<T, O>["all"][]
     facetCounts?: Record<string, Map<string, number>>
     total: number
   }>
-  insert: (items: Omit<TInsert, "id">[]) => Promise<{ id?: string }[]>
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  update: (item: TUpdate) => Promise<any>
+  insert: (
+    items: ResolveTypes<T, O>["insert"][]
+  ) => Promise<{ id?: string }[]>
+  update: (item: ResolveTypes<T, O>["update"]) => Promise<unknown>
   remove: <
-    W extends Where<AugmentKeys<TOne, TAugmented>, TColumn> = Where<
-      AugmentKeys<TOne, TAugmented>,
-      TColumn
+    W extends Where<
+      AugmentKeys<ResolveTypes<T, O>["one"], ResolveTypes<T, O>["augmented"]>,
+      ResolveTypes<T, O>["column"]
     >,
   >(
     where: W
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ) => Promise<any>
+  ) => Promise<unknown>
 }

@@ -42,7 +42,7 @@ export interface Individual {
 type IndividualsTable = typeof individualsTable
 type IndividualsColumns = MaybeAliased<IndividualsTable["_"]["columns"]>
 type IndividualRepository = Pick<
-  Repository<Individual, Individual, IndividualSummary>,
+  Repository<Individual, {all: IndividualSummary}>,
   "findOne" | "findAll"
 >
 

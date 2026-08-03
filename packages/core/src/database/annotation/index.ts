@@ -70,10 +70,7 @@ export type AnnotationWithMedia = WithMedia<Annotation>
 
 type AnnotationRepository = Repository<
   AnnotationWithMedia,
-  AnnotationWithMedia,
-  AnnotationWithMedia,
-  Omit<Annotation, "id">,
-  Annotation
+  { insert: Omit<Annotation, "id">; update: Annotation }
 >
 
 const drizzleAnnotationRepository: AnnotationRepository = {
