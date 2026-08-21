@@ -9,3 +9,5 @@ allowBuilds:
   protobufjs: true
   sharp: true
   unrs-resolver: true
+auto-install-peers: true
+resolve-peers-from-workspace-root: true

@@ -20,7 +20,7 @@ export const organizationsTable = pgTable(
   (table) => [index("slug_idx").on(table.slug)]
 )
 
-export const membersTable = mysqlTable(
+export const membersTable = pgTable(
   "member",
   {
     id: varchar("id", { length: 255 }).primaryKey().$defaultFn(randomUUID),

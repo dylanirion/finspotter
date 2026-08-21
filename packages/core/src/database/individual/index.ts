@@ -22,7 +22,7 @@ import { mediaMetaTable, mediaTable } from "../media/sql"
 import { namesAsArrayCTE, namesCTEs } from "../name"
 import { individualsTable } from "./sql"
 
-//TODO: make this shape more similar to Individual
+//TODO: make this it's own repository
 export interface IndividualSummary {
   id: string
   canonicalNames: Array<string | null>

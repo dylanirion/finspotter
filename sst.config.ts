@@ -21,6 +21,7 @@ export default $config({
     }
   },
   async run() {
+    /*
     const annotations = [
       await import("@finspotter/annotation-bbox_xywh"),
       await import("@finspotter/annotation-bbox_xywha"),
@@ -37,9 +38,11 @@ export default $config({
     const ratio = await import("@finspotter/ratio").then((mod) => mod.default)
     const homog = await import("@finspotter/homog").then((mod) => mod.default)
     const sum = await import("@finspotter/sum").then((mod) => mod.default)
-    const _infra = await import("./infra").then((mod) =>
+    */
+    const infra = await import("./infra").then((mod) =>
       mod.init(
         [
+          /*
           yolact.setAnnotationType(annotations[2].name), //segmentation
           hesaff, //TODO: register ellipse? (separate class from Annotation, just needs draw method)
           faiss,
@@ -47,14 +50,13 @@ export default $config({
           ratio,
           homog,
           sum,
-        ],
-        annotations
+          */
+        ]
+        /*annotations*/
       )
     )
-    /*
-                return {
-                  url: infra.web?.url,
-                }
-                */
+    return {
+      url: infra.web?.url,
+    }
   },
 })

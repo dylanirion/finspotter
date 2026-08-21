@@ -5,6 +5,14 @@
     "lib": ["dom", "dom.iterable", "esnext"],
     "noEmit": true,
     "jsx": "preserve",
+    "paths": {
+      "app/*": ["./app/*"],
+      "components/*": ["./components/*"],
+      "contexts/*": ["./contexts/*"],
+      "hooks/*": ["./hooks/*"],
+      "lib/*": ["./lib/*"],
+      "global.css": ["./global.css"], 
+    },
     "plugins": [
       {
         "name": "next"

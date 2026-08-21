@@ -2,14 +2,14 @@ import { secret } from "./secret"
 
 export const email = new sst.Linkable("Email", {
   properties: {
-    from: secret.EmailFrom.value,
-    noreply: secret.EmailNoReply.value,
+    from: 1,//secret.EmailFrom.value,
+    noreply: 1,//secret.EmailNoReply.value,
     smtp: {
-      host: secret.EmailHost.value,
-      port: secret.EmailPort.value,
+      host: 1,//secret.EmailHost.value,
+      port: 1,//secret.EmailPort.value,
       auth: {
-        user: secret.EmailUser.value,
-        pass: secret.EmailPassword.value,
+        user: 1,//secret.EmailUser.value,
+        pass: 1,//secret.EmailPassword.value,
       },
     },
   },

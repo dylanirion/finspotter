@@ -12,10 +12,12 @@ export default {
         pathname: "**",
       },
     ],
+    /*
     ...(process.env.NODE_ENV === "development" && {
       loader: "custom",
       loaderFile: "./lib/devImageLoader.ts",
     }),
+    */
     qualities: [75, 100],
   },
   compiler: {
@@ -37,21 +39,4 @@ export default {
     externalDir: true,
   },
   serverExternalPackages: ["jsx-email"],
-  //TODO: move this to cloudfront function?
-  /*
-  async rewrites() {
-    return [
-      {
-        source: "/individuals.jsp",
-        has: [
-          {
-            type: "query",
-            key: "number",
-          },
-        ],
-        destination: "/api/redirect/individuals/",
-      },
-    ]
-  },
-  */
 } satisfies NextConfig

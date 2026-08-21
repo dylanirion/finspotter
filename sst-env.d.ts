@@ -6,6 +6,35 @@
 
 declare module "sst" {
   export interface Resource {
+    "BETTER_AUTH_SECRET": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
+    "Database": {
+      "host": string
+      "type": "sst.sst.Linkable"
+    }
+    "Email": {
+      "from": number
+      "noreply": number
+      "smtp": {
+        "auth": {
+          "pass": number
+          "user": number
+        }
+        "host": number
+        "port": number
+      }
+      "type": "sst.sst.Linkable"
+    }
+    "UploadAssets": {
+      "name": string
+      "type": "sst.aws.Bucket"
+    }
+    "Web": {
+      "type": "sst.aws.Nextjs"
+      "url": string
+    }
   }
 }
 

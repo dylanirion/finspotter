@@ -1,5 +1,6 @@
 import {
-  bytea,
+  //bytea,
+  customType,
   index,
   pgTable,
   primaryKey,
@@ -10,6 +11,12 @@ import {
 import { organizationsTable } from "../auth/organization/sql"
 import { usersTable } from "../auth/user/sql"
 import { mediaTable } from "../media/sql"
+
+export const bytea = customType<{ data: Buffer }>({
+  dataType() { return 'bytea'; },
+  toDriver(value: Buffer) { return value; },
+  fromDriver(value: unknown) { return value as Buffer; },
+});
 
 export const submissionsTable = pgTable(
   "submissions",

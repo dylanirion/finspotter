@@ -3,6 +3,8 @@ import { index, pgEnum, pgTable, text, varchar } from "drizzle-orm/pg-core"
 import { organizationsTable } from "../auth/organization/sql"
 import { individualsTable } from "../individual/sql"
 
+const typeEnum = pgEnum("type", ["canonical", "nickname", "adoption"])
+
 // where to put name prefixes? separate prefix from number? then we can suggest next name per species
 // should this be a more generic key value store
 //TODO; allow adoption badge colour preferences
@@ -21,7 +23,7 @@ export const namesTable = pgTable(
         onUpdate: "cascade",
       })
       .notNull(),
-    type: pgEnum("type", ["canonical", "nickname", "adoption"]).notNull(),
+    type: typeEnum(),
     value: text("value").notNull(),
   },
   (table) => [

@@ -19,8 +19,15 @@ import { Resource } from "sst"
 import { usersTable } from "../auth/user/sql"
 import { mediaTable } from "../media/sql"
 
-type DetectionFunctions =
-  keyof typeof Resource.MediaProcessingPipeline.detectionFunctions
+const sourceEnum = pgEnum("source", [
+  "manual",
+  ...Object.keys(
+    "MediaProcessingPipeline" in Resource
+      ? (Resource as any).MediaProcessingPipeline.detectionFunctions
+      : {}
+  ),
+])
+const typeEnum = pgEnum("type", AnnotationTypes)
 
 export const detectionsTable = pgTable(
   "detections",
@@ -32,12 +39,9 @@ export const detectionsTable = pgTable(
       })
       .notNull(),
     detectionId: integer("detection_id").notNull(),
-    source: pgEnum("source", [
-      "manual",
-      ...Object.keys(Resource.MediaProcessingPipeline.detectionFunctions),
-    ]).$type<"manual" | DetectionFunctions>(),
+    source: sourceEnum(),
     category: varchar("category", { length: 255 }),
-    type: pgEnum("type", AnnotationTypes).$type<AnnotationType>(),
+    type: typeEnum(),
     score: real("score"),
     data: json("data").$type<AnnotationDataTypes[AnnotationType]>(),
     createdAt: timestamp("created_at").defaultNow(),

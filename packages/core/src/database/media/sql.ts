@@ -8,10 +8,8 @@ export const mediaTable = pgTable(
       .primaryKey()
       .notNull()
       .$defaultFn(randomUUID),
-    contentHash: varchar("content_hash", { length: 30 }), //TODO: remove
     src: varchar("src", { length: 255 }).notNull(),
-  },
-  (table) => [index("content_hash_idx").on(table.contentHash)]
+  }
 )
 
 export const mediaMetaTable = pgTable(
