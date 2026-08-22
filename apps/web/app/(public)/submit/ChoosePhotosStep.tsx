@@ -22,15 +22,18 @@ export function ChoosePhotosStep() {
 
   const handlePrepCardData = useCallback(
     async (fileList: File[]) => {
-      dispatch({
-        type: ActionTypes.ADD,
-        payload: await fileListToEncounterSubmissionData(
-          submissionId,
-          fileList,
-          handleGetRecaptchaToken
-        ),
-      })
-      setLoading(false)
+      try {
+        dispatch({
+          type: ActionTypes.ADD,
+          payload: await fileListToEncounterSubmissionData(
+            submissionId,
+            fileList,
+            handleGetRecaptchaToken
+          ),
+        })
+      } finally {
+        setLoading(false)
+      }
     },
     [submissionId, dispatch, handleGetRecaptchaToken]
   )
@@ -42,7 +45,10 @@ export function ChoosePhotosStep() {
         permittedTypes={ALLOWEDCONTENTTYPES}
         multiple={true}
         isDisabled={isLoading}
-        onChange={(e) => handlePrepCardData([...(e.target.files ?? [])])}
+        onChange={(e) => {
+          setLoading(true)
+          handlePrepCardData([...(e.target.files ?? [])])
+        }}
       >
         {({ handleOpenFileInput }) => (
           <div className="flex w-full max-w-md flex-col gap-y-8 rounded-lg border-2 border-dashed border-gray-400 bg-white px-3 py-12 group-data-over:bg-gray-100 dark:bg-slate-700 group-data-over:dark:bg-slate-600">

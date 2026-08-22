@@ -5,7 +5,6 @@ import { headers } from "next/headers"
 import { createMediaRepository, Media } from "@finspotter/core/media"
 import { validateReCaptcha } from "@finspotter/core/recaptcha"
 import { createStorageRepository } from "@finspotter/core/storage"
-import { getAnnotationTypes } from "@finspotter/pipeline/"
 import {
   invoke,
   type DetectionItem,
@@ -305,7 +304,7 @@ export async function getSingleMedia(id: string) {
         id: `$${randomBytes(10).toString("hex")}`,
         mediaId: detection.media_id,
         category: detection.category,
-        type: getAnnotationTypes[detection.type],
+        //type: getAnnotationTypes[detection.type],
         data: detection.data,
         source: detection.type,
         score: detection.score,

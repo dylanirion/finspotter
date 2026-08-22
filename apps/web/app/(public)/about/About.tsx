@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
 } from "react"
@@ -51,7 +52,9 @@ export function About() {
   const { connect, subscribe } = useRealtime()
   const [submissionId] = useState(makeSubmissionId)
   const [media, setMedia] = useState<DemoMedia | undefined>()
+  const [isProcessing, setIsProcessing] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
+  const gotDetectionsRef = useRef(false)
   const { api } = useCarouselApi()
   const { executeRecaptcha } = useReCaptcha()
   const { data: session } = useSession()
@@ -71,15 +74,21 @@ export function About() {
 
   const handleGetRecaptchaToken = useCallback(
     async (action: string) => {
-      if (!executeRecaptcha) return
-      return !user ? await executeRecaptcha(action) : undefined
+      if (!executeRecaptcha || user) return
+      try {
+        return await executeRecaptcha(action)
+      } catch (err) {
+        console.error(err instanceof Error ? err.message : "reCAPTCHA is unavailable")
+        toast.error("Something went wrong, please try again.", { id: "captcha-error" })
+        return
+      }
     },
     [executeRecaptcha, user]
   )
 
   const subscribeToRealtime = useCallback(async () => {
     await connect(`pipeline/${submissionId}`)
-    let gotDetections = false
+    gotDetectionsRef.current = false
     subscribe({
       next: (data: Event) => {
         console.debug("Pipeline: ", data.event)
@@ -97,7 +106,7 @@ export function About() {
               { throwOnError: true }
             )
             .then(() => {
-              gotDetections = true
+              gotDetectionsRef.current = true
               api?.scrollTo(3)
             })
             .catch(() => {
@@ -106,7 +115,7 @@ export function About() {
             })
         }
         if ("status" in data.event && data.event.status === "failed") {
-          if (!gotDetections) {
+          if (!gotDetectionsRef.current) {
             api?.scrollTo(2)
           }
           toast.error("Something went wrong, please try again.")
@@ -122,34 +131,36 @@ export function About() {
   const handleProcessing = useCallback(
     async (file: DemoMedia) => {
       await subscribeToRealtime()
-      const { id, bucket, key } = await handleGetRecaptchaToken(
-        "upload_demo_image"
-      ).then((token) =>
-        uploadImage(submissionId, file, token).catch((e) => {
-          throw new Error(e)
-        })
+      const uploadToken = await handleGetRecaptchaToken("upload_demo_image")
+      const { id, bucket, key } = await uploadImage(
+        submissionId,
+        file,
+        uploadToken
       )
-      return handleGetRecaptchaToken("create_demo_job").then((token) =>
-        createDemoJob({
-          submissionId,
-          mediaId: String(id),
-          type: file.file.type,
-          bucket,
-          key: `_assets/${key}`,
-          token,
-        })
-      )
+      const jobToken = await handleGetRecaptchaToken("create_demo_job")
+      return createDemoJob({
+        submissionId,
+        mediaId: String(id),
+        type: file.file.type,
+        bucket,
+        key: `_assets/${key}`,
+        token: jobToken,
+      })
     },
     [handleGetRecaptchaToken, subscribeToRealtime, submissionId]
   )
 
   const handleSelectImage = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
-      if (!e.target.files || !api) return
+      const file = e.target.files?.[0]
+      if (!file || !api || isProcessing) return
+      setIsProcessing(true)
       const media = {
-        id: await nano(e.target.files[0]),
-        file: e.target.files[0],
-        src: URL.createObjectURL(e.target.files[0]),
+        id: await nano(file),
+        file,
+        src: URL.createObjectURL(file),
+        annotations: [],
+        exif: {},
       }
       setMedia(media)
       api.scrollTo(1)
@@ -160,22 +171,21 @@ export function About() {
         })
         .finally(() => {
           e.target.value = ""
+          setIsProcessing(false)
         })
     },
-    [api, handleProcessing]
+    [api, handleProcessing, isProcessing]
   )
 
   useEffect(() => {
     if (!api) return
-    setCurrentStep(api.selectedScrollSnap())
-    api.on("select", () => {
-      setCurrentStep(api.selectedScrollSnap())
-    })
+    const onSelect = () => setCurrentStep(api.selectedScrollSnap())
+    onSelect()
+    api.on("select", onSelect)
 
     return () => {
-      queryClient.removeQueries({
-        queryKey: [submissionId],
-      })
+      api.off("select", onSelect)
+      queryClient.removeQueries({ queryKey: [submissionId] })
     }
   }, [api, queryClient, submissionId])
 
@@ -233,18 +243,13 @@ async function uploadImage(
     media.file.size,
     `${submissionId}/${media.id}`,
     token
-  ).catch((e) => {
-    throw new Error(e)
-  })
+  )
   const form = new FormData()
   Object.entries(fields).forEach(([field, value]) => {
     form.append(field, value)
   })
   form.append("file", media.file, key)
-  const uploadResponse = await fetch(url, {
-    method: "POST",
-    body: form,
-  })
+  const uploadResponse = await fetch(url, { method: "POST", body: form })
   if (!uploadResponse.ok) throw new Error(uploadResponse.statusText)
   return { id: media.id, bucket, key }
 }

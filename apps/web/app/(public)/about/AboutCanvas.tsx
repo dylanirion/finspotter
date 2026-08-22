@@ -2,7 +2,6 @@ import { getAnnotationComponents } from "@finspotter/annotations/react"
 import { Canvas } from "@finspotter/canvas"
 import { MediaLayer } from "@finspotter/canvas/media"
 import { type Media } from "@finspotter/core/media"
-import { getAnnotationTypes } from "@finspotter/pipeline"
 import { useQuery } from "@tanstack/react-query"
 import { getDetections } from "app/_actions/pipeline"
 import { twCols } from "lib/utils"
@@ -27,8 +26,7 @@ export function AboutCanvas({ id, media }: { id: string; media?: Media }) {
       <MediaLayer media={media}>
         {annotations.map((annotation, i) => {
           //TODO: just write type to database
-          const type = getAnnotationTypes[annotation.type]
-          const { AnnotationLayer } = getAnnotationComponents(type ?? "null")
+          const { AnnotationLayer } = getAnnotationComponents(annotation.type ?? "null")
           return (
             <AnnotationLayer
               key={i}
@@ -37,7 +35,7 @@ export function AboutCanvas({ id, media }: { id: string; media?: Media }) {
               annotation={{
                 id: String(i),
                 mediaId: media.id,
-                type,
+                type: annotation.type,
                 data: annotation.data,
               }}
               style={{ color: twCols[i % twCols.length].hex, glow: true }}

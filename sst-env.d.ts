@@ -6,6 +6,11 @@
 
 declare module "sst" {
   export interface Resource {
+    "AwsPoolProvider": {
+      "name": string
+      "project": string
+      "type": "gcp.iam/workloadIdentityPoolProvider.WorkloadIdentityPoolProvider"
+    }
     "BETTER_AUTH_SECRET": {
       "type": "sst.sst.Secret"
       "value": string

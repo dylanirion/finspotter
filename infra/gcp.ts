@@ -45,7 +45,6 @@ export const recaptcha = new gcp.recaptcha.EnterpriseKey("Recaptcha", {
   }),
 })
 
-
 /*
 import * as gcp from "@pulumi/gcp";
 

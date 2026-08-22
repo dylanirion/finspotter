@@ -15,14 +15,13 @@ import { LockClosedIcon } from "@heroicons/react/20/solid"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "components/ui/inputs/Button"
 import { Spinner } from "components/ui/spinners/Spinner"
+import { useCaptchaAction } from "hooks/useCaptchaAction"
 import { forgetPassword, signIn } from "hooks/useSession"
 import { cn } from "lib/utils"
-import { useReCaptcha } from "next-recaptcha-v3"
 import toast, { Toaster } from "react-hot-toast"
 
 //TODO: useActionState with signIn? even thought It's not a server action?
 export function SignInForm() {
-  const { executeRecaptcha } = useReCaptcha()
   const emailRef = useRef<HTMLInputElement | null>(null)
   const passwordRef = useRef<HTMLInputElement | null>(null)
   const rememberRef = useRef<HTMLInputElement | null>(null)
@@ -31,80 +30,97 @@ export function SignInForm() {
   const searchParams = useSearchParams()
   const queryClient = useQueryClient()
 
-  const handleGetRecaptchaToken = useCallback(
-    (action: string) => {
-      if (!executeRecaptcha) return
-      return executeRecaptcha(action)
-    },
-    [executeRecaptcha]
+  const stopSpinning = useCallback(() => {
+    setMouseSpinning(false)
+    setButtonSpinning(false)
+  }, [])
+
+  const submitSignIn = useCaptchaAction(
+    "login",
+    useCallback(
+      (token: string, email: string, password: string, rememberMe: boolean) =>
+        signIn.email({
+          email,
+          password,
+          callbackURL: searchParams?.get("from") ?? "/dashboard",
+          rememberMe,
+          fetchOptions: {
+            headers: { "x-captcha-token": token },
+            onError(ctx) {
+              stopSpinning()
+              toast.error(ctx.error.message ?? "Unable to sign in", {
+                id: ctx.error.code ?? "default",
+              })
+            },
+            onSuccess() {
+              setMouseSpinning(false)
+              queryClient.resetQueries({ queryKey: ["session"] })
+            },
+          },
+        }),
+      [searchParams, queryClient, stopSpinning]
+    )
+  )
+
+  const submitForgot = useCaptchaAction(
+    "password_reset",
+    useCallback(
+      (token: string, email: string) =>
+        forgetPassword({
+          email,
+          redirectTo: "/reset-password",
+          fetchOptions: { headers: { "x-captcha-token": token } },
+        }),
+      []
+    )
   )
 
   const handleCredentials = useCallback(
     async (e: FormEvent) => {
       e.preventDefault()
-      if (
-        emailRef.current == null ||
-        emailRef.current?.value === "" ||
-        passwordRef.current == null ||
-        passwordRef.current?.value === ""
-      ) {
+      const email = emailRef.current?.value
+      const password = passwordRef.current?.value
+      if (!email || !password) {
         toast.error("Please provide an email address and password.")
         return
       }
       setMouseSpinning(true)
       setButtonSpinning(true)
-      await signIn.email({
-        email: emailRef.current.value,
-        password: passwordRef.current.value,
-        callbackURL: searchParams?.get("from") ?? "/dashboard",
-        rememberMe: rememberRef.current?.checked,
-        fetchOptions: {
-          headers: {
-            "x-captcha-token": (await handleGetRecaptchaToken("login")) ?? "",
-          },
-          onError(ctx) {
-            setMouseSpinning(false)
-            setButtonSpinning(false)
-            toast.error(ctx.error.message ?? "Unable to sign in", {
-              id: ctx.error.code ?? "default",
-            })
-          },
-          onSuccess() {
-            setMouseSpinning(false)
-            queryClient.resetQueries({ queryKey: ["session"] })
-          },
-        },
-      })
+      const result = await submitSignIn(
+        email,
+        password,
+        rememberRef.current?.checked ?? false
+      )
+      if (result === undefined) stopSpinning() // captcha failed before the request
     },
-    [searchParams, queryClient, handleGetRecaptchaToken]
+    [submitSignIn, stopSpinning]
   )
 
   //TODO: this should disable sign in button too
   const handleForgot = useCallback(
     async (e: MouseEvent) => {
       e.preventDefault()
-      if (emailRef.current == null || emailRef.current?.value === "") {
+      const email = emailRef.current?.value
+      if (!email) {
         toast.error("Please provide an email address.")
         return
       }
       setMouseSpinning(true)
-      forgetPassword({
-        email: emailRef.current.value,
-        redirectTo: "/reset-password",
-        fetchOptions: {
-          headers: {
-            "x-captcha-token":
-              (await handleGetRecaptchaToken("password_reset")) ?? "",
-          },
-        },
-      }).then(() => {
-        toast.success(
-          `A change password request was sent to ${emailRef.current!.value}`
+      setButtonSpinning(true)
+      try {
+        const result = await submitForgot(email)
+        if (result !== undefined) {
+          toast.success(`A change password request was sent to ${email}`)
+        }
+      } catch (err) {
+        toast.error(
+          err instanceof Error ? err.message : "Unable to send reset email"
         )
-        setMouseSpinning(false)
-      })
+      } finally {
+        stopSpinning()
+      }
     },
-    [handleGetRecaptchaToken]
+    [submitForgot, stopSpinning]
   )
 
   return (

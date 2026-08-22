@@ -60,12 +60,18 @@ export function EncounterSubmissionProvider({
   const user = session?.user
 
   const handleGetRecaptchaToken = useCallback(
-    async (action: string) => {
-      if (!executeRecaptcha) return
-      return !user ? await executeRecaptcha(action) : undefined
-    },
-    [executeRecaptcha, user]
-  )
+  async (action: string) => {
+    if (!executeRecaptcha || user) return
+    try {
+      return await executeRecaptcha(action)
+    } catch (err) {
+      console.error("reCAPTCHA failed:", err)
+      toast.error("Something went wrong", { id: "captcha-error" })
+      return
+    }
+  },
+  [executeRecaptcha, user]
+)
 
   const handleBackgroundUpload = useCallback(
     async (data: EncounterSubmissionData[]) =>
