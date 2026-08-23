@@ -12,6 +12,7 @@ A few secrets also need to be set up.
 
 ```bash
 openssl rand -hex 32 | xargs npx sst secret set BETTER_AUTH_SECRET [--stage <stagename>] [--fallback]
+npx sst secret set SESSender [--stage <stagename>] [--fallback]
 ```
 
 ## Local development

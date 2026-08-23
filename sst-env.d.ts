@@ -20,17 +20,13 @@ declare module "sst" {
       "type": "sst.sst.Linkable"
     }
     "Email": {
-      "from": number
-      "noreply": number
-      "smtp": {
-        "auth": {
-          "pass": number
-          "user": number
-        }
-        "host": number
-        "port": number
-      }
-      "type": "sst.sst.Linkable"
+      "configSet": string
+      "sender": string
+      "type": "sst.aws.Email"
+    }
+    "SESSender": {
+      "type": "sst.sst.Secret"
+      "value": string
     }
     "UploadAssets": {
       "name": string

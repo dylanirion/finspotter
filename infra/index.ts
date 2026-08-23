@@ -36,7 +36,7 @@ export function init(
   const web = new sst.aws.Nextjs("Web", {
     domain,
     path: "./apps/web",
-    openNextVersion: "3.10.14",
+    openNextVersion: "4.1.0",
     link: [db, bucket, email, /*pipeline, */recaptcha, gcpIdentityProvider],
     environment: {
       BASE_URL: $dev ? `http://${domain}` : `https://${domain}`,

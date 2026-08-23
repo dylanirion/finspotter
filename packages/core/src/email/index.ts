@@ -3,17 +3,22 @@ import "server-only"
 import { type JSXElementConstructor, type ReactElement } from "react"
 import { render } from "jsx-email"
 import { createTransport } from "nodemailer"
-import SMTPTransport from "nodemailer/lib/smtp-transport"
-import { Resource } from "sst"
+import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2"
+import { getClient } from "../client"
 
-const { smtp } = Resource.Email
+const sesClient = getClient(SESv2Client, {
+  logger: {
+    ...console,
+    debug(..._args: unknown[]) {},
+    trace(..._args: unknown[]) {},
+  },
+})
 
 const transporter = createTransport({
-  ...smtp,
-  port: Number(smtp.port),
-  secure: true,
-} satisfies SMTPTransport.Options)
+  SES: { sesClient, SendEmailCommand },
+})
 
+//TODO: put a queue infront of this
 export async function sendMail(
   to: string | undefined,
   from: string,
