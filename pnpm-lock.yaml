@@ -102,15 +102,6 @@ importers:
 
   apps/web:
     dependencies:
-      '@aws-sdk/client-s3':
-        specifier: ^3.918.0
-        version: 3.918.0
-      '@aws-sdk/client-sesv2':
-        specifier: ^3.1116.0
-        version: 3.1116.0
-      '@aws-sdk/s3-presigned-post':
-        specifier: ^3.918.0
-        version: 3.918.0
       '@finspotter/annotations':
         specifier: workspace:*
         version: link:../../packages/annotations
@@ -280,19 +271,22 @@ importers:
       '@finspotter/canvas':
         specifier: workspace:*
         version: link:../../../packages/canvas
-    devDependencies:
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.3)
-      '@types/react':
-        specifier: ^19.2.7
-        version: 19.2.7
       '@xstate/react':
         specifier: ^6.0.0
         version: 6.0.0(@types/react@19.2.7)(react@19.2.3)(xstate@5.23.0)
       xstate:
         specifier: ^5.23.0
         version: 5.23.0
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.7
+      react:
+        specifier: ^19.2.3
+        version: 19.2.3
 
   extensions/annotations/bbox_xywha:
     dependencies:
@@ -305,35 +299,47 @@ importers:
       '@finspotter/canvas':
         specifier: workspace:*
         version: link:../../../packages/canvas
-    devDependencies:
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.3)
-      '@types/react':
-        specifier: ^19.2.7
-        version: 19.2.7
       '@xstate/react':
         specifier: ^6.0.0
         version: 6.0.0(@types/react@19.2.7)(react@19.2.3)(xstate@5.23.0)
       xstate:
         specifier: ^5.23.0
         version: 5.23.0
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.7
+      react:
+        specifier: ^19.2.3
+        version: 19.2.3
 
   extensions/annotations/bbox_xywha_segmentation:
     dependencies:
+      '@finspotter/annotation-bbox_xywha':
+        specifier: workspace:*
+        version: link:../bbox_xywha
+      '@finspotter/annotation-segmentation':
+        specifier: workspace:*
+        version: link:../segmentation
       '@finspotter/annotations':
         specifier: workspace:*
         version: link:../../../packages/annotations
       '@finspotter/canvas':
         specifier: workspace:*
         version: link:../../../packages/canvas
+      xstate:
+        specifier: ^5.23.0
+        version: 5.23.0
     devDependencies:
       '@types/react':
         specifier: ^19.2.7
         version: 19.2.7
-      xstate:
-        specifier: ^5.23.0
-        version: 5.23.0
+      react:
+        specifier: ^19.2.3
+        version: 19.2.3
 
   extensions/annotations/segmentation:
     dependencies:
@@ -343,19 +349,22 @@ importers:
       '@finspotter/canvas':
         specifier: workspace:*
         version: link:../../../packages/canvas
-    devDependencies:
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.3)
-      '@types/react':
-        specifier: ^19.2.7
-        version: 19.2.7
       '@xstate/react':
         specifier: ^6.0.0
         version: 6.0.0(@types/react@19.2.7)(react@19.2.3)(xstate@5.23.0)
       xstate:
         specifier: ^5.23.0
         version: 5.23.0
+    devDependencies:
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.7
+      react:
+        specifier: ^19.2.3
+        version: 19.2.3
 
   extensions/pipeline/faiss:
     dependencies:
@@ -447,7 +456,6 @@ importers:
       '@finspotter/config':
         specifier: workspace:*
         version: link:../config
-    devDependencies:
       '@floating-ui/react':
         specifier: ^0.27.16
         version: 0.27.16(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -457,6 +465,13 @@ importers:
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.3)
+      '@xstate/react':
+        specifier: ^6.0.0
+        version: 6.0.0(@types/react@19.2.7)(react@19.2.3)(xstate@5.23.0)
+      xstate:
+        specifier: ^5.23.0
+        version: 5.23.0
+    devDependencies:
       '@tanstack/react-query':
         specifier: ^5.90.5
         version: 5.90.5(react@19.2.3)
@@ -466,9 +481,6 @@ importers:
       '@types/react-dom':
         specifier: ^19.2.3
         version: 19.2.3(@types/react@19.2.7)
-      '@xstate/react':
-        specifier: ^6.0.0
-        version: 6.0.0(@types/react@19.2.7)(react@19.2.3)(xstate@5.23.0)
       eslint-config-prettier:
         specifier: ^10.1.8
         version: 10.1.8(eslint@10.8.1(jiti@2.6.1)(supports-color@7.2.0))
@@ -493,9 +505,6 @@ importers:
       react-hot-toast:
         specifier: ^2.6.0
         version: 2.6.0(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      xstate:
-        specifier: ^5.23.0
-        version: 5.23.0
 
   packages/canvas:
     dependencies:
@@ -511,9 +520,6 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
-      react:
-        specifier: ^19.2.3
-        version: 19.2.3
       tailwind-merge:
         specifier: ^3.3.1
         version: 3.3.1
@@ -536,6 +542,9 @@ importers:
       prettier-plugin-tailwindcss:
         specifier: ^0.7.1
         version: 0.7.1(@ianvs/prettier-plugin-sort-imports@4.7.0(prettier@3.6.2)(supports-color@7.2.0))(prettier@3.6.2)
+      react:
+        specifier: ^19.2.3
+        version: 19.2.3
 
   packages/config:
     dependencies:
@@ -546,6 +555,18 @@ importers:
   packages/core:
     dependencies:
       '@aws-sdk/client-dynamodb':
+        specifier: ^3.918.0
+        version: 3.918.0
+      '@aws-sdk/client-s3':
+        specifier: ^3.918.0
+        version: 3.918.0
+      '@aws-sdk/client-sesv2':
+        specifier: ^3.1116.0
+        version: 3.1116.0
+      '@aws-sdk/lib-dynamodb':
+        specifier: ^3.918.0
+        version: 3.918.0(@aws-sdk/client-dynamodb@3.918.0)
+      '@aws-sdk/s3-presigned-post':
         specifier: ^3.918.0
         version: 3.918.0
       '@finspotter/annotations':
@@ -563,9 +584,21 @@ importers:
       '@neondatabase/serverless':
         specifier: ^1.1.0
         version: 1.1.0
+      better-auth:
+        specifier: ^1.3.33
+        version: 1.3.33(next@16.3.1(@babel/core@7.28.5(supports-color@7.2.0))(@types/node@24.9.1)(react-dom@19.0.0-rc-fb9a90fa48-20240614(react@19.2.3))(react@19.2.3))(react-dom@19.0.0-rc-fb9a90fa48-20240614(react@19.2.3))(react@19.2.3)
       drizzle-orm:
-        specifier: ^0.44.7
-        version: 0.44.7(@aws-sdk/client-rds-data@3.918.0)(@neondatabase/serverless@1.1.0)(kysely@0.28.8)
+        specifier: ^0.45.2
+        version: 0.45.2(@aws-sdk/client-rds-data@3.918.0)(@neondatabase/serverless@1.1.0)(kysely@0.28.8)
+      jsx-email:
+        specifier: ^2.8.3
+        version: 2.8.3(@jsx-email/plugin-inline@1.0.1)(@jsx-email/plugin-minify@1.0.2)(@jsx-email/plugin-pretty@1.0.0)(@types/node@24.9.1)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@19.0.0-rc-fb9a90fa48-20240614(react@19.2.3))(react@19.2.3)(supports-color@7.2.0)(terser@5.16.9)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0)
+      nodemailer:
+        specifier: ^9.0.5
+        version: 9.0.5
+      server-only:
+        specifier: ^0.0.1
+        version: 0.0.1
       wkx:
         specifier: ^0.5.0
         version: 0.5.0
@@ -573,18 +606,6 @@ importers:
         specifier: ^4.1.12
         version: 4.1.12
     devDependencies:
-      '@aws-sdk/client-s3':
-        specifier: ^3.918.0
-        version: 3.918.0
-      '@aws-sdk/client-sesv2':
-        specifier: ^3.1116.0
-        version: 3.1116.0
-      '@aws-sdk/lib-dynamodb':
-        specifier: ^3.918.0
-        version: 3.918.0(@aws-sdk/client-dynamodb@3.918.0)
-      '@aws-sdk/s3-presigned-post':
-        specifier: ^3.918.0
-        version: 3.918.0
       '@smithy/types':
         specifier: ^4.8.0
         version: 4.8.0
@@ -597,27 +618,15 @@ importers:
       '@types/react':
         specifier: ^19.2.7
         version: 19.2.7
-      better-auth:
-        specifier: ^1.3.33
-        version: 1.3.33(next@16.3.1(@babel/core@7.28.5(supports-color@7.2.0))(@types/node@24.9.1)(react-dom@19.0.0-rc-fb9a90fa48-20240614(react@19.2.3))(react@19.2.3))(react-dom@19.0.0-rc-fb9a90fa48-20240614(react@19.2.3))(react@19.2.3)
       drizzle-kit:
         specifier: ^0.31.10
         version: 0.31.10
       eslint-config-prettier:
         specifier: ^10.1.8
         version: 10.1.8(eslint@10.8.1(jiti@2.6.1)(supports-color@7.2.0))
-      jsx-email:
-        specifier: ^2.8.3
-        version: 2.8.3(@jsx-email/plugin-inline@1.0.1)(@jsx-email/plugin-minify@1.0.2)(@jsx-email/plugin-pretty@1.0.0)(@types/node@24.9.1)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@19.0.0-rc-fb9a90fa48-20240614(react@19.2.3))(react@19.2.3)(supports-color@7.2.0)(terser@5.16.9)(tsx@4.23.12)(typescript@7.0.2)(yaml@2.9.0)
-      nodemailer:
-        specifier: ^9.0.5
-        version: 9.0.5
       react:
         specifier: ^19.2.3
         version: 19.2.3
-      server-only:
-        specifier: ^0.0.1
-        version: 0.0.1
 
   packages/email:
     dependencies:
@@ -5680,6 +5689,98 @@ packages:
       sqlite3:
         optional: true
 
+  drizzle-orm@0.45.2:
+    resolution: {integrity: sha512-kY0BSaTNYWnoDMVoyY8uxmyHjpJW1geOmBMdSSicKo9CIIWkSxMIj2rkeSR51b8KAPB7m+qysjuHme5nKP+E5Q==}
+    peerDependencies:
+      '@aws-sdk/client-rds-data': '>=3'
+      '@cloudflare/workers-types': '>=4'
+      '@electric-sql/pglite': '>=0.2.0'
+      '@libsql/client': '>=0.10.0'
+      '@libsql/client-wasm': '>=0.10.0'
+      '@neondatabase/serverless': '>=0.10.0'
+      '@op-engineering/op-sqlite': '>=2'
+      '@opentelemetry/api': ^1.4.1
+      '@planetscale/database': '>=1.13'
+      '@prisma/client': '*'
+      '@tidbcloud/serverless': '*'
+      '@types/better-sqlite3': '*'
+      '@types/pg': '*'
+      '@types/sql.js': '*'
+      '@upstash/redis': '>=1.34.7'
+      '@vercel/postgres': '>=0.8.0'
+      '@xata.io/client': '*'
+      better-sqlite3: '>=7'
+      bun-types: '*'
+      expo-sqlite: '>=14.0.0'
+      gel: '>=2'
+      knex: '*'
+      kysely: '*'
+      mysql2: '>=2'
+      pg: '>=8'
+      postgres: '>=3'
+      prisma: '*'
+      sql.js: '>=1'
+      sqlite3: '>=5'
+    peerDependenciesMeta:
+      '@aws-sdk/client-rds-data':
+        optional: true
+      '@cloudflare/workers-types':
+        optional: true
+      '@electric-sql/pglite':
+        optional: true
+      '@libsql/client':
+        optional: true
+      '@libsql/client-wasm':
+        optional: true
+      '@neondatabase/serverless':
+        optional: true
+      '@op-engineering/op-sqlite':
+        optional: true
+      '@opentelemetry/api':
+        optional: true
+      '@planetscale/database':
+        optional: true
+      '@prisma/client':
+        optional: true
+      '@tidbcloud/serverless':
+        optional: true
+      '@types/better-sqlite3':
+        optional: true
+      '@types/pg':
+        optional: true
+      '@types/sql.js':
+        optional: true
+      '@upstash/redis':
+        optional: true
+      '@vercel/postgres':
+        optional: true
+      '@xata.io/client':
+        optional: true
+      better-sqlite3:
+        optional: true
+      bun-types:
+        optional: true
+      expo-sqlite:
+        optional: true
+      gel:
+        optional: true
+      knex:
+        optional: true
+      kysely:
+        optional: true
+      mysql2:
+        optional: true
+      pg:
+        optional: true
+      postgres:
+        optional: true
+      prisma:
+        optional: true
+      sql.js:
+        optional: true
+      sqlite3:
+        optional: true
+
   dunder-proto@1.0.1:
     resolution: {integrity: sha512-KIN/nDJBQRcXw0MLVhZE9iQHmG68qAVIBg9CqmUYjmQIhgij9U5MFvrqkUL5FbtyyzZuOeOt0zdeRe4UY7ct+A==}
     engines: {node: '>= 0.4'}
@@ -9256,31 +9357,31 @@ snapshots:
       '@aws-sdk/util-endpoints': 3.916.0
       '@aws-sdk/util-user-agent-browser': 3.914.0
       '@aws-sdk/util-user-agent-node': 3.916.0
-      '@smithy/config-resolver': 4.4.17
+      '@smithy/config-resolver': 4.7.2
       '@smithy/core': 3.33.3
       '@smithy/fetch-http-handler': 5.7.2
-      '@smithy/hash-node': 4.2.14
-      '@smithy/invalid-dependency': 4.2.14
-      '@smithy/middleware-content-length': 4.2.14
-      '@smithy/middleware-endpoint': 4.4.32
-      '@smithy/middleware-retry': 4.5.7
-      '@smithy/middleware-serde': 4.2.20
-      '@smithy/middleware-stack': 4.2.14
-      '@smithy/node-config-provider': 4.3.14
+      '@smithy/hash-node': 4.5.2
+      '@smithy/invalid-dependency': 4.5.2
+      '@smithy/middleware-content-length': 4.5.2
+      '@smithy/middleware-endpoint': 4.7.2
+      '@smithy/middleware-retry': 4.8.2
+      '@smithy/middleware-serde': 4.5.2
+      '@smithy/middleware-stack': 4.5.2
+      '@smithy/node-config-provider': 4.6.2
       '@smithy/node-http-handler': 4.11.3
-      '@smithy/protocol-http': 5.3.14
-      '@smithy/smithy-client': 4.12.13
+      '@smithy/protocol-http': 5.6.2
+      '@smithy/smithy-client': 4.15.2
       '@smithy/types': 4.17.2
-      '@smithy/url-parser': 4.2.14
-      '@smithy/util-base64': 4.3.2
-      '@smithy/util-body-length-browser': 4.2.2
-      '@smithy/util-body-length-node': 4.2.3
-      '@smithy/util-defaults-mode-browser': 4.3.49
-      '@smithy/util-defaults-mode-node': 4.2.54
-      '@smithy/util-endpoints': 3.4.2
-      '@smithy/util-middleware': 4.2.14
-      '@smithy/util-retry': 4.3.6
-      '@smithy/util-utf8': 4.2.2
+      '@smithy/url-parser': 4.5.2
+      '@smithy/util-base64': 4.6.2
+      '@smithy/util-body-length-browser': 4.5.2
+      '@smithy/util-body-length-node': 4.5.2
+      '@smithy/util-defaults-mode-browser': 4.6.2
+      '@smithy/util-defaults-mode-node': 4.5.2
+      '@smithy/util-endpoints': 3.7.2
+      '@smithy/util-middleware': 4.5.2
+      '@smithy/util-retry': 4.6.2
+      '@smithy/util-utf8': 4.5.2
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
@@ -9347,15 +9448,15 @@ snapshots:
       '@aws-sdk/types': 3.914.0
       '@aws-sdk/xml-builder': 3.914.0
       '@smithy/core': 3.33.3
-      '@smithy/node-config-provider': 4.3.14
+      '@smithy/node-config-provider': 4.6.2
       '@smithy/property-provider': 4.2.14
-      '@smithy/protocol-http': 5.3.14
+      '@smithy/protocol-http': 5.6.2
       '@smithy/signature-v4': 5.7.3
-      '@smithy/smithy-client': 4.12.13
+      '@smithy/smithy-client': 4.15.2
       '@smithy/types': 4.17.2
-      '@smithy/util-base64': 4.3.2
-      '@smithy/util-middleware': 4.2.14
-      '@smithy/util-utf8': 4.2.2
+      '@smithy/util-base64': 4.6.2
+      '@smithy/util-middleware': 4.5.2
+      '@smithy/util-utf8': 4.5.2
       tslib: 2.8.1
 
   '@aws-sdk/core@3.977.9':
@@ -9411,10 +9512,10 @@ snapshots:
       '@smithy/fetch-http-handler': 5.7.2
       '@smithy/node-http-handler': 4.11.3
       '@smithy/property-provider': 4.2.14
-      '@smithy/protocol-http': 5.3.14
-      '@smithy/smithy-client': 4.12.13
+      '@smithy/protocol-http': 5.6.2
+      '@smithy/smithy-client': 4.15.2
       '@smithy/types': 4.17.2
-      '@smithy/util-stream': 4.5.25
+      '@smithy/util-stream': 4.8.2
       tslib: 2.8.1
 
   '@aws-sdk/credential-provider-http@3.972.72':
@@ -9730,7 +9831,7 @@ snapshots:
   '@aws-sdk/middleware-host-header@3.914.0':
     dependencies:
       '@aws-sdk/types': 3.914.0
-      '@smithy/protocol-http': 5.3.14
+      '@smithy/protocol-http': 5.6.2
       '@smithy/types': 4.17.2
       tslib: 2.8.1
 
@@ -9791,7 +9892,7 @@ snapshots:
     dependencies:
       '@aws-sdk/types': 3.914.0
       '@aws/lambda-invoke-store': 0.0.1
-      '@smithy/protocol-http': 5.3.14
+      '@smithy/protocol-http': 5.6.2
       '@smithy/types': 4.17.2
       tslib: 2.8.1
 
@@ -9875,7 +9976,7 @@ snapshots:
       '@aws-sdk/types': 3.914.0
       '@aws-sdk/util-endpoints': 3.916.0
       '@smithy/core': 3.33.3
-      '@smithy/protocol-http': 5.3.14
+      '@smithy/protocol-http': 5.6.2
       '@smithy/types': 4.17.2
       tslib: 2.8.1
 
@@ -9909,31 +10010,31 @@ snapshots:
       '@aws-sdk/util-endpoints': 3.916.0
       '@aws-sdk/util-user-agent-browser': 3.914.0
       '@aws-sdk/util-user-agent-node': 3.916.0
-      '@smithy/config-resolver': 4.4.17
+      '@smithy/config-resolver': 4.7.2
       '@smithy/core': 3.33.3
       '@smithy/fetch-http-handler': 5.7.2
-      '@smithy/hash-node': 4.2.14
-      '@smithy/invalid-dependency': 4.2.14
-      '@smithy/middleware-content-length': 4.2.14
-      '@smithy/middleware-endpoint': 4.4.32
-      '@smithy/middleware-retry': 4.5.7
-      '@smithy/middleware-serde': 4.2.20
-      '@smithy/middleware-stack': 4.2.14
-      '@smithy/node-config-provider': 4.3.14
+      '@smithy/hash-node': 4.5.2
+      '@smithy/invalid-dependency': 4.5.2
+      '@smithy/middleware-content-length': 4.5.2
+      '@smithy/middleware-endpoint': 4.7.2
+      '@smithy/middleware-retry': 4.8.2
+      '@smithy/middleware-serde': 4.5.2
+      '@smithy/middleware-stack': 4.5.2
+      '@smithy/node-config-provider': 4.6.2
       '@smithy/node-http-handler': 4.11.3
-      '@smithy/protocol-http': 5.3.14
-      '@smithy/smithy-client': 4.12.13
+      '@smithy/protocol-http': 5.6.2
+      '@smithy/smithy-client': 4.15.2
       '@smithy/types': 4.17.2
-      '@smithy/url-parser': 4.2.14
-      '@smithy/util-base64': 4.3.2
-      '@smithy/util-body-length-browser': 4.2.2
-      '@smithy/util-body-length-node': 4.2.3
-      '@smithy/util-defaults-mode-browser': 4.3.49
-      '@smithy/util-defaults-mode-node': 4.2.54
-      '@smithy/util-endpoints': 3.4.2
-      '@smithy/util-middleware': 4.2.14
-      '@smithy/util-retry': 4.3.6
-      '@smithy/util-utf8': 4.2.2
+      '@smithy/url-parser': 4.5.2
+      '@smithy/util-base64': 4.6.2
+      '@smithy/util-body-length-browser': 4.5.2
+      '@smithy/util-body-length-node': 4.5.2
+      '@smithy/util-defaults-mode-browser': 4.6.2
+      '@smithy/util-defaults-mode-node': 4.5.2
+      '@smithy/util-endpoints': 3.7.2
+      '@smithy/util-middleware': 4.5.2
+      '@smithy/util-retry': 4.6.2
+      '@smithy/util-utf8': 4.5.2
       tslib: 2.8.1
     transitivePeerDependencies:
       - aws-crt
@@ -9961,7 +10062,7 @@ snapshots:
   '@aws-sdk/region-config-resolver@3.914.0':
     dependencies:
       '@aws-sdk/types': 3.914.0
-      '@smithy/config-resolver': 4.4.17
+      '@smithy/config-resolver': 4.7.2
       '@smithy/types': 4.17.2
       tslib: 2.8.1
 
@@ -10092,8 +10193,8 @@ snapshots:
     dependencies:
       '@aws-sdk/types': 3.914.0
       '@smithy/types': 4.17.2
-      '@smithy/url-parser': 4.2.14
-      '@smithy/util-endpoints': 3.4.2
+      '@smithy/url-parser': 4.5.2
+      '@smithy/util-endpoints': 3.7.2
       tslib: 2.8.1
 
   '@aws-sdk/util-endpoints@3.984.0':
@@ -10160,7 +10261,7 @@ snapshots:
     dependencies:
       '@aws-sdk/middleware-user-agent': 3.916.0
       '@aws-sdk/types': 3.914.0
-      '@smithy/node-config-provider': 4.3.14
+      '@smithy/node-config-provider': 4.6.2
       '@smithy/types': 4.17.2
       tslib: 2.8.1
 
@@ -14983,6 +15084,12 @@ snapshots:
       tsx: 4.23.12
 
   drizzle-orm@0.44.7(@aws-sdk/client-rds-data@3.918.0)(@neondatabase/serverless@1.1.0)(kysely@0.28.8):
+    optionalDependencies:
+      '@aws-sdk/client-rds-data': 3.918.0
+      '@neondatabase/serverless': 1.1.0
+      kysely: 0.28.8
+
+  drizzle-orm@0.45.2(@aws-sdk/client-rds-data@3.918.0)(@neondatabase/serverless@1.1.0)(kysely@0.28.8):
     optionalDependencies:
       '@aws-sdk/client-rds-data': 3.918.0
       '@neondatabase/serverless': 1.1.0

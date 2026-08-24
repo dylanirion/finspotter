@@ -1,10 +1,10 @@
-import { randomUUID } from "crypto"
 import { sql } from "drizzle-orm"
 import {
   boolean,
   index,
   pgTable,
   timestamp,
+  uuid,
   varchar,
 } from "drizzle-orm/pg-core"
 
@@ -12,7 +12,7 @@ import {
 export const usersTable = pgTable(
   "user",
   {
-    id: varchar("id", { length: 255 }).primaryKey().$defaultFn(randomUUID),
+    id: uuid().primaryKey().defaultRandom(),
     name: varchar("name", { length: 255 }),
     firstName: varchar("first_name", { length: 255 }),
     lastName: varchar("last_name", { length: 255 }),
@@ -30,5 +30,5 @@ export const usersTable = pgTable(
     bannedReason: varchar("banned_reason", { length: 255 }),
     banExpires: timestamp("ban_expires", { mode: "date" }),
   },
-  (table) => [index("email_idx").on(table.email)]
+  (table) => [index().on(table.email)]
 )

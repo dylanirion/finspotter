@@ -8,11 +8,17 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@finspotter/annotation-bbox_xywha": "workspace:*",
+    "@finspotter/annotation-segmentation": "workspace:*",
     "@finspotter/annotations": "workspace:*",
-    "@finspotter/canvas": "workspace:*"
+    "@finspotter/canvas": "workspace:*",
+    "xstate": "^5.23.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.3"
   },
   "devDependencies": {
     "@types/react": "^19.2.7",
-    "xstate": "^5.23.0"
+    "react": "^19.2.3"
   }
 }

@@ -9,9 +9,6 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.918.0",
-    "@aws-sdk/client-sesv2": "^3.1116.0",
-    "@aws-sdk/s3-presigned-post": "^3.918.0",
     "@finspotter/annotations": "workspace:*",
     "@finspotter/canvas": "workspace:*",
     "@finspotter/config": "workspace:*",

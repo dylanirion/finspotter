@@ -1,11 +1,11 @@
-import { index, pgTable, primaryKey, varchar } from "drizzle-orm/pg-core"
+import { index, pgTable, primaryKey, uuid, varchar } from "drizzle-orm/pg-core"
 
 import { mediaTable } from "../media/sql"
 
 export const exifTable = pgTable(
   "exif",
   {
-    mediaId: varchar("media_id", { length: 36 })
+    mediaId: uuid()
       .references(() => mediaTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
@@ -15,7 +15,7 @@ export const exifTable = pgTable(
     value: varchar("value", { length: 255 }).notNull(),
   },
   (table) => [
-    index("media_idx").on(table.mediaId),
+    index().on(table.mediaId),
     primaryKey({ columns: [table.mediaId, table.key] }),
   ]
 )

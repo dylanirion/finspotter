@@ -1,27 +1,20 @@
 import {
-  //bytea,
   customType,
   index,
+  inet,
   pgTable,
-  primaryKey,
   timestamp,
-  varchar,
+  uuid,
 } from "drizzle-orm/pg-core"
 
 import { organizationsTable } from "../auth/organization/sql"
 import { usersTable } from "../auth/user/sql"
 import { mediaTable } from "../media/sql"
 
-export const bytea = customType<{ data: Buffer }>({
-  dataType() { return 'bytea'; },
-  toDriver(value: Buffer) { return value; },
-  fromDriver(value: unknown) { return value as Buffer; },
-});
-
 export const submissionsTable = pgTable(
   "submissions",
   {
-    mediaId: varchar("media_id", { length: 36 })
+    mediaId: uuid()
       .notNull()
       .references(() => mediaTable.id, {
         onDelete: "cascade",
@@ -29,23 +22,20 @@ export const submissionsTable = pgTable(
       })
       .primaryKey()
       .notNull(),
-    userId: varchar("user_id", { length: 255 }).references(
-      () => usersTable.id,
-      {
-        onDelete: "restrict", // Cannot delete user if they have submissions
-        onUpdate: "cascade",
-      }
-    ),
-    organizationId: varchar("organization_id", { length: 36 }).references(
+    userId: uuid().references(() => usersTable.id, {
+      onDelete: "restrict", // Cannot delete user if they have submissions
+      onUpdate: "cascade",
+    }),
+    organizationId: uuid().references(
       () => organizationsTable.id,
       { onDelete: "restrict", onUpdate: "cascade" } // Cannot delete organization if they have submissions
     ),
     submittedAt: timestamp("submitted_at").defaultNow(),
-    submittedFrom: bytea("submitted_from", { length: 16 }), // IP address
+    submittedFrom: inet("submitted_from"),
   },
   (table) => [
-    index("media_idx").on(table.mediaId),
-    index("user_idx").on(table.userId),
-    index("organization_idx").on(table.organizationId),
+    index().on(table.mediaId),
+    index().on(table.userId),
+    index().on(table.organizationId),
   ]
 )

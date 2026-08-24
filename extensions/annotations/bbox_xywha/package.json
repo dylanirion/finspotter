@@ -10,12 +10,16 @@
   "dependencies": {
     "@finspotter/annotation-bbox_xywh": "workspace:*",
     "@finspotter/annotations": "workspace:*",
-    "@finspotter/canvas": "workspace:*"
-  },
-  "devDependencies": {
+    "@finspotter/canvas": "workspace:*",
     "@heroicons/react": "^2.2.0",
-    "@types/react": "^19.2.7",
     "@xstate/react": "^6.0.0",
     "xstate": "^5.23.0"
+  },
+  "peerDependencies": {
+    "react": "^19.2.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.7",
+    "react": "^19.2.3"
   }
 }

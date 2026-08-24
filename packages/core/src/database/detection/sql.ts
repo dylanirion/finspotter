@@ -12,6 +12,7 @@ import {
   primaryKey,
   real,
   timestamp,
+  uuid,
   varchar,
 } from "drizzle-orm/pg-core"
 import { Resource } from "sst"
@@ -19,7 +20,7 @@ import { Resource } from "sst"
 import { usersTable } from "../auth/user/sql"
 import { mediaTable } from "../media/sql"
 
-const sourceEnum = pgEnum("source", [
+export const detectionSourceEnum = pgEnum("source", [
   "manual",
   ...Object.keys(
     "MediaProcessingPipeline" in Resource
@@ -27,21 +28,21 @@ const sourceEnum = pgEnum("source", [
       : {}
   ),
 ])
-const typeEnum = pgEnum("type", AnnotationTypes)
+export const annotationTypeEnum = pgEnum("type", AnnotationTypes)
 
 export const detectionsTable = pgTable(
   "detections",
   {
-    mediaId: varchar("media_id", { length: 36 })
+    mediaId: uuid()
       .references(() => mediaTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
       })
       .notNull(),
     detectionId: integer("detection_id").notNull(),
-    source: sourceEnum(),
+    source: detectionSourceEnum(),
     category: varchar("category", { length: 255 }),
-    type: typeEnum(),
+    type: annotationTypeEnum(),
     score: real("score"),
     data: json("data").$type<AnnotationDataTypes[AnnotationType]>(),
     createdAt: timestamp("created_at").defaultNow(),
@@ -58,6 +59,6 @@ export const detectionsTable = pgTable(
     primaryKey({
       columns: [table.mediaId, table.detectionId, table.createdAt],
     }),
-    index("media_idx").on(table.mediaId),
+    index().on(table.mediaId),
   ]
 )

@@ -1,7 +1,7 @@
-import { pgTable, timestamp, varchar } from "drizzle-orm/pg-core"
+import { pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core"
 
 export const verificationTokensTable = pgTable("verification", {
-  id: varchar("id", { length: 255 }).primaryKey(),
+  id: uuid().primaryKey(),
   identifier: varchar("identifier", { length: 255 }).notNull(),
   value: varchar("value", { length: 255 }).notNull(),
   expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),

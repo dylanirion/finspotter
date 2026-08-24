@@ -1,13 +1,12 @@
-import { randomUUID } from "crypto"
 import { sql } from "drizzle-orm"
-import { index, pgTable, timestamp, varchar } from "drizzle-orm/pg-core"
+import { index, pgTable, timestamp, uuid, varchar } from "drizzle-orm/pg-core"
 
 import { usersTable } from "../user/sql"
 
 export const organizationsTable = pgTable(
   "organization",
   {
-    id: varchar("id", { length: 255 }).primaryKey().$defaultFn(randomUUID),
+    id: uuid().primaryKey().defaultRandom(),
     name: varchar("name", { length: 255 }).notNull(),
     shortName: varchar("short_name", { length: 255 }),
     slug: varchar("slug", { length: 255 }).notNull(),
@@ -17,20 +16,20 @@ export const organizationsTable = pgTable(
       .notNull()
       .default(sql`now()`),
   },
-  (table) => [index("slug_idx").on(table.slug)]
+  (table) => [index().on(table.slug)]
 )
 
 export const membersTable = pgTable(
   "member",
   {
-    id: varchar("id", { length: 255 }).primaryKey().$defaultFn(randomUUID),
-    userId: varchar("user_id", { length: 255 })
+    id: uuid().primaryKey().defaultRandom(),
+    userId: uuid()
       .references(() => usersTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
       })
       .notNull(),
-    organizationId: varchar("organization_id", { length: 255 })
+    organizationId: uuid()
       .references(() => organizationsTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
@@ -41,29 +40,26 @@ export const membersTable = pgTable(
       .notNull()
       .default(sql`now()`),
   },
-  (table) => [
-    index("user_idx").on(table.userId),
-    index("org_idx").on(table.organizationId),
-  ]
+  (table) => [index().on(table.userId), index().on(table.organizationId)]
 )
 
 export const invitationsTable = pgTable(
   "invitation",
   {
-    id: varchar("id", { length: 255 }).primaryKey().$defaultFn(randomUUID),
+    id: uuid().primaryKey().defaultRandom(),
     email: varchar("email", { length: 255 })
       .references(() => usersTable.email, {
         onDelete: "cascade",
         onUpdate: "cascade",
       })
       .notNull(),
-    inviterId: varchar("inviter_id", { length: 255 })
+    inviterId: uuid()
       .references(() => usersTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
       })
       .notNull(),
-    organizationId: varchar("organization_id", { length: 255 })
+    organizationId: uuid()
       .references(() => organizationsTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
@@ -77,8 +73,8 @@ export const invitationsTable = pgTable(
       .default(sql`now()`),
   },
   (table) => [
-    index("email_idx").on(table.email),
-    index("inviter_idx").on(table.inviterId),
-    index("org_idx").on(table.organizationId),
+    index().on(table.email),
+    index().on(table.inviterId),
+    index().on(table.organizationId),
   ]
 )

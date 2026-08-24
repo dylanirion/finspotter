@@ -15,12 +15,16 @@ import {
 import { sessionsTable } from "../auth/session/sql"
 import { usersTable } from "../auth/user/sql"
 import { verificationTokensTable } from "../auth/verificationToken/sql"
-import { detectionsTable } from "../detection/sql"
+import {
+  annotationTypeEnum,
+  detectionSourceEnum,
+  detectionsTable,
+} from "../detection/sql"
 import { exifTable } from "../exif/sql"
 import { individualsTable } from "../individual/sql"
 import { locationsTable } from "../location/sql"
 import { mediaMetaTable, mediaTable } from "../media/sql"
-import { namesTable } from "../name/sql"
+import { namesTable, nameTypeEnum } from "../name/sql"
 import { submissionsTable } from "../submission/sql"
 import { subscribersTable } from "../subscriber/sql"
 import { tagsTable } from "../tag/sql"
@@ -31,12 +35,15 @@ export {
   annotationsTable,
   annotationMetaTable,
   annotationsIncrementerTable,
+  detectionSourceEnum,
+  annotationTypeEnum,
   detectionsTable,
   individualsTable,
   exifTable,
   mediaTable,
   mediaMetaTable,
-  locationsTable,
+  //locationsTable,
+  nameTypeEnum,
   namesTable,
   organizationsTable,
   membersTable,
@@ -82,10 +89,12 @@ export const individualsRelations = relations(individualsTable, ({ many }) => ({
 }))
 
 export const mediaRelations = relations(mediaTable, ({ one, many }) => ({
+  /*
   location: one(locationsTable, {
     fields: [mediaTable.id],
     references: [locationsTable.mediaId],
   }),
+  */
   annotations: many(annotationsTable),
   exif: many(exifTable),
   meta: many(mediaMetaTable),
@@ -154,12 +163,15 @@ export default {
   annotationsTable,
   annotationMetaTable,
   annotationsIncrementerTable,
+  detectionSourceEnum,
+  annotationTypeEnum,
   detectionsTable,
   individualsTable,
   exifTable,
   mediaTable,
   mediaMetaTable,
-  locationsTable,
+  //locationsTable,
+  nameTypeEnum,
   namesTable,
   organizationsTable,
   sessionsTable,

@@ -1,4 +1,3 @@
-import { randomUUID } from "crypto"
 import { type ExtractionFunction } from "@finspotter/config/pipeline"
 import {
   foreignKey,
@@ -8,6 +7,7 @@ import {
   pgTable,
   primaryKey,
   timestamp,
+  uuid,
   varchar,
 } from "drizzle-orm/pg-core"
 
@@ -18,11 +18,8 @@ import { mediaTable } from "../media/sql"
 export const annotationsTable = pgTable(
   "annotations",
   {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .notNull()
-      .$defaultFn(randomUUID),
-    mediaId: varchar("media_id", { length: 36 })
+    id: uuid().primaryKey().notNull().defaultRandom(),
+    mediaId: uuid()
       .references(() => mediaTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
@@ -30,17 +27,17 @@ export const annotationsTable = pgTable(
       .notNull(),
     detectionId: integer("detection_id").notNull(),
     //TODO: remove this? replace with individual?
-    individualId: varchar("individual_id", { length: 36 }).references(
-      () => individualsTable.id,
-      { onDelete: "cascade", onUpdate: "cascade" }
-    ),
+    individualId: uuid().references(() => individualsTable.id, {
+      onDelete: "cascade",
+      onUpdate: "cascade",
+    }),
     numFeatures:
       json("num_features").$type<Record<ExtractionFunction, string>>(),
     updatedAt: timestamp("updated_at"),
   },
   (table) => [
-    index("media_idx").on(table.mediaId),
-    index("individual_idx").on(table.individualId),
+    index().on(table.mediaId),
+    index().on(table.individualId),
     foreignKey({
       columns: [table.mediaId, table.detectionId, table.updatedAt],
       foreignColumns: [
@@ -58,7 +55,7 @@ export const annotationsTable = pgTable(
 export const annotationMetaTable = pgTable(
   "annotation_meta",
   {
-    annotationId: varchar("annotation_id", { length: 36 })
+    annotationId: uuid()
       .references(() => annotationsTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
@@ -68,13 +65,13 @@ export const annotationMetaTable = pgTable(
     value: varchar("value", { length: 255 }).notNull(),
   },
   (table) => [
-    index("media_idx").on(table.annotationId),
+    index().on(table.annotationId),
     primaryKey({ columns: [table.annotationId, table.key] }),
   ]
 )
 
 export const annotationsIncrementerTable = pgTable("annotation_incrementer", {
-  mediaId: varchar("media_id", { length: 36 })
+  mediaId: uuid()
     .references(() => mediaTable.id, {
       onDelete: "cascade",
       onUpdate: "cascade",

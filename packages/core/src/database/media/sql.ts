@@ -1,21 +1,14 @@
-import { randomUUID } from "crypto"
-import { index, pgTable, primaryKey, varchar } from "drizzle-orm/pg-core"
+import { index, pgTable, primaryKey, uuid, varchar } from "drizzle-orm/pg-core"
 
-export const mediaTable = pgTable(
-  "media",
-  {
-    id: varchar("id", { length: 36 })
-      .primaryKey()
-      .notNull()
-      .$defaultFn(randomUUID),
-    src: varchar("src", { length: 255 }).notNull(),
-  }
-)
+export const mediaTable = pgTable("media", {
+  id: uuid().primaryKey().notNull().defaultRandom(),
+  src: varchar("src", { length: 255 }).notNull(),
+})
 
 export const mediaMetaTable = pgTable(
   "media_meta",
   {
-    mediaId: varchar("media_id", { length: 36 })
+    mediaId: uuid()
       .references(() => mediaTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
@@ -25,7 +18,7 @@ export const mediaMetaTable = pgTable(
     value: varchar("value", { length: 255 }).notNull(),
   },
   (table) => [
-    index("media_idx").on(table.mediaId),
+    index().on(table.mediaId),
     primaryKey({ columns: [table.mediaId, table.key] }),
   ]
 )
