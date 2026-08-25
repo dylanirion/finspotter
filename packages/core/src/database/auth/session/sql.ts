@@ -23,7 +23,7 @@ export const sessionsTable = pgTable(
     createdAt: timestamp("created_at", { mode: "date" }).notNull(),
     updatedAt: timestamp("updated_at", { mode: "date" }).notNull(),
     expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
-    impersonatedBy: varchar("impersonated_by", { length: 255 }).references(
+    impersonatedBy: uuid().references(
       () => usersTable.id,
       {
         onDelete: "cascade",

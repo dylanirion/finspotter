@@ -14,7 +14,7 @@ export const organizationsTable = pgTable(
     metadata: varchar("metadata", { length: 255 }),
     createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
-      .default(sql`now()`),
+      .defaultNow(),
   },
   (table) => [index().on(table.slug)]
 )
@@ -38,7 +38,7 @@ export const membersTable = pgTable(
     role: varchar("role", { length: 255 }).notNull(),
     createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
-      .default(sql`now()`),
+      .defaultNow(),
   },
   (table) => [index().on(table.userId), index().on(table.organizationId)]
 )
@@ -70,7 +70,7 @@ export const invitationsTable = pgTable(
     expiresAt: timestamp("expires_at", { mode: "date" }).notNull(),
     createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
-      .default(sql`now()`),
+      .defaultNow(),
   },
   (table) => [
     index().on(table.email),

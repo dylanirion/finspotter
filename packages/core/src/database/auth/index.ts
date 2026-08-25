@@ -3,7 +3,7 @@ import "server-only"
 import { site } from "@finspotter/config/site"
 import { Template as ResetPasswordEmail } from "@finspotter/email/templates/ResetPassword"
 import { Template as VerifyEmail } from "@finspotter/email/templates/VerifyEmail"
-import { betterAuth } from "better-auth"
+import { betterAuth } from "better-auth" //todo better-auth/minimal
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { nextCookies } from "better-auth/next-js"
 import { admin, organization } from "better-auth/plugins"

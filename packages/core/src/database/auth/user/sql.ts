@@ -20,10 +20,9 @@ export const usersTable = pgTable(
     emailVerified: boolean("email_verified").default(false),
     createdAt: timestamp("created_at", { mode: "date" })
       .notNull()
-      .default(sql`now()`),
-    updatedAt: timestamp("updated_at", { mode: "date" }).default(
-      sql`now() ON UPDATE now()`
-    ),
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(
+    ).$onUpdate(() => new Date()),
     image: varchar("image", { length: 255 }),
     role: varchar("role", { length: 255 }).default("user"),
     banned: boolean("banned").default(false),

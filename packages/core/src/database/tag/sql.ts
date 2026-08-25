@@ -5,11 +5,13 @@ import { individualsTable } from "../individual/sql"
 export const tagsTable = pgTable(
   "tags",
   {
-    serialNumber: varchar("serial_number", { length: 255 }),
-    individualId: uuid().references(() => individualsTable.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    }),
+    serialNumber: varchar("serial_number", { length: 255 }).notNull(),
+    individualId: uuid()
+      .notNull()
+      .references(() => individualsTable.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
   },
   (table) => [
     primaryKey({

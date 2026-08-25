@@ -45,8 +45,8 @@ export const detectionsTable = pgTable(
     type: annotationTypeEnum(),
     score: real("score"),
     data: json("data").$type<AnnotationDataTypes[AnnotationType]>(),
-    createdAt: timestamp("created_at").defaultNow(),
-    createdBy: varchar("created_by", { length: 255 }).references(
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    createdBy: uuid().references(
       () => usersTable.id,
       {
         onDelete: "restrict",
