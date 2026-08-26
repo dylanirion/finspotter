@@ -1,21 +1,21 @@
-import { index, pgTable, primaryKey, uuid, varchar } from "drizzle-orm/pg-core"
+import { index, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core"
 
 export const mediaTable = pgTable("media", {
-  id: uuid().primaryKey().notNull().defaultRandom(),
-  src: varchar("src", { length: 255 }).notNull(),
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  src: text("src").notNull(),
 })
 
 export const mediaMetaTable = pgTable(
   "media_meta",
   {
-    mediaId: uuid()
+    mediaId: uuid("media_id")
       .references(() => mediaTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
       })
       .notNull(),
-    key: varchar("key", { length: 75 }).notNull(),
-    value: varchar("value", { length: 255 }).notNull(),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
   },
   (table) => [
     index().on(table.mediaId),

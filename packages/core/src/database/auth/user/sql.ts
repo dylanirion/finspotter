@@ -3,6 +3,7 @@ import {
   boolean,
   index,
   pgTable,
+  text,
   timestamp,
   uuid,
   varchar,
@@ -12,18 +13,17 @@ import {
 export const usersTable = pgTable(
   "user",
   {
-    id: uuid().primaryKey().defaultRandom(),
-    name: varchar("name", { length: 255 }),
-    firstName: varchar("first_name", { length: 255 }),
-    lastName: varchar("last_name", { length: 255 }),
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name"),
+    firstName: text("first_name"),
+    lastName: text("last_name"),
     email: varchar("email", { length: 255 }).notNull().unique(),
     emailVerified: boolean("email_verified").default(false),
-    createdAt: timestamp("created_at", { mode: "date" })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", { mode: "date" }).defaultNow(
-    ).$onUpdate(() => new Date()),
-    image: varchar("image", { length: 255 }),
+    createdAt: timestamp("created_at", { mode: "date" }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { mode: "date" })
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+    image: text("image"),
     role: varchar("role", { length: 255 }).default("user"),
     banned: boolean("banned").default(false),
     bannedReason: varchar("banned_reason", { length: 255 }),

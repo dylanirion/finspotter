@@ -1,16 +1,13 @@
-import {
-  index,
-  pgEnum,
-  pgTable,
-  text,
-  uuid,
-  varchar,
-} from "drizzle-orm/pg-core"
+import { index, pgEnum, pgTable, text, uuid } from "drizzle-orm/pg-core"
 
 import { organizationsTable } from "../auth/organization/sql"
 import { individualsTable } from "../individual/sql"
 
-export const nameTypeEnum = pgEnum("type", ["canonical", "nickname", "adoption"])
+export const nameTypeEnum = pgEnum("type", [
+  "canonical",
+  "nickname",
+  "adoption",
+])
 
 // where to put name prefixes? separate prefix from number? then we can suggest next name per species
 // should this be a more generic key value store
@@ -18,13 +15,13 @@ export const nameTypeEnum = pgEnum("type", ["canonical", "nickname", "adoption"]
 export const namesTable = pgTable(
   "names",
   {
-    individualId: uuid()
+    individualId: uuid("individual_id")
       .references(() => individualsTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
       })
       .notNull(),
-    organizationId: uuid()
+    organizationId: uuid("organization_id")
       .references(() => organizationsTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",

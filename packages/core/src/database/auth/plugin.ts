@@ -13,6 +13,7 @@ const nodeENV =
   (typeof process !== "undefined" && process.env && process.env.NODE_ENV) || ""
 const isDevelopment = nodeENV === "dev" || nodeENV === "development"
 
+//TODO: re-evaluate this flow in better-auth 1.7
 export const authPlugin = () => {
   return {
     id: "auth-plugin",
@@ -158,8 +159,7 @@ export const authPlugin = () => {
               value: user.user.id,
               identifier: `reset-password:${verificationToken}`,
               expiresAt,
-            },
-            ctx
+            }
           )
           const callbackURL = redirectTo ? encodeURIComponent(redirectTo) : ""
           const url = `${ctx.context.baseURL}/reset-password/${verificationToken}?callbackURL=${callbackURL}`
@@ -307,7 +307,7 @@ export const authPlugin = () => {
             [key: string]: any
           }
           const { email, ...additionalFields } = body
-          const isValidEmail = z.string().email().safeParse(email)
+          const isValidEmail = z.email().safeParse(email)
 
           if (!isValidEmail.success) {
             throw new APIError("BAD_REQUEST", {
@@ -336,7 +336,8 @@ export const authPlugin = () => {
           const additionalData = parseUserInput(
             ctx.context.options,
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            additionalFields as any
+            additionalFields as any,
+            "create"
           )
 
           let createdUser: User

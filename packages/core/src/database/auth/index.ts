@@ -7,7 +7,8 @@ import { betterAuth } from "better-auth" //todo better-auth/minimal
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { nextCookies } from "better-auth/next-js"
 import { admin, organization } from "better-auth/plugins"
-import { Resource } from "sst"
+
+//import { Resource } from "sst"
 
 import { db } from "../_drizzle"
 import schema from "../_drizzle/schema"
@@ -23,7 +24,8 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }) => {
       sendMail(
         user.email,
-        `${Resource.Email.from} <${Resource.Email.noreply}>`,
+        //`${Resource.Email.from} <${Resource.Email.noreply}>`,
+        "",
         `Reset Password Request for ${site.title}`,
         ResetPasswordEmail({ title: site.title, url: url })
       )
@@ -34,14 +36,15 @@ export const auth = betterAuth({
     sendVerificationEmail: async ({ user, url }) => {
       sendMail(
         user.email,
-        `${Resource.Email.from} <${Resource.Email.noreply}>`,
+        //`${Resource.Email.from} <${Resource.Email.noreply}>`,
+        "",
         `Verfiy your Email Address for ${site.title}`,
         VerifyEmail({ title: site.title, url: url })
       )
     },
   },
   database: drizzleAdapter(db, {
-    provider: "mysql",
+    provider: "pg",
     schema: {
       user: schema.usersTable,
       account: schema.accountsTable,
@@ -88,4 +91,9 @@ export const auth = betterAuth({
     authPlugin(),
     nextCookies(),
   ],
+  advanced: {
+    database: {
+      joins: true,
+    },
+  },
 })

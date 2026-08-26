@@ -6,9 +6,9 @@ import {
   json,
   pgTable,
   primaryKey,
+  text,
   timestamp,
   uuid,
-  varchar,
 } from "drizzle-orm/pg-core"
 
 import { detectionsTable } from "../detection/sql"
@@ -18,8 +18,8 @@ import { mediaTable } from "../media/sql"
 export const annotationsTable = pgTable(
   "annotations",
   {
-    id: uuid().primaryKey().notNull().defaultRandom(),
-    mediaId: uuid()
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    mediaId: uuid("media_id")
       .references(() => mediaTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
@@ -27,7 +27,7 @@ export const annotationsTable = pgTable(
       .notNull(),
     detectionId: integer("detection_id").notNull(),
     //TODO: remove this? replace with individual?
-    individualId: uuid().references(() => individualsTable.id, {
+    individualId: uuid("individual_id").references(() => individualsTable.id, {
       onDelete: "cascade",
       onUpdate: "cascade",
     }),
@@ -55,14 +55,14 @@ export const annotationsTable = pgTable(
 export const annotationMetaTable = pgTable(
   "annotation_meta",
   {
-    annotationId: uuid()
+    annotationId: uuid("annotation_id")
       .references(() => annotationsTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
       })
       .notNull(),
-    key: varchar("key", { length: 75 }).notNull(),
-    value: varchar("value", { length: 255 }).notNull(),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
   },
   (table) => [
     index().on(table.annotationId),
@@ -71,7 +71,7 @@ export const annotationMetaTable = pgTable(
 )
 
 export const annotationsIncrementerTable = pgTable("annotation_incrementer", {
-  mediaId: uuid()
+  mediaId: uuid("media_id")
     .references(() => mediaTable.id, {
       onDelete: "cascade",
       onUpdate: "cascade",

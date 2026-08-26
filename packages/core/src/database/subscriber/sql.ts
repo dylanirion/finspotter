@@ -1,4 +1,3 @@
-import { isNotNull } from "drizzle-orm"
 import { index, pgTable, primaryKey, uuid } from "drizzle-orm/pg-core"
 
 import { usersTable } from "../auth/user/sql"
@@ -7,13 +6,13 @@ import { mediaTable } from "../media/sql"
 export const subscribersTable = pgTable(
   "subscribers",
   {
-    mediaId: uuid()
+    mediaId: uuid("media_id")
       .notNull()
       .references(() => mediaTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
       }),
-    userId: uuid()
+    userId: uuid("user_id")
       .notNull()
       .references(() => usersTable.id, {
         onDelete: "cascade",

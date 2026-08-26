@@ -11,9 +11,9 @@ import {
   pgTable,
   primaryKey,
   real,
+  text,
   timestamp,
   uuid,
-  varchar,
 } from "drizzle-orm/pg-core"
 import { Resource } from "sst"
 
@@ -33,7 +33,7 @@ export const annotationTypeEnum = pgEnum("type", AnnotationTypes)
 export const detectionsTable = pgTable(
   "detections",
   {
-    mediaId: uuid()
+    mediaId: uuid("media_id")
       .references(() => mediaTable.id, {
         onDelete: "cascade",
         onUpdate: "cascade",
@@ -41,18 +41,15 @@ export const detectionsTable = pgTable(
       .notNull(),
     detectionId: integer("detection_id").notNull(),
     source: detectionSourceEnum(),
-    category: varchar("category", { length: 255 }),
+    category: text("category"),
     type: annotationTypeEnum(),
     score: real("score"),
     data: json("data").$type<AnnotationDataTypes[AnnotationType]>(),
     createdAt: timestamp("created_at").notNull().defaultNow(),
-    createdBy: uuid().references(
-      () => usersTable.id,
-      {
-        onDelete: "restrict",
-        onUpdate: "cascade",
-      }
-    ),
+    createdBy: uuid("created_by").references(() => usersTable.id, {
+      onDelete: "restrict",
+      onUpdate: "cascade",
+    }),
     //TODO: reviewers table
   },
   (table) => [

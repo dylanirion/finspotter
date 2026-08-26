@@ -7,17 +7,17 @@ import { individualsTable } from "../individual/sql"
 export const adoptionsTable = pgTable(
   "adoptions",
   {
-    id: uuid().primaryKey().notNull(),
+    id: uuid("id").primaryKey().notNull(),
     startDate: date("start_date").notNull(),
     endDate: date("end_date").notNull(),
-    orderId: uuid(),
-    userId: uuid()
+    orderId: uuid("order_id"),
+    userId: uuid("user_id")
       .references(() => usersTable.id, {
         onDelete: "restrict", // Cannot delete user if they have an adoption
         onUpdate: "cascade",
       })
       .notNull(),
-    individualId: uuid()
+    individualId: uuid("individual_id")
       .references(
         () => individualsTable.id,
         { onDelete: "restrict", onUpdate: "cascade" } // Cannot delete an individual if someone has adopted it
