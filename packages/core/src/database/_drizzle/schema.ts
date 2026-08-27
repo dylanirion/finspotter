@@ -32,8 +32,8 @@ import { tagsTable } from "../tag/sql"
 export {
   accountsTable,
   adoptionsTable,
-  annotationsTable,
   annotationMetaTable,
+  annotationsTable,
   annotationsIncrementerTable,
   detectionSourceEnum,
   annotationTypeEnum,

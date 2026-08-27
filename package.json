@@ -11,6 +11,7 @@
     "dev": "sst dev",
     "update": "pnpm up -riL",
     "drizzle-kit": "pnpm --filter @finspotter/core drizzle-kit",
+    "create-admin": "pnpm --filter @finspotter/core create-admin",
     "reset-deps": "rm -rf node_modules pnpm-lock.yaml && pnpm store prune && pnpm install",
     "sso": "aws sso login --sso-session=dylanirion"
   },

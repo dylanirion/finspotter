@@ -1,9 +1,7 @@
-import "server-only"
-
 import { site } from "@finspotter/config/site"
 import { Template as ResetPasswordEmail } from "@finspotter/email/templates/ResetPassword"
 import { Template as VerifyEmail } from "@finspotter/email/templates/VerifyEmail"
-import { betterAuth } from "better-auth" //todo better-auth/minimal
+import { betterAuth } from "better-auth/minimal"
 import { drizzleAdapter } from "better-auth/adapters/drizzle"
 import { nextCookies } from "better-auth/next-js"
 import { admin, organization } from "better-auth/plugins"
@@ -12,7 +10,6 @@ import { admin, organization } from "better-auth/plugins"
 
 import { db } from "../_drizzle"
 import schema from "../_drizzle/schema"
-import { sendMail } from "../../email"
 import { authPlugin } from "./plugin"
 
 export type Session = typeof auth.$Infer.Session
@@ -22,6 +19,7 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
+      const { sendMail } = await import("../../email")
       sendMail(
         user.email,
         //`${Resource.Email.from} <${Resource.Email.noreply}>`,
@@ -34,6 +32,7 @@ export const auth = betterAuth({
   emailVerification: {
     autoSignInAfterVerification: false,
     sendVerificationEmail: async ({ user, url }) => {
+      const { sendMail } = await import("../../email")
       sendMail(
         user.email,
         //`${Resource.Email.from} <${Resource.Email.noreply}>`,
@@ -94,6 +93,7 @@ export const auth = betterAuth({
   advanced: {
     database: {
       joins: true,
+      generateId: () => crypto.randomUUID(),
     },
   },
 })

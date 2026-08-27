@@ -23,6 +23,12 @@ First, start up a development environment:
 pnpm run dev
 ```
 
+Then create an admin user
+
+```bash
+pnpm run create-admin --email your@email.com --name "Your Name" --data '{"firstName": "Your", "lastName": "Name"}'
+```
+
 Then open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 ## Structure

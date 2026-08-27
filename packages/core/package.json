@@ -15,7 +15,8 @@
     ]
   },
   "scripts": {
-    "drizzle-kit": "sst shell drizzle-kit"
+    "drizzle-kit": "sst shell drizzle-kit",
+    "create-admin": "sst shell --target Web -- pnpm dlx auth@latest create-admin --config src/database/auth/index.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.918.0",

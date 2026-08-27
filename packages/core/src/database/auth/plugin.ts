@@ -3,8 +3,6 @@ import { APIError, createAuthEndpoint } from "better-auth/api"
 import { parseUserInput } from "better-auth/db"
 import { z } from "zod"
 
-import { validateReCaptcha } from "../../recaptcha"
-
 const getDate = (span: number, unit: "sec" | "ms" = "ms") => {
   return new Date(Date.now() + (unit === "sec" ? span * 1000 : span))
 }
@@ -40,6 +38,7 @@ export const authPlugin = () => {
           }
         }
 
+        const { validateReCaptcha } = await import("../../recaptcha")
         return await validateReCaptcha(captchaToken)
       } catch (_error) {
         const errorMessage =

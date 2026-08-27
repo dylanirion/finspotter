@@ -41,6 +41,7 @@ export function init(
     environment: {
       BASE_URL: $dev ? `http://${domain}` : `https://${domain}`,
       BETTER_AUTH_SECRET: secret.BetterAuthSecret.value,
+      BETTER_AUTH_URL: $dev ? `http://${domain}` : `https://${domain}`,
       // https://www.pulumi.com/registry/packages/gcp/api-docs/projects/apikey/
       //NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: secret.GoogleMapsApiKey.value,
       //NEXT_PUBLIC_GOOGLE_MAPS_API_MAPID: secret.GoogleMapsMapId.value,
