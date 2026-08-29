@@ -1,6 +1,6 @@
 import { index, pgEnum, pgTable, text, uuid } from "drizzle-orm/pg-core"
 
-import { organizationsTable } from "../auth/organization/sql"
+import { organizationsTable } from "../organization/sql"
 import { individualsTable } from "../individual/sql"
 
 export const nameTypeEnum = pgEnum("type", [

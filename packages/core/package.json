@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    "./auth": "./src/database/auth/index.ts",
-    "./auth/*": "./src/database/auth/*.ts",
+    "./auth": "./src/auth/index.ts",
+    "./auth/*": "./src/auth/*.ts",
     "./recaptcha": "./src/recaptcha/index.ts",
     "./email": "./src/email/index.ts",
     "./storage": "./src/storage/index.ts",
@@ -15,8 +15,8 @@
     ]
   },
   "scripts": {
-    "drizzle-kit": "sst shell drizzle-kit",
-    "create-admin": "sst shell --target Web -- pnpm dlx auth@latest create-admin --config src/database/auth/index.ts"
+    "drizzle-kit": "sst shell -- drizzle-kit",
+    "create-admin": "sst shell --target Web -- pnpm dlx auth@latest create-admin --config src/auth/index.ts"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.918.0",
@@ -24,13 +24,14 @@
     "@aws-sdk/client-sesv2": "^3.1116.0",
     "@aws-sdk/lib-dynamodb": "^3.918.0",
     "@aws-sdk/s3-presigned-post": "^3.918.0",
+    "@better-auth/drizzle-adapter": "^1.7.2",
     "@finspotter/annotations": "workspace:*",
     "@finspotter/config": "workspace:*",
     "@finspotter/email": "workspace:*",
     "@google-cloud/recaptcha-enterprise": "^6.3.1",
     "@neondatabase/serverless": "^1.1.0",
-    "better-auth": "^1.7.1",
-    "drizzle-orm": "^0.45.2",
+    "better-auth": "^1.7.2",
+    "drizzle-orm": "1.0.0-rc.4",
     "jsx-email": "^2.8.3",
     "nodemailer": "^9.0.5",
     "server-only": "^0.0.1",
@@ -45,7 +46,7 @@
     "@types/geojson": "^7946.0.16",
     "@types/nodemailer": "^7.0.3",
     "@types/react": "^19.2.7",
-    "drizzle-kit": "^0.31.10",
+    "drizzle-kit": "1.0.0-rc.4",
     "eslint-config-prettier": "^10.1.8",
     "react": "^19.2.3"
   }

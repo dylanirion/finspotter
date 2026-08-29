@@ -1,6 +1,6 @@
 import { date, index, pgTable, uuid } from "drizzle-orm/pg-core"
 
-import { usersTable } from "../auth/user/sql"
+import { usersTable } from "../user/sql"
 import { individualsTable } from "../individual/sql"
 
 //TODO: organization (non-user) adoptions?

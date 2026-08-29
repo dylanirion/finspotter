@@ -1,7 +1,7 @@
 import { index, inet, pgTable, timestamp, uuid } from "drizzle-orm/pg-core"
 
-import { organizationsTable } from "../auth/organization/sql"
-import { usersTable } from "../auth/user/sql"
+import { organizationsTable } from "../organization/sql"
+import { usersTable } from "../user/sql"
 import { mediaTable } from "../media/sql"
 
 export const submissionsTable = pgTable(

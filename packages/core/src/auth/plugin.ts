@@ -38,7 +38,7 @@ export const authPlugin = () => {
           }
         }
 
-        const { validateReCaptcha } = await import("../../recaptcha")
+        const { validateReCaptcha } = await import("../recaptcha")
         return await validateReCaptcha(captchaToken)
       } catch (_error) {
         const errorMessage =

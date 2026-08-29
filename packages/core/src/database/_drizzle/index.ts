@@ -16,7 +16,7 @@ import { type PgColumn, type PgTable } from "drizzle-orm/pg-core"
 import { Resource } from "sst"
 
 import { Sort as _Sort, type Where as _Where, type Operation } from "../"
-import schema from "./schema"
+import { relations } from "./schema"
 
 export type Where<Key extends string = string> = _Where<Key, AnyColumn>
 export type Sort<Key extends string = string> = _Sort<Key>
@@ -28,15 +28,14 @@ export type MaybeAliased<T> = {
 // Connect only once to the database
 // https://github.com/vercel/next.js/discussions/26427#discussioncomment-898067
 declare const globalThis: {
-  drizzleGlobal: NeonHttpDatabase<typeof schema> | undefined
+  drizzleGlobal: NeonHttpDatabase<typeof relations> | undefined
 } & typeof global
 
 function connectOnceToDatabase() {
   if (!globalThis.drizzleGlobal) {
     globalThis.drizzleGlobal = drizzle({
       client: neon(Resource.Database.host),
-      schema,
-      mode: "default",
+      relations,
       logger: process.env.NODE_ENV === "development" ? true : false,
     })
   }

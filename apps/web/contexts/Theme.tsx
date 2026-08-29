@@ -174,11 +174,11 @@ const ThemeScript = memo(
         {`(${clientScript.toString()})(${args})`}
       </Script>
       */
-      <script
+      <template
         dangerouslySetInnerHTML={{
           __html: `(${clientScript.toString()})(${args})`,
         }}
-        suppressHydrationWarning
+
       />
     )
   }

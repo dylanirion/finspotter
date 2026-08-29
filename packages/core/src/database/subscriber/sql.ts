@@ -1,6 +1,6 @@
 import { index, pgTable, primaryKey, uuid } from "drizzle-orm/pg-core"
 
-import { usersTable } from "../auth/user/sql"
+import { usersTable } from "../user/sql"
 import { mediaTable } from "../media/sql"
 
 export const subscribersTable = pgTable(

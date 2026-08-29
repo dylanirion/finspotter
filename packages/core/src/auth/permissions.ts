@@ -2,8 +2,8 @@ import { Session } from "next-auth"
 
 import { type Annotation } from "../annotation"
 import { type Media } from "../media"
-import { type Organization } from "./organization"
-import { type User } from "./user"
+import { type Organization } from "../organization"
+import { type User } from "../user"
 
 //TODO: resource type for routes?
 
