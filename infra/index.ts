@@ -3,7 +3,7 @@ import {
   type AnnotationPackage,
 } from "@finspotter/annotations/init"
 //import { MediaProcessingPipeline } from "@finspotter/pipeline/MediaProcessingPipeline"
-import { PipelinePackage } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
+import { type PipelinePackage } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
 
 import { db } from "./database"
 import { domain } from "./domain"
@@ -12,11 +12,16 @@ import { gcpIdentityProvider, recaptcha } from "./gcp"
 import { secret } from "./secret"
 import { bucket } from "./storage"
 
-export function init(
-  pipelinePackages: PipelinePackage[],
-  annotationPackages: AnnotationPackage[]
-) {
-  //generateExports(annotationPackages)
+export interface InfraConfig {
+  pipeline?: PipelinePackage[]
+  annotations?: AnnotationPackage[]
+}
+
+export function defineInfra({
+  pipeline: packages = [],
+  annotations = [],
+}: InfraConfig = {}) {
+  //generateExports(annotations)
 
   /*
   new sst.x.DevCommand("ImageProxy", {
@@ -28,8 +33,8 @@ export function init(
   })
 
   const pipeline = new MediaProcessingPipeline("MediaProcessingPipeline", {
-    packages: pipelinePackages,
-    bucket: bucket,
+    packages,
+    bucket,
   })
   */
 

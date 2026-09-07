@@ -22,41 +22,47 @@ export default $config({
   },
   async run() {
     /*
+    const bbox_xywh = await import("@finspotter/annotation-bbox_xywh")
+    const bbox_xywha = await import("@finspotter/annotation-bbox_xywha")
+    const segmentation = await import("@finspotter/annotation-segmentation")
+    const bbox_xywha_segmentation = await import(
+      "@finspotter/annotation-bbox_xywha_segmentation"
+    )
     const annotations = [
-      await import("@finspotter/annotation-bbox_xywh"),
-      await import("@finspotter/annotation-bbox_xywha"),
-      await import("@finspotter/annotation-segmentation"),
-      await import("@finspotter/annotation-bbox_xywha_segmentation"),
+      bbox_xywh,
+      bbox_xywha,
+      segmentation,
+      bbox_xywha_segmentation,
     ]
+
     //TODO: expose a notify() function or similar( event?) to display warning when no model or index exists? (ask to upload or train/create)
-    const yolact = await import("@finspotter/yolact").then((mod) => mod.default)
-    const hesaff = await import("@finspotter/hesaff").then((mod) => mod.default)
-    const faiss = await import("@finspotter/faiss").then((mod) => mod.default)
-    const pgvector = await import("@finspotter/pgvector").then(
-      (mod) => mod.default
-    )
-    const ratio = await import("@finspotter/ratio").then((mod) => mod.default)
-    const homog = await import("@finspotter/homog").then((mod) => mod.default)
-    const sum = await import("@finspotter/sum").then((mod) => mod.default)
+    const { default: yolact } = await import("@finspotter/yolact")
+    const { default: hesaff } = await import("@finspotter/hesaff")
+    const { default: faiss } = await import("@finspotter/faiss")
+    const { default: pgvector } = await import("@finspotter/pgvector")
+    const { default: ratio } = await import("@finspotter/ratio")
+    const { default: homog } = await import("@finspotter/homog")
+    const { default: sum } = await import("@finspotter/sum")
     */
-    const infra = await import("./infra").then((mod) =>
-      mod.init(
-        [
-          /*
-          yolact.setAnnotationType(annotations[2].name), //segmentation
-          hesaff, //TODO: register ellipse? (separate class from Annotation, just needs draw method)
-          faiss,
-          pgvector.vector({ hesaff: 128 }),
-          ratio,
-          homog,
-          sum,
-          */
-        ]
-        /*annotations*/
-      )
-    )
+
+    const { defineInfra } = await import("./infra")
+    const { web } = defineInfra({
+      /*
+      annotations,
+      pipeline: [
+        yolact.setAnnotationType(segmentation.name),
+        hesaff, //TODO: register ellipse? (separate class from Annotation, just needs draw method)
+        faiss,
+        pgvector.vector({ hesaff: 128 }),
+        ratio,
+        homog,
+        sum,
+      ],
+      */
+    })
+
     return {
-      url: infra.web?.url,
+      url: web.url,
     }
   },
 })
