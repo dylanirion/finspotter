@@ -16,7 +16,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "components/ui/inputs/Button"
 import { Spinner } from "components/ui/spinners/Spinner"
 import { useCaptchaAction } from "hooks/useCaptchaAction"
-import { forgetPassword, signIn } from "hooks/useSession"
+import { requestPasswordReset, signIn } from "hooks/useSession"
 import { cn } from "lib/utils"
 import toast, { Toaster } from "react-hot-toast"
 
@@ -66,7 +66,7 @@ export function SignInForm() {
     "password_reset",
     useCallback(
       (token: string, email: string) =>
-        forgetPassword({
+        requestPasswordReset({
           email,
           redirectTo: "/reset-password",
           fetchOptions: { headers: { "x-captcha-token": token } },

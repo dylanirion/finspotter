@@ -1,11 +1,7 @@
-import { generateId, type BetterAuthPlugin, type User } from "better-auth"
+import { type BetterAuthPlugin, type User } from "better-auth"
 import { APIError, createAuthEndpoint } from "better-auth/api"
 import { parseUserInput } from "better-auth/db"
 import { z } from "zod"
-
-const getDate = (span: number, unit: "sec" | "ms" = "ms") => {
-  return new Date(Date.now() + (unit === "sec" ? span * 1000 : span))
-}
 
 const nodeENV =
   (typeof process !== "undefined" && process.env && process.env.NODE_ENV) || ""
@@ -18,7 +14,7 @@ export const authPlugin = () => {
     onRequest: async (request, ctx) => {
       try {
         if (
-          !["/sign-up/email", "/sign-in/email", "/forget-password"].some(
+          !["/sign-up/email", "/sign-in/email", "/request-password-reset"].some(
             (endpoint) => request.url.includes(endpoint)
           )
         )
@@ -62,119 +58,6 @@ export const authPlugin = () => {
       }
     },
     endpoints: {
-      // Overwrites "forget-password" endpoint with a version that also checks for existence of account
-      // https://github.com/better-auth/better-auth/blob/c91c6830d4bbf8fb3782bb09b1860be7d51cbdec/packages/better-auth/src/api/routes/reset-password.ts#L144
-      forgetPassword: createAuthEndpoint(
-        "/forget-password",
-        {
-          method: "POST",
-          body: z.object({
-            /**
-             * The email address of the user to send a password reset email to.
-             */
-            email: z.email().meta({
-              description:
-                "The email address of the user to send a password reset email to",
-            }),
-            /**
-             * The URL to redirect the user to reset their password.
-             * If the token isn't valid or expired, it'll be redirected with a query parameter `?
-             * error=INVALID_TOKEN`. If the token is valid, it'll be redirected with a query parameter `?
-             * token=VALID_TOKEN
-             */
-            redirectTo: z
-              .string()
-              .meta({
-                description:
-                  "The URL to redirect the user to reset their password. If the token isn't valid or expired, it'll be redirected with a query parameter `?error=INVALID_TOKEN`. If the token is valid, it'll be redirected with a query parameter `?token=VALID_TOKEN",
-              })
-              .optional(),
-          }),
-          metadata: {
-            openapi: {
-              description: "Send a password reset email to the user",
-              responses: {
-                "200": {
-                  description: "Success",
-                  content: {
-                    "application/json": {
-                      schema: {
-                        type: "object",
-                        properties: {
-                          status: {
-                            type: "boolean",
-                          },
-                          message: {
-                            type: "string",
-                          },
-                        },
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-        async (ctx) => {
-          if (!ctx.context.options.emailAndPassword?.sendResetPassword) {
-            ctx.context.logger.error(
-              "Reset password isn't enabled. Please pass an emailAndPassword.sendResetPassword function in your auth config!"
-            )
-            throw new APIError("BAD_REQUEST", {
-              message: "Reset password isn't enabled",
-            })
-          }
-          const { email, redirectTo } = ctx.body
-
-          const user = await ctx.context.internalAdapter.findUserByEmail(
-            email,
-            {
-              includeAccounts: true,
-            }
-          )
-          const account = user?.accounts.find(
-            (account) => account.providerId === "credential"
-          )
-          if (!user || !account) {
-            ctx.context.logger.error("Reset Password: Account not found", {
-              email,
-            })
-            return ctx.json({
-              status: true,
-              message:
-                "If this email exists in our system, check your email for the reset link",
-            })
-          }
-          const defaultExpiresIn = 60 * 60 * 1
-          const expiresAt = getDate(
-            ctx.context.options.emailAndPassword.resetPasswordTokenExpiresIn ||
-              defaultExpiresIn,
-            "sec"
-          )
-          const verificationToken = generateId(24)
-          await ctx.context.internalAdapter.createVerificationValue(
-            {
-              value: user.user.id,
-              identifier: `reset-password:${verificationToken}`,
-              expiresAt,
-            }
-          )
-          const callbackURL = redirectTo ? encodeURIComponent(redirectTo) : ""
-          const url = `${ctx.context.baseURL}/reset-password/${verificationToken}?callbackURL=${callbackURL}`
-          await ctx.context.options.emailAndPassword.sendResetPassword(
-            {
-              user: user.user,
-              url,
-              token: verificationToken,
-            },
-            ctx.request
-          )
-          return ctx.json({
-            status: true,
-          })
-        }
-      ),
       // An endpoint "create/user" for creating a user (but no credential account)
       createUserOnly: createAuthEndpoint(
         "/create/user",

@@ -18,7 +18,7 @@ const authClient = createAuthClient({
 export type Session = typeof authClient.$Infer.Session
 export type Organization = typeof authClient.$Infer.Organization
 
-export const { signIn, signUp, signOut, forgetPassword, resetPassword } =
+export const { signIn, signUp, signOut, requestPasswordReset, resetPassword } =
   authClient
 
 export function useSession(options?: Partial<AnyUseQueryOptions>) {
