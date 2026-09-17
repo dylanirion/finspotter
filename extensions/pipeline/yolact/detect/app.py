@@ -164,8 +164,8 @@ def detection(event: EventData) -> list[Response]:
             environ["BUCKET"],
             (
                 f"{media_path.parent}/{media_id}/{i}.jpg"
-                if str(media_path.parent).startswith("_assets/temp")
-                else f"_assets/pending/{pk}/{media_id}/{i}.jpg"
+                if str(media_path.parent).startswith("temp")
+                else f"pending/{pk}/{media_id}/{i}.jpg"
             ),
         )
 

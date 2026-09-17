@@ -99,7 +99,7 @@ export async function doSubmission({
       pk: submissionId,
       sk: `media#${id}`,
       media_id: id,
-      bucket: Resource.UploadAssets.name,
+      bucket: Resource.Uploads.name,
       key: src,
     })),
     detect: {
@@ -109,7 +109,7 @@ export async function doSubmission({
       //TODO: get config from database
       config: {
         model: {
-          bucket: Resource.UploadAssets.name,
+          bucket: Resource.Uploads.name,
           key: "_assets/yolact/weights/yolact_base_255_11000.pth",
         },
         dataset: {
@@ -182,8 +182,8 @@ export async function getUploadUrl(
     )
 
   return await getPresignedPostUrl({
-    bucket: Resource.UploadAssets.name,
-    prefix: "_assets",
+    bucket: Resource.Uploads.name,
+    prefix: "",
     key: "temp/daily/" + key + "." + extension(contentType),
     expiry: 300,
     contentType,
@@ -231,10 +231,10 @@ function copyMediaToPending(
   return Promise.all(
     encounters.map(async (encounter) => {
       const { name, ext } = parse(encounter.src)
-      const key = `_assets/pending/${submissionId}/${name}${ext}`
+      const key = `pending/${submissionId}/${name}${ext}`
       await copyObject(
-        `${Resource.UploadAssets.name}/_assets/${encounter.src}`,
-        Resource.UploadAssets.name,
+        `${Resource.Uploads.name}/${encounter.src}`,
+        Resource.Uploads.name,
         key
       )
       return {
@@ -256,7 +256,7 @@ function addMediaToSubmissionTable(
       sk: `media#${id}`,
       media_id: id,
       type,
-      uri: { bucket: Resource.UploadAssets.name, key: src },
+      uri: { bucket: Resource.Uploads.name, key: src },
       gsi1pk: "result",
       created_at: new Date().toISOString(),
     }))
@@ -274,7 +274,7 @@ function addMediaToSubmissionTableAsResult(
       sk: `media#${id}`,
       media_id: id,
       type,
-      uri: { bucket: Resource.UploadAssets.name, key: src },
+      uri: { bucket: Resource.Uploads.name, key: src },
       gsi1pk: "result",
       final: true,
       created_at: new Date().toISOString(),

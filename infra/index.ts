@@ -22,16 +22,25 @@ export function defineInfra({
   annotations = [],
 }: InfraConfig = {}) {
   //generateExports(annotations)
-
-  /*
-  new sst.x.DevCommand("ImageProxy", {
-    link: [bucket],
+  
+  new sst.x.DevCommand("RustFS", {
     dev: {
       autostart: true,
-      command: "tsx src/devImageProxy.ts",
+      command: `docker run \
+        --rm \
+        -p 9000:9000 \
+        -p 9001:9001 \
+        -v ${process.cwd()}/.sst/storage/rustfs:/data \
+        -e RUSTFS_ACCESS_KEY="rustfs" \
+        -e RUSTFS_SECRET_KEY="rustfs" \
+        -e RUSTFS_ADDRESS=":9000" \
+        -e RUSTFS_CORS_ALLOWED_ORIGINS="http://localhost:3000" \
+        -e RUSTFS_OBS_LOG_STDOUT_ENABLED=true \
+        rustfs/rustfs:latest`,
     },
   })
 
+  /*
   const pipeline = new MediaProcessingPipeline("MediaProcessingPipeline", {
     packages,
     bucket,
@@ -54,18 +63,7 @@ export function defineInfra({
       //NEXT_PUBLIC_REALTIME_ENDPOINT: $interpolate`https://${pipeline.realtime.dns.http}/event`,
       //NEXT_PUBLIC_REALTIME_REGION: aws.getRegionOutput().name,
       //NEXT_PUBLIC_IDENTITY_POOL: pipeline.identityPool,
-    },
-    transform: {
-      assets: {
-        transform: {
-          bucket: (args, opts) => {
-            args.bucket = bucket.name
-            opts.id = bucket.name
-          },
-          policy: {},
-        },
-      },
-    },
+    }
   })
 
   return { db, bucket, email, /*pipeline,*/ secret, web }

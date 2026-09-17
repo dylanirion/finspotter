@@ -36,7 +36,7 @@ export function IndividualCard({ props }: { props: IndividualSummary }) {
           key={id}
           className="rounded object-cover"
           alt="Individual image"
-          src={src!}
+          src={`/api/media/${src}`}
           fill
           priority
           sizes="(min-width: 640px) 14rem, 20rem" //NB: should reflect card width w-56

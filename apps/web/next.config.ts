@@ -12,12 +12,6 @@ export default {
         pathname: "**",
       },
     ],
-    /*
-    ...(process.env.NODE_ENV === "development" && {
-      loader: "custom",
-      loaderFile: "./lib/devImageLoader.ts",
-    }),
-    */
     qualities: [75, 100],
   },
   compiler: {

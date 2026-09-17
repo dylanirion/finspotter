@@ -28,9 +28,9 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
-    "UploadAssets": {
+    "Uploads": {
       "name": string
-      "type": "sst.aws.Bucket"
+      "type": "sst.sst.Linkable"
     }
     "Web": {
       "type": "sst.aws.Nextjs"

@@ -17,13 +17,27 @@ npx sst secret set SESSender [--stage <stagename>] [--fallback]
 
 ## Local development
 
-First, start up a development environment:
+Make sure rustfs has write access for local storage during dev
+
+```bash
+chown -R 10001:10001 $(pwd)/.sst/storage/rustfs
+```
+
+Start up a development environment:
 
 ```bash
 pnpm run dev
 ```
 
-Then create an admin user
+> Note: You only need to perform the following two steps when setting up your development environment
+
+In a separate terminal, create the dev bucket
+
+```bash
+pnpm run create-dev storage
+```
+
+And create an admin user
 
 ```bash
 pnpm run create-admin --email your@email.com --name "Your Name" --data '{"firstName": "Your", "lastName": "Name"}'

@@ -15,6 +15,7 @@ type VideoProps = DetailedHTMLProps<
   > & { fill: boolean }
 
 //TODO: custom controls
+//TODO: src needs to run through api/media ?
 export function Video(props: VideoProps) {
   const { src, type, fill, ...rest } = props
   if (!src) return

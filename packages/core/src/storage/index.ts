@@ -24,6 +24,7 @@ import { type Condition } from "../database"
 interface ObjectMetadata {
   size?: number
   contentType?: string
+  cacheControl?: string
   lastModified?: Date
   [key: string]: unknown
 }
@@ -126,7 +127,7 @@ interface StorageRepository {
     contentLength,
   }: {
     bucket: string
-    prefix: string
+    prefix?: string
     key: string
     expiry: number
     contentType: string
@@ -327,6 +328,7 @@ class AwsStorageRepository implements StorageRepository {
       body: response.Body,
       metadata: {
         contentType: response.ContentType,
+        cacheControl: response.CacheControl,
         size: response.ContentLength,
         lastModified: response.LastModified,
         ...response.Metadata,
@@ -344,6 +346,7 @@ class AwsStorageRepository implements StorageRepository {
 
     return {
       contentType: response.ContentType,
+      cacheControl: response.CacheControl,
       size: response.ContentLength,
       lastModified: response.LastModified,
       ...response.Metadata,
@@ -391,7 +394,7 @@ class AwsStorageRepository implements StorageRepository {
     contentLength,
   }: {
     bucket: string
-    prefix: string
+    prefix?: string
     key: string
     expiry: number
     contentType: string
@@ -399,7 +402,7 @@ class AwsStorageRepository implements StorageRepository {
   }) => {
     const { url, fields } = await createPresignedPost(s3, {
       Bucket: bucket,
-      Key: `${prefix}/${key}`,
+      Key: prefix ? `${prefix}/${key}` : key,
       Conditions: [
         ["content-length-range", contentLength, contentLength],
         { "Content-Type": contentType },

@@ -118,7 +118,7 @@ export async function createDemoJob({
       //TODO: get config from database
       config: {
         model: {
-          bucket: Resource.UploadAssets.name,
+          bucket: Resource.Uploads.name,
           key: "_assets/yolact/weights/yolact_base_255_11000.pth",
         },
         dataset: {
@@ -168,8 +168,8 @@ export async function createDetectionJob(mediaId: string[]) {
       media_id: item.id,
       type: item.exif.content_type,
       uri: {
-        bucket: Resource.UploadAssets.name,
-        key: `_assets${item.src}`,
+        bucket: Resource.Uploads.name,
+        key: item.src,
       },
       gsi1pk: "result",
       created_at: createdAt,
@@ -188,8 +188,8 @@ export async function createDetectionJob(mediaId: string[]) {
       pk: submissionId,
       sk: `media#${item.id}`,
       media_id: item.id,
-      bucket: Resource.UploadAssets.name,
-      key: `_assets${item.src}`,
+      bucket: Resource.Uploads.name,
+      key: item.src,
     })),
     detect: {
       //TODO: get default detection function from database
@@ -198,7 +198,7 @@ export async function createDetectionJob(mediaId: string[]) {
       //TODO: get config from database
       config: {
         model: {
-          bucket: Resource.UploadAssets.name,
+          bucket: Resource.Uploads.name,
           key: "_assets/yolact/weights/yolact_base_255_11000.pth",
         },
         dataset: {
@@ -295,7 +295,7 @@ export async function getSingleMedia(id: string) {
     if (cur.sk.startsWith("media")) {
       const media = cur as MediaItem
       acc.id = id
-      acc.src = media.uri.key.replace(/^_assets\//, "")
+      acc.src = media.uri.key
     }
     if (cur.sk.startsWith("detection")) {
       const detection = cur as DetectionItem
@@ -319,7 +319,7 @@ export async function getSingleMedia(id: string) {
 
 /*
 export async function getDetection(key: string): Promise<DetectionResponse> {
-  const { body, metadata } = await getObject(Resource.UploadAssets.name, key)
+  const { body, metadata } = await getObject(Resource.Uploads.name, key)
   const json = JSON.parse(await streamToString(body as Readable))
   return { type: metadata.type, ...json }
 }

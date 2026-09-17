@@ -22,7 +22,7 @@ export function IndividualPanel({
   const {
     props: { id, ...imgProps },
   } = getImageProps({
-    src: media.src,
+    src: `/api/media/${media.src}`,
     width: Number(media.exif?.width ?? 4000),
     height: Number(media.exif?.height ?? 3000),
     alt: "",
@@ -55,7 +55,7 @@ export function IndividualPanel({
                     i === focalItemIndex,
                 })}
                 key={item.media.id}
-                src={item.media.src}
+                src={`/api/media/${item.media.src}`}
                 onClick={() => setFocalItemIndex(i)}
                 alt="Encounter Image"
                 fill

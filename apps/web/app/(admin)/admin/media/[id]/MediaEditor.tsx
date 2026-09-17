@@ -171,7 +171,7 @@ export function MediaEditor({ id }: { id: string }) {
   })
 
   const { props: imgProps } = getImageProps({
-    src: media.src,
+    src: `/api/media/${media.src}`,
     width: Number(media.exif?.width ?? 4000),
     height: Number(media.exif?.height ?? 3000),
     alt: "",

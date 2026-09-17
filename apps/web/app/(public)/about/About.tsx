@@ -143,7 +143,7 @@ export function About() {
         mediaId: String(id),
         type: file.file.type,
         bucket,
-        key: `_assets/${key}`,
+        key,
         token: jobToken,
       })
     },
