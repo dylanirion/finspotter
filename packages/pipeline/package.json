@@ -2,7 +2,7 @@
   "name": "@finspotter/pipeline",
   "version": "0.0.0",
   "private": true,
-    "exports": {
+  "exports": {
     "./MediaProcessingPipeline": "./src/MediaProcessingPipeline/index.ts",
     "./MediaProcessingPipeline/*": "./src/MediaProcessingPipeline/*.ts",
     "./invoke": "./src/invoke.ts",
@@ -12,7 +12,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@aws-sdk/client-sfn": "^3.918.0",
+    "@aws-sdk/client-sfn": "^3.1130.0",
     "@finspotter/annotations": "workspace:*",
     "@finspotter/config": "workspace:*",
     "zod": "^4.1.12"

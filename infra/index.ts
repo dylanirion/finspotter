@@ -50,7 +50,7 @@ export function defineInfra({
   const web = new sst.aws.Nextjs("Web", {
     domain,
     path: "./apps/web",
-    openNextVersion: "4.1.0",
+    openNextVersion: "4.1.5",
     link: [db, bucket, email, /*pipeline, */recaptcha, gcpIdentityProvider],
     environment: {
       BASE_URL: $dev ? `http://${domain}` : `https://${domain}`,
