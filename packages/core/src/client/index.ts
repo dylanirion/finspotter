@@ -17,8 +17,8 @@ export function getClient<C extends any>(
         endpoint: "http://localhost:9000",
         forcePathStyle: true,
         credentials: {
-          accessKeyId: "rustfs",
-          secretAccessKey: "rustfs",
+          accessKeyId: process.env.RUSTFS_ACCESS_KEY,
+          secretAccessKey: process.env.RUSTFS_SECRET_KEY,
         },
       })
     }
