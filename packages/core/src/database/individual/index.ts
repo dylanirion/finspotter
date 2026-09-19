@@ -10,6 +10,7 @@ import {
   buildWhereClause,
   db,
   MaybeAliased,
+  omitWhereColumn,
   Where,
 } from "../_drizzle"
 import { annotationsCTE, type AnnotationWithMedia } from "../annotation"
@@ -42,7 +43,7 @@ export interface Individual {
 type IndividualsTable = typeof individualsTable
 type IndividualsColumns = MaybeAliased<IndividualsTable["_"]["columns"]>
 type IndividualRepository = Pick<
-  Repository<Individual, {all: IndividualSummary}>,
+  Repository<Individual, { all: IndividualSummary }>,
   "findOne" | "findAll"
 >
 
@@ -226,10 +227,17 @@ const drizzleIndividualRepository: IndividualRepository = {
         .from(searchSpace)
         .where(buildWhereClause(searchSpace, where)) // search filter
     )
+    const speciesFacetSource = db.$with("species_facet_source").as(
+      db
+        .select({ id: searchSpace.id, species: searchSpace.species })
+        .from(searchSpace)
+        .where(buildWhereClause(searchSpace, omitWhereColumn(where, "species")))
+    )
     const categoryFacets = buildFacetCTE(
       "category_facets",
-      filteredIndividuals,
-      "species"
+      speciesFacetSource,
+      speciesFacetSource.species,
+      speciesFacetSource.id
     )
     const pagedIndividuals = db.$with("paged_individuals").as(
       db
@@ -262,18 +270,22 @@ const drizzleIndividualRepository: IndividualRepository = {
         summary,
         searchSpace,
         filteredIndividuals,
+        speciesFacetSource,
         categoryFacets,
         pagedIndividuals
       )
       .select({
-        total: db.$count(individualsTable).as("total"),
+        total:
+          sql<number>`(select count(distinct ${filteredIndividuals.id}) from ${filteredIndividuals})`
+            .mapWith(Number)
+            .as("total"),
         items: sql<
           IndividualSummary[]
         >`json_arrayagg(coalesce(json_object(${sql.join(pagedEntries, sql`, `)}), json_object()))`.as(
           "items"
         ),
         facetCounts: buildFacetCounts([
-          { table: categoryFacets, key: "species", value: "count" },
+          { name: "species", table: categoryFacets },
         ]),
       })
       .from(pagedIndividuals)

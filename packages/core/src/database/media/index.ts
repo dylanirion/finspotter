@@ -9,6 +9,7 @@ import {
   buildOrderClause,
   buildWhereClause,
   db,
+  omitWhereColumn,
   type Where,
 } from "../_drizzle"
 import {
@@ -76,6 +77,8 @@ const drizzleMediaRepository: MediaRepository = {
           type: annotations.type,
           contentType: flatExif.contentType,
           fileSize: flatExif.length,
+          width: flatExif.width,
+          height: flatExif.height,
           captureDate: flatExif.dateTime,
         })
         .from(media)
@@ -97,12 +100,32 @@ const drizzleMediaRepository: MediaRepository = {
         .from(searchSpace)
         .where(buildWhereClause(searchSpace, where)) // search filter
     )
+    const categoryFacetSource = db.$with("category_facet_source").as(
+      db
+        .select({ id: searchSpace.id, category: searchSpace.category })
+        .from(searchSpace)
+        .where(
+          buildWhereClause(searchSpace, omitWhereColumn(where, "category"))
+        )
+    )
+    const typeFacetSource = db.$with("type_facet_source").as(
+      db
+        .select({ id: searchSpace.id, type: searchSpace.type })
+        .from(searchSpace)
+        .where(buildWhereClause(searchSpace, omitWhereColumn(where, "type")))
+    )
     const categoryFacets = buildFacetCTE(
       "category_facets",
-      filteredMedia,
-      "category"
+      categoryFacetSource,
+      categoryFacetSource.category,
+      categoryFacetSource.id
     )
-    const typeFacets = buildFacetCTE("type_facets", filteredMedia, "type")
+    const typeFacets = buildFacetCTE(
+      "type_facets",
+      typeFacetSource,
+      typeFacetSource.type,
+      typeFacetSource.id
+    )
     const pagedMedia = db.$with("paged_media").as(
       db
         .selectDistinct({
@@ -134,20 +157,25 @@ const drizzleMediaRepository: MediaRepository = {
         searchSpace,
         jsonAnnotations,
         filteredMedia,
+        categoryFacetSource,
+        typeFacetSource,
         categoryFacets,
         typeFacets,
         pagedMedia
       )
       .select({
-        total: db.$count(media).as("total"),
+        total:
+          sql<number>`(select count(distinct ${filteredMedia.id}) from ${filteredMedia})`
+            .mapWith(Number)
+            .as("total"),
         items: sql<
           Media[]
         >`json_arrayagg(coalesce(json_object(${sql.join(pagedEntries, sql`, `)}), json_object()))`.as(
           "items"
         ),
         facetCounts: buildFacetCounts([
-          { table: categoryFacets, key: "category", value: "count" },
-          { table: typeFacets, key: "type", value: "count" },
+          { name: "category", table: categoryFacets },
+          { name: "type", table: typeFacets },
         ]),
       })
       .from(pagedMedia)
@@ -155,7 +183,7 @@ const drizzleMediaRepository: MediaRepository = {
   },
 
   async insert(media) {
-    return db.insert(mediaTable).values(media).$returningId()
+    return db.insert(mediaTable).values(media).returning()
   },
 
   async update(media) {

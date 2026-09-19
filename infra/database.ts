@@ -6,6 +6,8 @@ const project = new neon.Project("NeonProject", {
   historyRetentionSeconds: 0,
 })
 
+//TODO: share single prod owned project, and add dev branch?
+
 export const db = new sst.Linkable("Database", {
   properties: {
     host: project.connectionUri,

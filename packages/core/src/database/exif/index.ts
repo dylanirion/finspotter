@@ -1,7 +1,6 @@
-import { eq, sql, type Subquery, type WithSubquery } from "drizzle-orm"
-import { type SubqueryWithSelection } from "drizzle-orm/mysql-core"
+import { eq, sql } from "drizzle-orm"
 
-import { db, type MaybeAliased } from "../_drizzle"
+import { db } from "../_drizzle"
 import { mediaTable } from "../media/sql"
 import { exifTable } from "./sql"
 
@@ -18,56 +17,37 @@ export interface ExifData {
   time_zone?: string
 }
 
-type ExifTable = typeof exifTable
-type ExifColumns = MaybeAliased<ExifTable["_"]["columns"]>
-type ExifSubquery =
-  | Subquery<string, ExifColumns>
-  | SubqueryWithSelection<ExifColumns, string>
-type ExifCTE = WithSubquery<string, ExifColumns>
-
 const selectFromExif = () =>
-  db
-    .select({
-      mediaId: exifTable.mediaId,
-      key: exifTable.key,
-      value:
-        sql`case when ${exifTable.key} in ('length', 'width', 'height') then cast(${exifTable.value} as unsigned) when ${exifTable.key} = 'date_time' then cast(str_to_date(${exifTable.value}, '%Y:%m:%d %H:%i:%s') as datetime) else ${exifTable.value} end`.as(
-          "value"
-        ),
-    })
-    .from(exifTable)
-    .$dynamic()
+  db.select().from(exifTable).$dynamic()
 
-const selectJsonExif = <T extends (ExifSubquery | ExifCTE) & ExifColumns>(
-  source: T
-) =>
+export const jsonExifSubQuery = () =>
   db
     .select({
-      mediaId: source.mediaId,
       json: sql<
         Partial<ExifData>
-      >`coalesce(json_objectagg(${source.key}, ${source.value}), json_object())`.as(
+      >`coalesce(jsonb_object_agg(${exifTable.key}, ${exifTable.value}), '{}'::jsonb)`.as(
         "exifJson"
       ),
     })
-    .from(source)
-    .$dynamic()
-
-export const exifSubQuery = () =>
-  selectFromExif().where(eq(exifTable.mediaId, mediaTable.id)).as("exif")
-
-export const jsonExifSubQuery = () =>
-  selectJsonExif(exifSubQuery()).as("jsonExif")
+    .from(exifTable)
+    .where(eq(exifTable.mediaId, mediaTable.id))
+    .as("jsonExif")
 
 export const exifCTE = () => db.$with("exif").as(selectFromExif())
 
 export function exifCTEs() {
   const exif = exifCTE()
   const jsonExifCTE = db.$with("jsonExif").as(
-    selectJsonExif(exif)
-      .where(
-        sql`${exif.key} in ("content_type", "length", "date_time", "width", "height")`
-      )
+    db
+      .select({
+        mediaId: exif.mediaId,
+        json: sql<
+          Partial<ExifData>
+        >`coalesce(jsonb_object_agg(${exif.key}, ${exif.value}), '{}'::jsonb)`.as(
+          "exifJson"
+        ),
+      })
+      .from(exif)
       .groupBy(exif.mediaId)
   )
   const flatExifCTE = db.$with("flat_exif").as(
@@ -75,15 +55,23 @@ export function exifCTEs() {
       .select({
         mediaId: exif.mediaId,
         contentType:
-          sql`max(case when ${exif.key} = 'content_type' then ${exif.value} end)`.as(
+          sql<string | null>`max(${exif.value}) filter (where ${exif.key} = 'content_type')`.as(
             "content_type"
           ),
         length:
-          sql`max(case when ${exif.key} = 'length' then cast(${exif.value} as unsigned) end)`.as(
+          sql<number | null>`max(case when ${exif.key} = 'length' then cast(${exif.value} as integer) end)`.as(
             "length"
           ),
+        width:
+          sql<number | null>`max(case when ${exif.key} = 'width' then cast(${exif.value} as integer) end)`.as(
+            "width"
+          ),
+        height:
+          sql<number | null>`max(case when ${exif.key} = 'height' then cast(${exif.value} as integer) end)`.as(
+            "height"
+          ),
         dateTime:
-          sql`max(case when ${exif.key} = 'date_time' then cast(${exif.value} as datetime) end)`.as(
+          sql<Date | null>`max(case when ${exif.key} = 'date_time' then to_timestamp(${exif.value}, 'YYYY:MM:DD HH24:MI:SS')::timestamp end)`.as(
             "date_time"
           ),
       })

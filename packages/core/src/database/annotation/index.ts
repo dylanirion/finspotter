@@ -4,17 +4,7 @@ import {
   AnnotationDataTypes,
   type AnnotationType,
 } from "@finspotter/annotations"
-import {
-  and,
-  eq,
-  getTableColumns,
-  sql,
-  type Subquery,
-  type WithSubquery,
-} from "drizzle-orm"
-import { type SubqueryWithSelection } from "drizzle-orm/mysql-core"
-import { type MySqlQueryResult } from "drizzle-orm/mysql2"
-import { Resource } from "sst"
+import { and, eq, getColumns, sql } from "drizzle-orm"
 
 import { type Repository } from "../"
 import {
@@ -23,7 +13,8 @@ import {
   buildOrderClause,
   buildWhereClause,
   db,
-  type MaybeAliased,
+  jsonbBuildObject,
+  omitWhereColumn,
   type Where,
 } from "../_drizzle"
 import { detectionsSubQuery } from "../detection"
@@ -32,15 +23,14 @@ import { selectFromMediaWithExif, type Media } from "../media"
 import { mediaTable } from "../media/sql"
 import { annotationsIncrementerTable, annotationsTable } from "./sql"
 
-type DetectionFunctions =
-  keyof typeof Resource.MediaProcessingPipeline.detectionFunctions
+type DetectionSource = (typeof detectionsTable.$inferSelect)["source"]
 
 export type Annotation = {
   [T in AnnotationType]: {
     id: string
     mediaId: string
     detectionId: number
-    source: "manual" | DetectionFunctions | null
+    source: DetectionSource
     category: string | null
     type: T | null
     data: AnnotationDataTypes[T] | null
@@ -49,20 +39,6 @@ export type Annotation = {
     createdBy?: string
   }
 }[AnnotationType]
-
-type AnnotationsTable = typeof annotationsTable
-type AnnotationsColumns = MaybeAliased<AnnotationsTable["_"]["columns"]>
-
-type DetectionsTable = typeof detectionsTable
-type DetectionsColumns = MaybeAliased<DetectionsTable["_"]["columns"]>
-
-type AnnotationsSubquery =
-  | Subquery<string, AnnotationsColumns & DetectionsColumns>
-  | SubqueryWithSelection<AnnotationsColumns & DetectionsColumns, string>
-type AnnotationsCTE = WithSubquery<
-  string,
-  AnnotationsColumns & DetectionsColumns
->
 
 type WithMedia<T> = T & { media: Pick<Media, "id" | "src" | "exif"> }
 
@@ -78,6 +54,12 @@ const drizzleAnnotationRepository: AnnotationRepository = {
     return selectFromAnnotationsWithDetectionAndMedia()
       .where(buildWhereClause(annotationsTable, where))
       .then((result) => (result[0] as AnnotationWithMedia) ?? null)
+  },
+
+  async findMany(where: Where<"id">) {
+    return selectFromAnnotationsWithDetectionAndMedia()
+      .where(buildWhereClause(annotationsTable, where))
+      .then((result) => result as AnnotationWithMedia[])
   },
 
   async findAll({ limit, offset, where, sort }) {
@@ -115,12 +97,32 @@ const drizzleAnnotationRepository: AnnotationRepository = {
         .from(searchSpace)
         .where(buildWhereClause(searchSpace, where)) // search filter
     )
+    const categoryFacetSource = db.$with("category_facet_source").as(
+      db
+        .select({ id: searchSpace.id, category: searchSpace.category })
+        .from(searchSpace)
+        .where(
+          buildWhereClause(searchSpace, omitWhereColumn(where, "category"))
+        )
+    )
+    const typeFacetSource = db.$with("type_facet_source").as(
+      db
+        .select({ id: searchSpace.id, type: searchSpace.type })
+        .from(searchSpace)
+        .where(buildWhereClause(searchSpace, omitWhereColumn(where, "type")))
+    )
     const categoryFacets = buildFacetCTE(
       "category_facets",
-      filteredAnnotations,
-      "category"
+      categoryFacetSource,
+      categoryFacetSource.category,
+      categoryFacetSource.id
     )
-    const typeFacets = buildFacetCTE("type_facets", filteredAnnotations, "type")
+    const typeFacets = buildFacetCTE(
+      "type_facets",
+      typeFacetSource,
+      typeFacetSource.type,
+      typeFacetSource.id
+    )
     const pagedAnnotations = db.$with("paged_annotations").as(
       db
         .select({
@@ -134,28 +136,30 @@ const drizzleAnnotationRepository: AnnotationRepository = {
         .limit(limit)
         .offset(offset)
     )
-    const pagedEntries = Object.entries(pagedAnnotations._.selectedFields)
-      .map(([key, value]) => [sql`'${sql.raw(key)}'`, value])
-      .flat()
     return db
       .with(
         annotations,
         searchSpace,
         filteredAnnotations,
+        categoryFacetSource,
+        typeFacetSource,
         categoryFacets,
         typeFacets,
         pagedAnnotations
       )
       .select({
-        total: db.$count(annotations).as("total"),
+        total:
+          sql<number>`(select count(distinct ${filteredAnnotations.id}) from ${filteredAnnotations})`
+            .mapWith(Number)
+            .as("total"),
         items: sql<
           AnnotationWithMedia[]
-        >`json_arrayagg(coalesce(json_object(${sql.join(pagedEntries, sql`, `)}), json_object()))`.as(
+        >`coalesce(jsonb_agg(${jsonbBuildObject<AnnotationWithMedia>(pagedAnnotations._.selectedFields)}), '[]'::jsonb)`.as(
           "items"
         ),
         facetCounts: buildFacetCounts([
-          { table: categoryFacets, key: "category", value: "count" },
-          { table: typeFacets, key: "type", value: "count" },
+          { name: "category", table: categoryFacets },
+          { name: "type", table: typeFacets },
         ]),
       })
       .from(pagedAnnotations)
@@ -169,20 +173,22 @@ const drizzleAnnotationRepository: AnnotationRepository = {
         const { mediaId, source, category, type, score, data, createdBy } =
           annotation
         return db.transaction(async (tx) => {
-          await tx
-            .update(annotationsIncrementerTable)
-            .set({
-              lastId: sql`last_insert_id( ${annotationsIncrementerTable.lastId} + 1 )`,
+          const [counter] = await tx
+            .insert(annotationsIncrementerTable)
+            .values({ mediaId, lastId: 1 })
+            .onConflictDoUpdate({
+              target: annotationsIncrementerTable.mediaId,
+              set: {
+                lastId: sql`${annotationsIncrementerTable.lastId} + 1`,
+              },
             })
-            .where(eq(annotationsIncrementerTable.mediaId, mediaId))
+            .returning({ detectionId: annotationsIncrementerTable.lastId })
 
-          const [res]: MySqlQueryResult<{ lastId: number }> = (await tx.execute<
-            { lastId: number }[]
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          >(sql`select last_insert_id() AS lastId`)) as any
+          if (!counter) throw new Error("Failed to allocate detection ID")
+
           await tx.insert(detectionsTable).values({
             mediaId,
-            detectionId: res[0].lastId,
+            detectionId: counter.detectionId,
             source,
             category,
             type,
@@ -193,8 +199,12 @@ const drizzleAnnotationRepository: AnnotationRepository = {
           })
           return tx
             .insert(annotationsTable)
-            .values({ mediaId, detectionId: res[0].lastId, updatedAt: now })
-            .$returningId()
+            .values({
+              mediaId,
+              detectionId: counter.detectionId,
+              updatedAt: now,
+            })
+            .returning({ id: annotationsTable.id })
         })
       })
     )
@@ -246,15 +256,12 @@ const drizzleAnnotationRepository: AnnotationRepository = {
   },
 }
 
-const selectFromAnnotations = () =>
-  db.select().from(annotationsTable).$dynamic()
-
 const selectFromAnnotationsWithDetection = () => {
   const detections = detectionsSubQuery()
   return db
     .select({
-      ...getTableColumns(detectionsTable),
-      ...getTableColumns(annotationsTable),
+      ...getColumns(detectionsTable),
+      ...getColumns(annotationsTable),
     })
     .from(annotationsTable)
     .leftJoinLateral(detections, sql`true`)
@@ -266,18 +273,13 @@ const selectFromAnnotationsWithDetectionAndMedia = () => {
     .where(eq(mediaTable.id, annotationsTable.mediaId))
     .as("media")
   const detections = detectionsSubQuery()
-  const mediaFields = Object.entries(media._.selectedFields)
-    .map(([key, value]) => [sql`'${sql.raw(key)}'`, value])
-    .flat()
   return db
     .select({
-      ...getTableColumns(detectionsTable),
-      ...getTableColumns(annotationsTable),
-      media: sql<
-        Pick<Media, "id" | "src" | "exif">
-      >`coalesce(json_object(${sql.join(mediaFields, sql`, `)}), json_object())`.as(
-        "media"
-      ),
+      ...getColumns(detectionsTable),
+      ...getColumns(annotationsTable),
+      media: jsonbBuildObject<Pick<Media, "id" | "src" | "exif">>(
+        media._.selectedFields
+      ).as("media"),
     })
     .from(annotationsTable)
     .leftJoinLateral(detections, sql`true`)
@@ -285,45 +287,41 @@ const selectFromAnnotationsWithDetectionAndMedia = () => {
     .$dynamic()
 }
 
-export const annotationsSubQuery = () =>
-  selectFromAnnotationsWithDetection()
-    .where(eq(annotationsTable.mediaId, mediaTable.id))
-    .as("annotations")
-
 export const annotationsCTE = () =>
   db.$with("annotations").as(selectFromAnnotationsWithDetection())
 
-const selectJsonAnnotations = <
-  T extends (AnnotationsSubquery | AnnotationsCTE) &
-    AnnotationsColumns &
-    DetectionsColumns,
->(
-  source: T
-) => {
-  const annotationFields = Object.entries(source._.selectedFields)
-    .map(([key, value]) => [sql`'${sql.raw(key)}'`, value])
-    .flat()
+export const jsonAnnotationsSubQuery = () => {
+  const annotations = selectFromAnnotationsWithDetection()
+    .where(eq(annotationsTable.mediaId, mediaTable.id))
+    .as("annotations")
+
   return db
     .select({
-      mediaId: source.mediaId,
       json: sql<
         Annotation[]
-      >`json_arrayagg(coalesce(json_object(${sql.join(annotationFields, sql`, `)}), json_object()))`.as(
+      >`coalesce(jsonb_agg(${jsonbBuildObject<Annotation>(annotations._.selectedFields)}), '[]'::jsonb)`.as(
         "annotationJson"
       ),
     })
-    .from(source)
-    .$dynamic()
+    .from(annotations)
+    .as("jsonAnnotations")
 }
-
-export const jsonAnnotationsSubQuery = () =>
-  selectJsonAnnotations(annotationsSubQuery()).as("jsonAnnotations")
 
 export const annotationCTEs = () => {
   const annotations = annotationsCTE()
-  const jsonAnnotationsCTE = db
-    .$with("jsonAnnotations")
-    .as(selectJsonAnnotations(annotations).groupBy(annotations.mediaId))
+  const jsonAnnotationsCTE = db.$with("jsonAnnotations").as(
+    db
+      .select({
+        mediaId: annotations.mediaId,
+        json: sql<
+          Annotation[]
+        >`coalesce(jsonb_agg(${jsonbBuildObject<Annotation>(annotations._.selectedFields)}), '[]'::jsonb)`.as(
+          "annotationJson"
+        ),
+      })
+      .from(annotations)
+      .groupBy(annotations.mediaId)
+  )
   return { annotations, jsonAnnotations: jsonAnnotationsCTE }
 }
 

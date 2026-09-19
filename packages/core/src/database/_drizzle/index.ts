@@ -1,9 +1,10 @@
 import { neon } from "@neondatabase/serverless"
 import {
   and,
-  count,
+  countDistinct,
   eq,
   inArray,
+  isNotNull,
   like,
   or,
   sql,
@@ -43,6 +44,17 @@ function connectOnceToDatabase() {
 }
 
 export const db = connectOnceToDatabase()
+
+export function jsonbBuildObject<T>(
+  fields: Record<string, AnyColumn | SQL | SQL.Aliased>
+) {
+  const entries = Object.entries(fields).flatMap(([key, value]) => [
+    sql`${key}`,
+    value,
+  ])
+
+  return sql<T>`jsonb_build_object(${sql.join(entries, sql`, `)})`
+}
 
 type ColumnKeys<T, TAlias extends string = string> = T extends PgTable
   ? keyof T["_"]["columns"] & string
@@ -147,46 +159,71 @@ export function buildWhereClause<TSource extends PgTable | Subquery>(
   )
 }
 
-type Facet<
-  TSource extends PgTable | Subquery,
-  TCol extends keyof TSource & string,
-> = {
-  table: TSource
-  key: TCol
-  value: TCol
+export function omitWhereColumn<Key extends string>(
+  where: Where<Key> | undefined,
+  column: string
+): Where<Key> | undefined {
+  if (!where) return undefined
+
+  if ("and" in where) {
+    const conditions = (where.and ?? [])
+      .map((condition) => omitWhereColumn(condition, column))
+      .filter((condition): condition is Where<Key> => condition !== undefined)
+    return conditions.length > 0 ? { and: conditions } : undefined
+  }
+
+  if ("or" in where) {
+    const conditions = (where.or ?? [])
+      .map((condition) => omitWhereColumn(condition, column))
+      .filter((condition): condition is Where<Key> => condition !== undefined)
+    return conditions.length > 0 ? { or: conditions } : undefined
+  }
+
+  const conditions = Object.entries(where).filter(([key]) => key !== column)
+  return conditions.length > 0
+    ? (Object.fromEntries(conditions) as Where<Key>)
+    : undefined
 }
 
-export function buildFacetCTE<
-  TSource extends PgTable | Subquery,
-  TCol extends keyof TSource & string,
->(name: string, source: TSource, colName: TCol) {
-  const column = source[colName] as PgColumn
+export function buildFacetCTE(
+  name: string,
+  source: Subquery,
+  value: PgColumn | SQL.Aliased,
+  countBy: PgColumn | SQL.Aliased
+) {
+  const valueExpression = sql`${value}`
+  const countByExpression = sql`${countBy}`
 
   return db.$with(name).as(
     db
       .select({
-        [colName]: sql<string>`coalesce(${column}, 'null')`.as(colName),
-        count: count().as("count"),
+        value: sql<string>`${valueExpression}`.as("value"),
+        count: countDistinct(countByExpression).as("count"),
       })
       .from(source)
-      .groupBy(column)
+      .where(isNotNull(valueExpression))
+      .groupBy(valueExpression)
   )
 }
 
-export function buildFacetCounts<
-  TSource extends PgTable | Subquery,
-  TCol extends keyof TSource & string,
->(specs: Facet<TSource, TCol>[]) {
+type Facet = {
+  name: string
+  table: ReturnType<typeof buildFacetCTE>
+}
+
+export function buildFacetCounts(specs: Facet[]) {
   const entries = specs.map(
     (s) =>
-      sql`${sql.raw(`'${s.key}'`)}, ${sql`(select json_objectagg(${s.table[s.key]}, ${s.table[s.value]}) from ${s.table})`}`
+      sql`${s.name}, ${sql`(select coalesce(jsonb_object_agg(${s.table.value}, ${s.table.count}), '{}'::jsonb) from ${s.table})`}`
   )
 
-  const expr = sql<string>`json_object(${sql.join(entries, sql`, `)})`
+  const expr = sql<
+    Record<string, Record<string, number>>
+  >`jsonb_build_object(${sql.join(entries, sql`, `)})`
 
   return expr
     .mapWith({
-      mapFromDriverValue: (facets: object) => {
+      mapFromDriverValue: (facets) => {
         const result: Record<string, Map<string, number>> = {}
         for (const [facet, obj] of Object.entries(facets)) {
           result[facet] = new Map(Object.entries(obj))
