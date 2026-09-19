@@ -1,9 +1,7 @@
-import { type Blob } from "buffer"
-import { createHash } from "crypto"
 import { type Readable } from "stream"
 import { clsx, type ClassValue } from "clsx"
-import { customRandom, urlAlphabet } from "nanoid"
 import { twMerge } from "tailwind-merge"
+import { v5 as uuid } from "uuid"
 
 export type PartialBy<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>
 
@@ -166,12 +164,19 @@ export function humanReadableBytes(
   return bytes.toFixed(dp) + " " + units[u]
 }
 
-export async function nano(file: File | Response | Blob) {
-  const hash = await file
-    .arrayBuffer()
-    .then((buffer) => new Uint8Array(buffer))
-    .then((array) => createHash("sha256").update(array).digest())
-  return customRandom(urlAlphabet, 19, () => new Uint8Array(hash))()
+export async function generateUuidFromFile(file: File) {
+  const namespace = "b9b24957-4630-4b3d-8603-de7db43eb446"
+  const arrayBuffer = await file.arrayBuffer()
+  const fileBytes = new Uint8Array(arrayBuffer)
+
+  const hashBuffer = await crypto.subtle.digest("SHA-256", fileBytes)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  const fileHashHex = hashArray
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")
+
+  // 4. Pass the deterministic string hash to the uuid package
+  return uuid(fileHashHex, namespace)
 }
 
 export async function streamToString(stream: Readable): Promise<string> {

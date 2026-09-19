@@ -1,5 +1,6 @@
 "use client"
 
+import { randomUUID } from "crypto"
 import {
   createContext,
   useCallback,
@@ -20,8 +21,7 @@ import exifr from "exifr/dist/lite.esm.mjs"
 import { useCustomEqualityEffect } from "hooks/useCustomEqualityEffect"
 import { useSession } from "hooks/useSession"
 import { useXhrPostWithProgress } from "hooks/useXhrPostWithProgress"
-import { nano } from "lib/utils" //TODO: drop this or use it in place of uuid everywhere? mneumonic ids could be fun?
-import { customAlphabet } from "nanoid/non-secure"
+import { generateUuidFromFile } from "lib/utils"
 import { useReCaptcha } from "next-recaptcha-v3"
 import toast from "react-hot-toast"
 
@@ -30,11 +30,6 @@ import {
   type EncounterSubmissionData,
   type PayloadTypes,
 } from "./EncounterSubmissionReducer"
-
-const makeSubmissionId = customAlphabet(
-  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-  21
-)
 
 export const EncounterSubmissionContext = createContext<
   | {
@@ -53,25 +48,25 @@ export function EncounterSubmissionProvider({
 }: PropsWithChildren<object>) {
   const { executeRecaptcha } = useReCaptcha()
   const [data, dispatch] = useReducer(reducer, [])
-  const [submissionId] = useState(makeSubmissionId)
+  const [submissionId] = useState(randomUUID)
   const { post, progress, uploadedFileList } = useXhrPostWithProgress()
   const canSubmit = progress.every((item) => item.progress === 100) //TODO: can also check required fields (like user or email!)
   const { data: session } = useSession()
   const user = session?.user
 
   const handleGetRecaptchaToken = useCallback(
-  async (action: string) => {
-    if (!executeRecaptcha || user) return
-    try {
-      return await executeRecaptcha(action)
-    } catch (err) {
-      console.error("reCAPTCHA failed:", err)
-      toast.error("Something went wrong", { id: "captcha-error" })
-      return
-    }
-  },
-  [executeRecaptcha, user]
-)
+    async (action: string) => {
+      if (!executeRecaptcha || user) return
+      try {
+        return await executeRecaptcha(action)
+      } catch (err) {
+        console.error("reCAPTCHA failed:", err)
+        toast.error("Something went wrong", { id: "captcha-error" })
+        return
+      }
+    },
+    [executeRecaptcha, user]
+  )
 
   const handleBackgroundUpload = useCallback(
     async (data: EncounterSubmissionData[]) =>
@@ -192,7 +187,7 @@ export function fileListToEncounterSubmissionData(
   getRecaptchaToken: (action: string) => Promise<string | undefined>
 ) {
   const response = fileList.map(async (file: File) => {
-    const id = (await nano(file)) ?? file.name
+    const id = await generateUuidFromFile(file)
     //TODO: https://github.com/mattiasw/ExifReader?
     const exif = await exifr.parse(file).catch(() => ({}))
     const token = await getRecaptchaToken(`upload_image`)

@@ -1,5 +1,6 @@
 "use client"
 
+import { randomUUID } from "crypto"
 import {
   createContext,
   useCallback,
@@ -18,8 +19,7 @@ import { Fold } from "components/sections/Fold"
 import { useCarouselApi } from "components/ui/carousel/Carousel"
 import { useRealtime } from "hooks/useRealtime"
 import { useSession } from "hooks/useSession"
-import { nano } from "lib/utils"
-import { customAlphabet } from "nanoid/non-secure"
+import { generateUuidFromFile } from "lib/utils"
 import { useReCaptcha } from "next-recaptcha-v3"
 import toast from "react-hot-toast"
 
@@ -31,10 +31,6 @@ import { DetectionResultStep } from "./DetectionResultStep"
 import { DetectionStep } from "./DetectionStep"
 import { SelectImageStep } from "./SelectImageStep"
 
-const makeSubmissionId = customAlphabet(
-  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-  21
-)
 //TODO: get this from config
 const permittedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
 
@@ -50,7 +46,7 @@ export const DemoContext = createContext<
 export function About() {
   const queryClient = useQueryClient()
   const { connect, subscribe } = useRealtime()
-  const [submissionId] = useState(makeSubmissionId)
+  const [submissionId] = useState(randomUUID)
   const [media, setMedia] = useState<DemoMedia | undefined>()
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
@@ -78,8 +74,12 @@ export function About() {
       try {
         return await executeRecaptcha(action)
       } catch (err) {
-        console.error(err instanceof Error ? err.message : "reCAPTCHA is unavailable")
-        toast.error("Something went wrong, please try again.", { id: "captcha-error" })
+        console.error(
+          err instanceof Error ? err.message : "reCAPTCHA is unavailable"
+        )
+        toast.error("Something went wrong, please try again.", {
+          id: "captcha-error",
+        })
         return
       }
     },
@@ -156,7 +156,7 @@ export function About() {
       if (!file || !api || isProcessing) return
       setIsProcessing(true)
       const media = {
-        id: await nano(file),
+        id: await generateUuidFromFile(file),
         file,
         src: URL.createObjectURL(file),
         annotations: [],

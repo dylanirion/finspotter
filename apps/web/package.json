@@ -36,7 +36,6 @@
     "jsx-email": "^2.8.3",
     "lodash.debounce": "^4.0.8",
     "lodash.throttle": "^4.1.1",
-    "nanoid": "^5.1.6",
     "next": "^16.3.3",
     "next-recaptcha-v3": "^1.5.2",
     "postcss": "^8.5.6",
@@ -46,6 +45,7 @@
     "sst": "4.17.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.16",
+    "uuid": "^14.0.2",
     "zod": "^4.1.12"
   },
   "devDependencies": {

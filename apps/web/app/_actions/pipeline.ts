@@ -1,6 +1,6 @@
 "use server"
 
-import { randomBytes } from "crypto"
+import { randomBytes, randomUUID } from "crypto"
 import { headers } from "next/headers"
 import { createMediaRepository, Media } from "@finspotter/core/media"
 import { validateReCaptcha } from "@finspotter/core/recaptcha"
@@ -14,7 +14,6 @@ import {
 } from "@finspotter/pipeline/invoke"
 import { dataTagErrorSymbol } from "@tanstack/react-query"
 import { getSession } from "lib/auth"
-import { customAlphabet } from "nanoid/non-secure"
 import { Resource } from "sst"
 
 export type Event = {
@@ -43,11 +42,6 @@ type StatusEvent = {
 
 const { getItem, putItems, queryItems } = createStorageRepository()
 const { findMany } = createMediaRepository()
-
-const makeSubmissionId = customAlphabet(
-  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
-  21
-)
 
 //TODO: model & cfg should come from database, and condition on detect method
 export async function createDemoJob({
@@ -153,7 +147,7 @@ export async function createDetectionJob(mediaId: string[]) {
   const session = await getSession({ headers: await headers() })
   //TODO check permissions?
 
-  const submissionId = makeSubmissionId()
+  const submissionId = randomUUID()
   const now = new Date()
   const createdAt = now.toISOString()
 
