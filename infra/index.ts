@@ -24,6 +24,10 @@ export function defineInfra({
   //generateExports(annotations)
   
   new sst.x.DevCommand("RustFS", {
+    environment: {
+      RUSTFS_ACCESS_KEY: process.env.RUSTFS_ACCESS_KEY,
+      RUSTFS_SECRET_KEY: process.env.RUSTFS_SECRET_KEY,
+    },
     dev: {
       autostart: true,
       command: `docker run \
@@ -31,8 +35,8 @@ export function defineInfra({
         -p 9000:9000 \
         -p 9001:9001 \
         -v ${process.cwd()}/.sst/storage/rustfs:/data \
-        -e RUSTFS_ACCESS_KEY="rustfs" \
-        -e RUSTFS_SECRET_KEY="rustfs" \
+        -e RUSTFS_ACCESS_KEY \
+        -e RUSTFS_SECRET_KEY \
         -e RUSTFS_ADDRESS=":9000" \
         -e RUSTFS_CORS_ALLOWED_ORIGINS="http://localhost:3000" \
         -e RUSTFS_OBS_LOG_STDOUT_ENABLED=true \

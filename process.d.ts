@@ -1,7 +1,7 @@
 declare namespace NodeJS {
   interface ProcessEnv {
-    AWS_PROFILE: Input<string> | undefined
-    AWS_REGION: Input<Region> | undefined
-    GCP_PROJECT: Input<Region> | undefined
+    NEON_API_KEY: string
+    RUSTFS_ACCESS_KEY: string
+    RUSTFS_SECRET_KEY: string
   }
 }
