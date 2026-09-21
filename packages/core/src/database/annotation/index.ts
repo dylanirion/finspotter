@@ -19,6 +19,7 @@ import {
 } from "../_drizzle"
 import { detectionsSubQuery } from "../detection"
 import { detectionsTable } from "../detection/sql"
+import { createIndividualSummaryRepository } from "../individualSummary"
 import { selectFromMediaWithExif, type Media } from "../media"
 import { mediaTable } from "../media/sql"
 import { annotationsIncrementerTable, annotationsTable } from "./sql"
@@ -30,6 +31,7 @@ export type Annotation = {
     id: string
     mediaId: string
     detectionId: number
+    individualId: string | null
     source: DetectionSource
     category: string | null
     type: T | null
@@ -46,7 +48,12 @@ export type AnnotationWithMedia = WithMedia<Annotation>
 
 type AnnotationRepository = Repository<
   AnnotationWithMedia,
-  { insert: Omit<Annotation, "id">; update: Annotation }
+  {
+    insert: Omit<Annotation, "id" | "individualId"> & {
+      individualId?: string | null
+    }
+    update: Annotation
+  }
 >
 
 const drizzleAnnotationRepository: AnnotationRepository = {
@@ -170,8 +177,16 @@ const drizzleAnnotationRepository: AnnotationRepository = {
     const now = new Date()
     const results = await Promise.all(
       annotations.map(async (annotation) => {
-        const { mediaId, source, category, type, score, data, createdBy } =
-          annotation
+        const {
+          mediaId,
+          individualId,
+          source,
+          category,
+          type,
+          score,
+          data,
+          createdBy,
+        } = annotation
         return db.transaction(async (tx) => {
           const [counter] = await tx
             .insert(annotationsIncrementerTable)
@@ -197,14 +212,25 @@ const drizzleAnnotationRepository: AnnotationRepository = {
             createdAt: now,
             createdBy,
           })
-          return tx
+          const inserted = await tx
             .insert(annotationsTable)
             .values({
               mediaId,
               detectionId: counter.detectionId,
+              individualId,
               updatedAt: now,
             })
-            .returning({ id: annotationsTable.id })
+            .returning({
+              id: annotationsTable.id,
+              individualId: annotationsTable.individualId,
+            })
+
+          if (individualId)
+            await createIndividualSummaryRepository().refresh(
+              [individualId],
+              tx
+            )
+          return inserted
         })
       })
     )
@@ -223,9 +249,18 @@ const drizzleAnnotationRepository: AnnotationRepository = {
       data,
       updatedAt,
       createdBy,
+      individualId,
     } = annotation
     const now = new Date()
     return db.transaction(async (tx) => {
+      const [current] = await tx
+        .select({ individualId: annotationsTable.individualId })
+        .from(annotationsTable)
+        .where(eq(annotationsTable.id, id))
+        .for("update")
+
+      if (!current) throw new Error(`Annotation ${id} not found`)
+
       await tx.insert(detectionsTable).values({
         mediaId,
         detectionId,
@@ -237,22 +272,51 @@ const drizzleAnnotationRepository: AnnotationRepository = {
         createdAt: now,
         createdBy,
       })
-      return tx
+      const updated = await tx
         .update(annotationsTable)
-        .set({ updatedAt: now })
+        .set({ individualId, updatedAt: now })
         .where(
           and(
             eq(annotationsTable.id, id),
             updatedAt ? eq(annotationsTable.updatedAt, updatedAt) : undefined
           )
         )
+        .returning({ individualId: annotationsTable.individualId })
+
+      if (updated.length === 0) throw new Error(`Annotation ${id} was modified`)
+
+      await createIndividualSummaryRepository().refresh(
+        [
+          ...new Set(
+            [current.individualId, individualId].filter(
+              (affectedId): affectedId is string => affectedId !== null
+            )
+          ),
+        ],
+        tx
+      )
+      return updated
     })
   },
 
   async remove(where) {
-    return db
-      .delete(annotationsTable)
-      .where(buildWhereClause(annotationsTable, where))
+    return db.transaction(async (tx) => {
+      const removed = await tx
+        .delete(annotationsTable)
+        .where(buildWhereClause(annotationsTable, where))
+        .returning({ individualId: annotationsTable.individualId })
+      await createIndividualSummaryRepository().refresh(
+        [
+          ...new Set(
+            removed.flatMap(({ individualId }) =>
+              individualId === null ? [] : [individualId]
+            )
+          ),
+        ],
+        tx
+      )
+      return removed
+    })
   },
 }
 

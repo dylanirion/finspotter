@@ -1,24 +1,28 @@
-import { eq, sql, type Subquery, type WithSubquery } from "drizzle-orm"
-import { type SubqueryWithSelection } from "drizzle-orm/mysql-core"
+import { eq, sql, type AnyColumn } from "drizzle-orm"
 
-import { Repository } from ".."
-import { buildWhereClause, db, Where, type MaybeAliased } from "../_drizzle"
-import { annotationsTable } from "../annotation/sql"
+import { type Repository } from ".."
+import { buildWhereClause, db, type Where } from "../_drizzle"
+import { createIndividualSummaryRepository } from "../individualSummary"
 import { namesTable } from "./sql"
 
-type Names = { canonical: string[]; nickname: string[] }
+export type Names = {
+  canonical: string[]
+  nickname: string[]
+  adoption: string[]
+}
 
-type NamesTable = typeof namesTable
-type NamesColumns = MaybeAliased<NamesTable["_"]["columns"]>
-type NamesSubquery =
-  | Subquery<string, NamesColumns>
-  | SubqueryWithSelection<NamesColumns, string>
-type NamesCTE = WithSubquery<string, NamesColumns>
+type NameRepository = Omit<Pick<Repository<Names>, "findOne">, "findOne"> & {
+  findOne: (where: Where<"individualId" | "type">) => Promise<Names | null>
+  insert: (names: IndividualName[]) => Promise<{ id?: string }[]>
+  remove: (
+    where: Where<"individualId" | "organizationId" | "type" | "value">
+  ) => Promise<unknown>
+}
 
-type NameRepository = Pick<Repository<Names>, "findOne">
+export type IndividualName = typeof namesTable.$inferInsert
 
 const drizzleNamesRepository: NameRepository = {
-  async findOne(where: Where<"id" | "type">) {
+  async findOne(where) {
     const arrayNames = selectFromNamesAsArray()
       .where(buildWhereClause(namesTable, where))
       .as("array_names")
@@ -26,65 +30,80 @@ const drizzleNamesRepository: NameRepository = {
       .select({
         json: sql<
           Partial<Names>
-        >`coalesce(json_objectagg(${arrayNames.type}, ${arrayNames.value}), json_object())`.as(
+        >`coalesce(jsonb_object_agg(${arrayNames.type}, ${arrayNames.value}), '{}'::jsonb)`.as(
           "json_names"
         ),
       })
       .from(arrayNames)
-      .then((result) => (result[0].json as Names) ?? null)
+      .then((result) => (result[0]?.json as Names) ?? null)
+  },
+
+  async insert(names) {
+    if (names.length === 0) return []
+
+    return db.transaction(async (tx) => {
+      const stored = await tx
+        .insert(namesTable)
+        .values(names)
+        .onConflictDoNothing()
+        .returning()
+
+      await createIndividualSummaryRepository().refresh(
+        [...new Set(names.map(({ individualId }) => individualId))],
+        tx
+      )
+      return stored.map(() => ({}))
+    })
+  },
+
+  async remove(where) {
+    return db.transaction(async (tx) => {
+      const removed = await tx
+        .delete(namesTable)
+        .where(buildWhereClause(namesTable, where))
+        .returning({ individualId: namesTable.individualId })
+
+      await createIndividualSummaryRepository().refresh(
+        removed.map(({ individualId }) => individualId),
+        tx
+      )
+      return removed
+    })
   },
 }
 
-const selectFromNames = () => db.select().from(namesTable).$dynamic()
 const selectFromNamesAsArray = () =>
   db
     .select({
       individualId: namesTable.individualId,
-      organizationId: namesTable.organizationId,
       type: namesTable.type,
-      value: sql`json_arrayagg(${namesTable.value})`.as("array"),
+      value: sql<
+        string[]
+      >`array_agg(distinct ${namesTable.value} order by ${namesTable.value})`.as(
+        "value"
+      ),
     })
     .from(namesTable)
     .$dynamic()
-const selectJsonNames = <T extends (NamesSubquery | NamesCTE) & NamesColumns>(
-  source: T
-) =>
-  db
+
+export const namesAsArraySubQuery = (individualId: AnyColumn) =>
+  selectFromNamesAsArray()
+    .where(eq(namesTable.individualId, individualId))
+    .groupBy(namesTable.individualId, namesTable.type)
+    .as("names")
+
+export const jsonNamesSubQuery = (individualId: AnyColumn) => {
+  const names = namesAsArraySubQuery(individualId)
+  return db
     .select({
-      individualId: source.individualId,
       json: sql<
         Partial<Names>
-      >`coalesce(json_objectagg(${source.type}, ${source.value}), json_object())`.as(
+      >`coalesce(jsonb_object_agg(${names.type}, ${names.value}), '{}'::jsonb)`.as(
         "json_names"
       ),
     })
-    .from(source)
-    .$dynamic()
-
-export const namesAsArraySubQuery = () =>
-  selectFromNamesAsArray()
-    .where(eq(namesTable.individualId, annotationsTable.individualId))
-    .groupBy(namesTable.type)
-    .as("names")
-
-export const jsonNamesSubQuery = () =>
-  selectJsonNames(namesAsArraySubQuery()).as("json_names")
-
-export const namesAsArrayCTE = () =>
-  db
-    .$with("array_names")
-    .as(
-      selectFromNamesAsArray().groupBy(namesTable.individualId, namesTable.type)
-    )
-
-export const namesCTE = () => db.$with("names").as(selectFromNames())
-
-export function namesCTEs() {
-  const arrayNamesCTE = namesAsArrayCTE()
-  const jsonNamesCTE = db
-    .$with("json_names")
-    .as(selectJsonNames(arrayNamesCTE).groupBy(arrayNamesCTE.individualId))
-  return { names: arrayNamesCTE, jsonNames: jsonNamesCTE }
+    .from(names)
+    .as("json_names")
 }
 
 export function createNamesRepository() {

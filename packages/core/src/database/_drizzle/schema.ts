@@ -14,6 +14,7 @@ import {
 } from "../detection/sql"
 import { exifTable } from "../exif/sql"
 import { individualsTable } from "../individual/sql"
+import { individualSummariesTable } from "../individualSummary/sql"
 import { locationsTable } from "../location/sql"
 import { mediaMetaTable, mediaTable } from "../media/sql"
 import { namesTable, nameTypeEnum } from "../name/sql"
@@ -39,6 +40,7 @@ export {
   annotationTypeEnum,
   detectionsTable,
   individualsTable,
+  individualSummariesTable,
   exifTable,
   mediaTable,
   mediaMetaTable,
@@ -61,6 +63,7 @@ export const relations = defineRelations(
     mediaTable,
     annotationsTable,
     individualsTable,
+    individualSummariesTable,
     detectionsTable,
     annotationMetaTable,
     namesTable,
@@ -108,10 +111,20 @@ export const relations = defineRelations(
       }),
     },
     individualsTable: {
+      summary: r.one.individualSummariesTable({
+        from: r.individualsTable.id,
+        to: r.individualSummariesTable.id,
+      }),
       annotations: r.many.annotationsTable(),
       names: r.many.namesTable(),
       tags: r.many.tagsTable(),
       adoptions: r.many.adoptionsTable(),
+    },
+    individualSummariesTable: {
+      individual: r.one.individualsTable({
+        from: r.individualSummariesTable.id,
+        to: r.individualsTable.id,
+      }),
     },
     namesTable: {
       individual: r.one.individualsTable({
@@ -252,6 +265,7 @@ export default {
   annotationTypeEnum,
   detectionsTable,
   individualsTable,
+  individualSummariesTable,
   exifTable,
   mediaTable,
   mediaMetaTable,

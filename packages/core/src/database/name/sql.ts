@@ -1,9 +1,16 @@
-import { index, pgEnum, pgTable, text, uuid } from "drizzle-orm/pg-core"
+import {
+  index,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  uuid,
+} from "drizzle-orm/pg-core"
 
-import { organizationsTable } from "../organization/sql"
 import { individualsTable } from "../individual/sql"
+import { organizationsTable } from "../organization/sql"
 
-export const nameTypeEnum = pgEnum("type", [
+export const nameTypeEnum = pgEnum("name_type", [
   "canonical",
   "nickname",
   "adoption",
@@ -30,7 +37,18 @@ export const namesTable = pgTable(
     type: nameTypeEnum().notNull(),
     value: text("value").notNull(),
   },
-  (table) => [index().on(table.individualId), index().on(table.organizationId)]
+  (table) => [
+    primaryKey({
+      columns: [
+        table.individualId,
+        table.organizationId,
+        table.type,
+        table.value,
+      ],
+    }),
+    index().on(table.individualId),
+    index().on(table.organizationId),
+  ]
 )
 
 /*
