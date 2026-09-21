@@ -2,6 +2,7 @@ import {
   ContainerFunction,
   type ContainerFunctionArgs,
 } from "../ContainerFunction"
+import { type PipelineBucket } from "../MediaProcessingPipeline/PipelinePackage"
 
 type PipelineFunctionFactoryArgs =
   | ContainerFunctionArgs
@@ -11,7 +12,7 @@ type PipelineFunctionFactoryArgs =
 export function createPipelineFunction(
   name: string,
   args: PipelineFunctionFactoryArgs,
-  bucket: aws.s3.Bucket,
+  bucket: PipelineBucket,
   table: sst.aws.Dynamo
 ): $util.Output<aws.lambda.Function> {
   const role = new aws.iam.Role(`${name}Role`, {

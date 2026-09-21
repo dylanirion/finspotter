@@ -2,8 +2,9 @@ import {
   generateExports,
   type AnnotationPackage,
 } from "@finspotter/annotations/init"
-//import { MediaProcessingPipeline } from "@finspotter/pipeline/MediaProcessingPipeline"
+import { MediaProcessingPipeline } from "@finspotter/pipeline/MediaProcessingPipeline"
 import { type PipelinePackage } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
+import { SubmissionReviewPipeline } from "@finspotter/pipeline/SubmissionReviewPipeline"
 
 import { db } from "./database"
 import { domain } from "./domain"
@@ -44,18 +45,33 @@ export function defineInfra({
     },
   })
 
-  /*
+  const submissionReview = new SubmissionReviewPipeline(
+    "SubmissionReviewPipeline",
+    {
+      notificationEmail: secret.PipelineAlertsEmail.value,
+    }
+  )
   const pipeline = new MediaProcessingPipeline("MediaProcessingPipeline", {
     packages,
-    bucket,
+    bucket: "nodes" in bucket ? bucket.nodes.bucket : bucket,
+    bus: submissionReview.bus,
+    table: submissionReview.table,
   })
-  */
+  submissionReview.orchestrate(pipeline.stateMachine)
 
   const web = new sst.aws.Nextjs("Web", {
     domain,
     path: "./apps/web",
     openNextVersion: "4.1.5",
-    link: [db, bucket, email, /*pipeline, */recaptcha, gcpIdentityProvider],
+    link: [
+      db,
+      bucket,
+      email,
+      submissionReview,
+      pipeline,
+      recaptcha,
+      gcpIdentityProvider,
+    ],
     environment: {
       BASE_URL: $dev ? `http://${domain}` : `https://${domain}`,
       BETTER_AUTH_SECRET: secret.BetterAuthSecret.value,
@@ -64,11 +80,11 @@ export function defineInfra({
       //NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: secret.GoogleMapsApiKey.value,
       //NEXT_PUBLIC_GOOGLE_MAPS_API_MAPID: secret.GoogleMapsMapId.value,
       NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY: recaptcha.name,
-      //NEXT_PUBLIC_REALTIME_ENDPOINT: $interpolate`https://${pipeline.realtime.dns.http}/event`,
-      //NEXT_PUBLIC_REALTIME_REGION: aws.getRegionOutput().name,
-      //NEXT_PUBLIC_IDENTITY_POOL: pipeline.identityPool,
+      NEXT_PUBLIC_REALTIME_ENDPOINT: $interpolate`https://${submissionReview.realtime.dns.http}/event`,
+      NEXT_PUBLIC_REALTIME_REGION: aws.getRegionOutput().name,
+      NEXT_PUBLIC_IDENTITY_POOL: submissionReview.identityPool,
     }
   })
 
-  return { db, bucket, email, /*pipeline,*/ secret, web }
+  return { db, bucket, email, submissionReview, pipeline, secret, web }
 }

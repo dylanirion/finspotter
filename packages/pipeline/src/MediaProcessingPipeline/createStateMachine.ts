@@ -14,43 +14,6 @@ import {
 export function createStateMachine(name: string, table: sst.aws.Dynamo) {
   const logGroup = createLogGroup(name)
 
-  const setStatusInitialised = new Dynamo(
-    "Set Status Initialised",
-    "updateItem",
-    table,
-    {
-      Parameters: {
-        Key: {
-          pk: {
-            "S.$": $.stringAt("$.submissionId"),
-          },
-          sk: {
-            S: "status",
-          },
-        },
-        ExpressionAttributeNames: {
-          "#GSI1PK": "gsi1pk",
-          "#STATUS": "status",
-          "#UPDATEDAT": "updated_at",
-        },
-        ExpressionAttributeValues: {
-          ":gsi1pk": {
-            S: "status",
-          },
-          ":status": {
-            S: "initialised",
-          },
-          ":updatedat": {
-            "S.$": $.stringAt("$$.State.EnteredTime"),
-          },
-        },
-        UpdateExpression:
-          "SET #STATUS = :status, #GSI1PK = :gsi1pk, #UPDATEDAT = :updatedat",
-      },
-      ResultPath: $.DISCARD,
-    }
-  )
-
   const setStatusDetecting = new Dynamo(
     "Set Status Detecting",
     "updateItem",
@@ -162,109 +125,8 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
     }
   )
 
-  const setStatusSucceeded = new Dynamo(
-    "Set Status Succeeded",
-    "updateItem",
-    table,
-    {
-      Parameters: {
-        Key: {
-          pk: {
-            "S.$": $.stringAt("$.submissionId"),
-          },
-          sk: {
-            S: "status",
-          },
-        },
-        ExpressionAttributeNames: {
-          "#GSI1PK": "gsi1pk",
-          "#STATUS": "status",
-          "#UPDATEDAT": "updated_at",
-        },
-        ExpressionAttributeValues: {
-          ":gsi1pk": {
-            S: "status",
-          },
-          ":status": {
-            S: "succeeded",
-          },
-          ":updatedat": {
-            "S.$": $.stringAt("$$.State.EnteredTime"),
-          },
-        },
-        UpdateExpression:
-          "SET #STATUS = :status, #GSI1PK = :gsi1pk, #UPDATEDAT = :updatedat",
-      },
-      ResultPath: $.DISCARD,
-    }
-  )
-
-  const setStatusFailed = new Dynamo("Set Status Failed", "updateItem", table, {
-    Parameters: {
-      Key: {
-        pk: {
-          "S.$": $.stringAt("$.submissionId"),
-        },
-        sk: {
-          S: "status",
-        },
-      },
-      ExpressionAttributeNames: {
-        "#GSI1PK": "gsi1pk",
-        "#STATUS": "status",
-        "#UPDATEDAT": "updated_at",
-      },
-      ExpressionAttributeValues: {
-        ":gsi1pk": {
-          S: "status",
-        },
-        ":status": {
-          S: "failed",
-        },
-        ":updatedat": {
-          "S.$": $.stringAt("$$.State.EnteredTime"),
-        },
-      },
-      UpdateExpression:
-        "SET #STATUS = :status, #GSI1PK = :gsi1pk, #UPDATEDAT = :updatedat",
-    },
-    ResultPath: $.DISCARD,
-  })
-
-  const setResultFinal = new Dynamo("Set Final", "updateItem", table, {
-    Parameters: {
-      Key: {
-        pk: {
-          "S.$": $.stringAt("$.payload.pk"),
-        },
-        sk: {
-          "S.$": $.stringAt("$.payload.sk"),
-        },
-      },
-      ExpressionAttributeNames: {
-        "#FINAL": "final",
-      },
-      ExpressionAttributeValues: {
-        ":final": {
-          BOOL: true,
-        },
-      },
-      UpdateExpression: "SET #FINAL = :final",
-    },
-    ResultPath: $.DISCARD,
-  })
-
-  //TODO: handle failed steps in Map states gracefully, some are not catastrophic
-  const iterateResults = new Map("Iterate results", {
-    ItemsPath: $.stringAt("$.payload"),
-    ItemSelector: {
-      "submissionId.$": $.stringAt("$.submissionId"),
-      "payload.$": $.stringAt("$$.Map.Item.Value"),
-      "expires.$": $.stringAt("$.expires"),
-    },
-    ResultPath: $.DISCARD,
-    ItemProcessor: setResultFinal,
-  })
+  // TODO: classify non-catastrophic item failures before failing the child execution.
+  const pipelineFailed = new Fail("Media Processing Failed")
 
   const invokeAnyDetectionFunction = new Custom("Invoke detection function", {
     Type: "Task",
@@ -390,7 +252,7 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
   }).addCatch({
     ErrorEquals: ["States.ALL"],
     ResultPath: $.stringAt("$.error"),
-    Next: iterateResults,
+    Next: pipelineFailed,
   })
 
   const iterateDetections = new Map("Iterate detections", {
@@ -407,7 +269,7 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
   }).addCatch({
     ErrorEquals: ["States.ALL"],
     ResultPath: $.stringAt("$.error"),
-    Next: iterateResults,
+    Next: pipelineFailed,
   })
 
   const buildPairwiseSet = new LambdaInvoke("Build Pairwise Set", buildSet, {
@@ -521,19 +383,7 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
   }).addCatch({
     ErrorEquals: ["States.ALL"],
     ResultPath: $.stringAt("$.error"),
-    Next: iterateResults,
-  })
-
-  const resultChoice = new Choice("Failed or Succeeded?", {
-    Choices: [
-      {
-        Variable: $.stringAt("$.error"),
-        IsPresent: true,
-
-        Next: setStatusFailed.next(new Fail("Failed")),
-      },
-    ],
-    Default: setStatusSucceeded,
+    Next: pipelineFailed,
   })
 
   const detectionChoice = new Choice("Do detection?", {
@@ -624,12 +474,9 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
     Default: new Pass("No search"),
   })
 
-  const definition = setStatusInitialised
-    .next(detectionChoice)
+  const definition = detectionChoice
     .next(extractionChoice) //in this position extraction depends on completion of all detections but means only a single status update is sent
     .next(searchChoice)
-    .next(iterateResults)
-    .next(resultChoice)
 
   return new StateMachine(
     name,

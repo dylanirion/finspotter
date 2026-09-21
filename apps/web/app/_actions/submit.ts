@@ -250,7 +250,7 @@ function addMediaToSubmissionTable(
   encounters: Omit<EncounterSubmissionData, "presignedUrl" | "file" | "xhr">[]
 ) {
   return putItems(
-    Resource.MediaProcessingPipeline.table,
+    Resource.SubmissionReviewPipeline.table,
     encounters.map(({ id, src, type }) => ({
       pk: submissionId,
       sk: `media#${id}`,
@@ -268,7 +268,7 @@ function addMediaToSubmissionTableAsResult(
   encounters: Omit<EncounterSubmissionData, "presignedUrl" | "file" | "xhr">[]
 ) {
   return putItems(
-    Resource.MediaProcessingPipeline.table,
+    Resource.SubmissionReviewPipeline.table,
     encounters.map(({ id, src, type }) => ({
       pk: submissionId,
       sk: `media#${id}`,
@@ -283,7 +283,7 @@ function addMediaToSubmissionTableAsResult(
 }
 
 function setStatusSubmitted(submissionId: string) {
-  return putItem(Resource.MediaProcessingPipeline.table, {
+  return putItem(Resource.SubmissionReviewPipeline.table, {
     pk: submissionId,
     sk: "status",
     status: "submitted",

@@ -28,6 +28,22 @@ declare module "sst" {
       "type": "sst.sst.Secret"
       "value": string
     }
+    "SubmissionReviewPipeline": {
+      "eventBus": string
+      "identityPool": string
+      "realtime": {
+        "4dabf18193072939515e22adb298388d": string
+        "id": string
+        "packageVersion": string
+        "urn": string
+      }
+      "table": string
+      "type": "finspotter.pipeline.SubmissionReviewPipeline"
+    }
+    "SubmissionReviewPipelineSubmissions": {
+      "name": string
+      "type": "sst.aws.Dynamo"
+    }
     "Uploads": {
       "name": string
       "type": "sst.sst.Linkable"

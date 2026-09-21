@@ -6,6 +6,7 @@ import { TaskStateBase, TaskStateBaseParams } from "./task-base"
 type StepFunctionInvokeTaskParameters = {
   StateMachineArn?: $util.Output<string>
   Input?: Record<string, $util.Input<unknown>>
+  "Input.$"?: $util.Input<string>
 }
 
 type Parameters = Omit<
@@ -17,11 +18,15 @@ export class StepFunctionInvoke extends TaskStateBase<StepFunctionInvokeTaskPara
   constructor(
     public name: string,
     protected sfn: StateMachine,
-    params: Parameters
+    params: Parameters,
+    private mode: "async" | "sync" = "async"
   ) {
     const { Parameters, ...rest } = params
     super(name, {
-      Resource: `arn:aws:states:::states:startExecution`,
+      Resource:
+        mode === "sync"
+          ? "arn:aws:states:::aws-sdk:sfn:startSyncExecution"
+          : "arn:aws:states:::states:startExecution",
       Parameters: {
         ...Parameters,
         StateMachineArn: sfn.arn.apply(async (arn) => arn),
@@ -49,7 +54,11 @@ export class StepFunctionInvoke extends TaskStateBase<StepFunctionInvokeTaskPara
             Statement: [
               {
                 Effect: "Allow",
-                Action: ["states:StartExecution"],
+                Action: [
+                  this.mode === "sync"
+                    ? "states:StartSyncExecution"
+                    : "states:StartExecution",
+                ],
                 Resource: [arn],
               },
             ],

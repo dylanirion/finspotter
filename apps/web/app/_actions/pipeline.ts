@@ -8,7 +8,6 @@ import { createStorageRepository } from "@finspotter/core/storage"
 import {
   invoke,
   type DetectionItem,
-  type ExtractionItem,
   type MediaItem,
   type StatusItem,
 } from "@finspotter/pipeline/invoke"
@@ -74,7 +73,7 @@ export async function createDemoJob({
   const createdAt = now.toISOString()
   const expires = Math.floor((now.getTime() + 1 * 24 * 60 * 60 * 1000) / 1000)
 
-  await putItems(Resource.MediaProcessingPipeline.table, [
+  await putItems(Resource.SubmissionReviewPipeline.table, [
     {
       pk: submissionId,
       sk: `media#${mediaId}`,
@@ -155,7 +154,7 @@ export async function createDetectionJob(mediaId: string[]) {
   if (!media) throw new Error("No media found")
 
   //TODO: this is probably very similar to what happens in submission?
-  await putItems(Resource.MediaProcessingPipeline.table, [
+  await putItems(Resource.SubmissionReviewPipeline.table, [
     ...media.map((item) => ({
       pk: submissionId,
       sk: `media#${item.id}`,
@@ -235,7 +234,7 @@ export async function getItemsForReview(
     final: boolean
     locked_at: string
   }>(
-    Resource.MediaProcessingPipeline.table,
+    Resource.SubmissionReviewPipeline.table,
     {
       gsi1pk: "result",
       final: true,
@@ -260,7 +259,7 @@ export async function getPipelineActivity(
   //TODO check permissions? will need to filter only items that user has permission to see
 
   return queryItems<StatusItem>(
-    Resource.MediaProcessingPipeline.table,
+    Resource.SubmissionReviewPipeline.table,
     {
       gsi1pk: "status",
       status: { operator: "not_in", value: ["succeeded", "failed"] },
@@ -278,7 +277,7 @@ export async function getPipelineActivity(
 //TODO: what happens when the same image is in the pipeline multiple times?
 export async function getSingleMedia(id: string) {
   const { items } = await queryItems<MediaItem | DetectionItem>(
-    Resource.MediaProcessingPipeline.table,
+    Resource.SubmissionReviewPipeline.table,
     { media_id: id },
     undefined,
     "gsi2",
@@ -325,7 +324,7 @@ export async function getDetection(key: {
   sk: string
 }): Promise<Partial<DetectionItem>> {
   const { type, category, data, score } = await getItem<DetectionItem>(
-    Resource.MediaProcessingPipeline.table,
+    Resource.SubmissionReviewPipeline.table,
     key
   )
   return { type, category, data, score }
@@ -335,7 +334,7 @@ export async function getDetections(key: {
   pk: string
 }): Promise<Partial<DetectionItem>[]> {
   const { items } = await queryItems<DetectionItem>(
-    Resource.MediaProcessingPipeline.table,
+    Resource.SubmissionReviewPipeline.table,
     {
       pk: key.pk,
       sk: { operator: "starts_with", value: "detection" },

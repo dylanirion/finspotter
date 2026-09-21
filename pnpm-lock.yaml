@@ -655,6 +655,9 @@ importers:
       '@finspotter/config':
         specifier: workspace:*
         version: link:../config
+      '@finspotter/core':
+        specifier: workspace:*
+        version: link:../core
       zod:
         specifier: ^4.1.12
         version: 4.1.12

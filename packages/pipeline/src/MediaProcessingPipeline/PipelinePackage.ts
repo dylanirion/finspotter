@@ -7,11 +7,15 @@ export interface ObjectLambdaConfig {
   olAlias: $util.Output<string>
 }
 
+export type PipelineBucket =
+  | aws.s3.Bucket
+  | $util.Output<aws.s3.Bucket>
+
 export type DetectionFunction = ({
   bucket,
   table,
 }: {
-  bucket: aws.s3.Bucket
+  bucket: PipelineBucket
   table: sst.aws.Dynamo
 }) => $util.Output<aws.lambda.Function>
 
@@ -19,7 +23,7 @@ export type ExtractionFunction = ({
   bucket,
   table,
 }: {
-  bucket: aws.s3.Bucket
+  bucket: PipelineBucket
   table: sst.aws.Dynamo
 }) => $util.Output<aws.lambda.Function>
 
@@ -28,7 +32,7 @@ export type SearchFunction = ({
   table,
   bus,
 }: {
-  bucket: aws.s3.Bucket
+  bucket: PipelineBucket
   table: sst.aws.Dynamo
   bus: aws.cloudwatch.EventBus
 }) => $util.Output<aws.lambda.Function>
@@ -37,7 +41,7 @@ export type MatchRefinementFunction = ({
   bucket,
   table,
 }: {
-  bucket: aws.s3.Bucket
+  bucket: PipelineBucket
   table: sst.aws.Dynamo
 }) => $util.Output<aws.lambda.Function>
 
@@ -45,7 +49,7 @@ export type ScoringFunction = ({
   bucket,
   table,
 }: {
-  bucket: aws.s3.Bucket
+  bucket: PipelineBucket
   table: sst.aws.Dynamo
 }) => $util.Output<aws.lambda.Function>
 
