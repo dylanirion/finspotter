@@ -33,7 +33,7 @@ export function EncounterSubmissionForm() {
           submissionId,
           encounters: data.map((encounter) => {
             const { file, xhr, presignedUrl, ...rest } = encounter
-            if (!uploadedFileList.current.has(encounter.id))
+            if (!uploadedFileList.current.get(encounter.id))
               throw new Error(`${encounter.id} has not finished uploading`)
 
             return {

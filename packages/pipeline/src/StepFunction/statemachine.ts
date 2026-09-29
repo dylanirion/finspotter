@@ -12,6 +12,11 @@ export interface StateMachineArgs
   }
 }
 
+function componentInputs(args: StateMachineArgs) {
+  const { definition: _definition, transform: _transform, ...inputs } = args
+  return inputs
+}
+
 const region = aws.config.requireRegion()
 
 export class StateMachine extends $util.ComponentResource {
@@ -24,7 +29,7 @@ export class StateMachine extends $util.ComponentResource {
     args: StateMachineArgs,
     opts?: $util.CustomResourceOptions
   ) {
-    super(__pulumiType, name, args, opts)
+    super(__pulumiType, name, componentInputs(args), opts)
 
     // Create IAM role for the state machine
     this.role = new aws.iam.Role(

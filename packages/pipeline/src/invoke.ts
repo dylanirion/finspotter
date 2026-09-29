@@ -87,3 +87,22 @@ export async function invoke<
   )
   return response.$metadata.httpStatusCode
 }
+
+export async function invokeMediaProcessing<
+  D extends string | undefined = undefined,
+  E extends string | undefined = undefined,
+>(input: JobProps<D, E>) {
+  const response = await startExecution(
+    sfn,
+    Resource.SubmissionReviewPipeline.mediaProcessingJob,
+    input
+  )
+  if (!response.executionArn || !response.startDate) {
+    throw new Error("Step Functions did not return a media processing handle")
+  }
+
+  return {
+    id: response.executionArn,
+    startedAt: response.startDate,
+  }
+}

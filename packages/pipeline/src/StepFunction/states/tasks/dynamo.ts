@@ -77,7 +77,7 @@ export class Dynamo<T extends DynamoTaskOperations> extends TaskStateBase<
         new aws.iam.RolePolicy(
           policyName,
           {
-            name: physicalName(256, policyName),
+            name: physicalName(128, policyName),
             role: role.name,
             policy: {
               Version: "2012-10-17",

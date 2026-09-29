@@ -1,11 +1,9 @@
 import {
   ChainDefinition,
-  Fail,
   resolveChainDefinition,
   resolveStartState,
   resolveStateName,
   StateBase,
-  Succeed,
   type Chainable,
   type StateBaseParams,
 } from "../state"
@@ -71,6 +69,7 @@ export class Choice extends StateBase {
       return new ChainDefinition(this, nextChain.endStates)
     }
 
+    const resultingEndStates: Chainable[] = []
     for (const branch of branches) {
       const currentBranchChain = resolveChainDefinition(branch) // Find ends of this specific branch
 
@@ -78,25 +77,12 @@ export class Choice extends StateBase {
         console.warn(
           `Choice branch starting with '${currentBranchChain.startState.name}' for Choice '${this.name}' already ends with a terminal state or has a cycle. Cannot append target '${linkNextState.name}' to this branch.`
         )
-        continue // Skip this branch
+        continue
       }
 
-      for (const endState of currentBranchChain.endStates) {
-        // Skip terminal states
-        if (endState instanceof Succeed || endState instanceof Fail) continue
-
-        if (
-          endState._internalNext &&
-          endState._internalNext !== linkNextState
-        ) {
-          console.warn(
-            `Choice branch end state '${endState.name}' already linked to '${endState._internalNext.name}'. Overwriting with '${linkNextState.name}'.`
-          )
-        }
-        endState._internalNext = linkNextState // Link
-      }
+      resultingEndStates.push(...currentBranchChain.next(nextChain).endStates)
     }
-    return new ChainDefinition(this, nextChain.endStates)
+    return new ChainDefinition(this, [...new Set(resultingEndStates)])
   }
 
   override getTransitions(visited: Set<Chainable>) {

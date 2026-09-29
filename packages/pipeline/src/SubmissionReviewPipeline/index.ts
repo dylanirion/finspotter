@@ -2,6 +2,7 @@
 /// <reference path="../../../../.sst/platform/config.d.ts" />
 
 import { createRealtime } from "./createRealtime"
+import { createMediaProcessingJobStateMachine } from "./createMediaProcessingJob"
 import { createSubmissionReviewStateMachine } from "./createStateMachine"
 import { StateMachine } from "../StepFunction"
 
@@ -13,6 +14,7 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
   private _realtime: aws.appsync.Api
   private _table: sst.aws.Dynamo
   private _pipeline?: StateMachine
+  private _mediaProcessingJob?: StateMachine
 
   constructor(
     name: string,
@@ -103,7 +105,19 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
       this._table,
       mediaProcessing
     )
+    this._mediaProcessingJob = createMediaProcessingJobStateMachine(
+      this._name,
+      this._table,
+      mediaProcessing
+    )
     return this
+  }
+
+  public get mediaProcessingJob() {
+    if (!this._mediaProcessingJob) {
+      throw new Error("Media processing job orchestration is not configured")
+    }
+    return this._mediaProcessingJob.arn
   }
 
   public get pipeline() {
@@ -120,6 +134,7 @@ sst.Linkable.wrap(
     properties: {
       eventBus: resource.eventBus,
       identityPool: resource.identityPool,
+      mediaProcessingJob: resource.mediaProcessingJob,
       pipeline: resource.pipeline,
       realtime: resource.realtime,
       table: resource.table.name,
@@ -127,7 +142,7 @@ sst.Linkable.wrap(
     include: [
       sst.aws.permission({
         actions: ["states:StartExecution"],
-        resources: [resource.pipeline],
+        resources: [resource.pipeline, resource.mediaProcessingJob],
       }),
       sst.aws.permission({
         actions: [

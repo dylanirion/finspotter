@@ -1,6 +1,5 @@
 "use client"
 
-import { randomUUID } from "crypto"
 import {
   createContext,
   useCallback,
@@ -15,7 +14,7 @@ import {
   type RefObject,
 } from "react"
 import Link from "next/link"
-import { getUploadUrl } from "app/_actions/submit"
+import { completeMediaUpload, getUploadUrl } from "app/_actions/submit"
 import { SmallProgressBar } from "components/ui/spinners/SmallProgressBar"
 import exifr from "exifr/dist/lite.esm.mjs"
 import { useCustomEqualityEffect } from "hooks/useCustomEqualityEffect"
@@ -24,6 +23,7 @@ import { useXhrPostWithProgress } from "hooks/useXhrPostWithProgress"
 import { generateUuidFromFile } from "lib/utils"
 import { useReCaptcha } from "next-recaptcha-v3"
 import toast from "react-hot-toast"
+import { v4 as uuid } from "uuid"
 
 import {
   reducer,
@@ -48,9 +48,12 @@ export function EncounterSubmissionProvider({
 }: PropsWithChildren<object>) {
   const { executeRecaptcha } = useReCaptcha()
   const [data, dispatch] = useReducer(reducer, [])
-  const [submissionId] = useState(randomUUID)
+  const [submissionId] = useState(() => uuid())
   const { post, progress, uploadedFileList } = useXhrPostWithProgress()
-  const canSubmit = progress.every((item) => item.progress === 100) //TODO: can also check required fields (like user or email!)
+  const canSubmit =
+    data.length > 0 &&
+    data.every(({ id }) => uploadedFileList.current.get(id)) &&
+    progress.every((item) => item.progress === 100) //TODO: can also check required fields (like user or email!)
   const { data: session } = useSession()
   const user = session?.user
 
@@ -74,7 +77,9 @@ export function EncounterSubmissionProvider({
         data
           .filter((encounter) => !uploadedFileList.current.has(encounter.id))
           .map(async ({ id, presignedUrl, xhr }, i) =>
-            post(id, presignedUrl, xhr, i)
+            post(id, presignedUrl, xhr, i, () =>
+              completeMediaUpload({ submissionId, mediaId: id })
+            )
           )
       ) /*
         .then((result) => {
@@ -85,7 +90,7 @@ export function EncounterSubmissionProvider({
           console.debug(error)
           toast.error("Something went wrong, please try again.")
         }),
-    [post, uploadedFileList]
+    [post, submissionId, uploadedFileList]
   )
 
   useCustomEqualityEffect(
@@ -238,7 +243,11 @@ async function getPresignedURL(
     encounter.file.type,
     encounter.file.size,
     `${pipelineId}/${encounter.id}`,
-    encounter.token
+    encounter.token,
+    {
+      submissionId: pipelineId,
+      mediaId: encounter.id,
+    }
   ).catch((e) => {
     throw new Error(e)
   })

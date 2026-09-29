@@ -8,6 +8,7 @@
     "./recaptcha": "./src/recaptcha/index.ts",
     "./email": "./src/email/index.ts",
     "./storage": "./src/storage/index.ts",
+    "./pipeline": "./src/pipeline/index.ts",
     "./*": [
       "./src/database/*/index.ts",
       "./src/*/index.ts",

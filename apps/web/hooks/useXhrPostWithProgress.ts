@@ -20,7 +20,8 @@ export function useXhrPostWithProgress() {
         | undefined
       >,
       xhr: XMLHttpRequest,
-      i: number
+      i: number,
+      onUploaded?: () => Promise<unknown>
     ) => {
       uploadedFileList.current.set(id, undefined)
       const { url, form, key } = (await presignedUrl) ?? {}
@@ -50,18 +51,30 @@ export function useXhrPostWithProgress() {
             )
           }
         }, 300)
-        xhr.onload = () => {
-          uploadedFileList.current.set(id, key)
-          setProgress((prev) =>
-            prev.map((item) =>
-              item.id === id ? { ...item, progress: 100 } : item
+        xhr.onload = async () => {
+          try {
+            if (xhr.status < 200 || xhr.status >= 300) {
+              throw new Error(`Upload failed with status ${xhr.status}`)
+            }
+            if (onUploaded) await retry(onUploaded, 3)
+            uploadedFileList.current.set(id, key)
+            setProgress((prev) =>
+              prev.map((item) =>
+                item.id === id ? { ...item, progress: 100 } : item
+              )
             )
-          )
-          resolve(id)
+            resolve(id)
+          } catch (error) {
+            uploadedFileList.current.delete(id)
+            setProgress((prev) =>
+              prev.filter((bytesObj) => bytesObj.id !== id)
+            )
+            reject(error)
+          }
         }
         xhr.onerror = () => {
           //unsetting could trigger endless upload attempts, maybe TODO: track & limit attempts?
-          //uploadedFileList.current.delete(encounter.id)
+          uploadedFileList.current.delete(id)
           setProgress((prev) => prev.filter((bytesObj) => bytesObj.id !== id))
           reject()
         }
@@ -77,6 +90,17 @@ export function useXhrPostWithProgress() {
     []
   )
   return { post, progress, uploadedFileList }
+}
+
+async function retry(action: () => Promise<unknown>, attempts: number) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await action()
+    } catch (error) {
+      if (attempt === attempts) throw error
+      await new Promise((resolve) => setTimeout(resolve, 250 * attempt))
+    }
+  }
 }
 
 function getFormDataSize(form: FormData) {

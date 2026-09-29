@@ -7,9 +7,7 @@ export interface ObjectLambdaConfig {
   olAlias: $util.Output<string>
 }
 
-export type PipelineBucket =
-  | aws.s3.Bucket
-  | $util.Output<aws.s3.Bucket>
+export type PipelineBucket = sst.aws.Bucket
 
 export type DetectionFunction = ({
   bucket,

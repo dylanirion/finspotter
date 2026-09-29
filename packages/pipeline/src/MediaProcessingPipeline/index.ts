@@ -25,7 +25,7 @@ export class MediaProcessingPipeline extends $util.ComponentResource {
     name: string,
     args: {
       packages: Array<PipelinePackage | PipelinePackageWithAnnotation>
-      bucket: PipelineBucket | sst.Linkable<{ name: string }>
+      bucket: PipelineBucket
       bus: aws.cloudwatch.EventBus
       table: sst.aws.Dynamo
     },
@@ -35,44 +35,47 @@ export class MediaProcessingPipeline extends $util.ComponentResource {
 
     // TODO: persist extension function registrations in db instead of linking them as properties?
     const { bucket, bus, packages, table } = args
-    if (!("arn" in bucket) && packages.length) {
-      throw new Error(
-        "Pipeline extensions require an AWS bucket; none can run against the development storage link"
-      )
-    }
-    const awsBucket = "arn" in bucket ? bucket : undefined
 
-    const detectionFunctions = (awsBucket ? packages : []).reduce(
+    const detectionFunctions = packages.reduce(
       (acc, { name, detect }) => {
-        if (detect) acc[name] = detect({ bucket: awsBucket!, table })
+        if (detect) acc[name] = detect({ bucket, table })
         return acc
       },
       {} as Record<string, ReturnType<DetectionFunction>>
     )
-    const extractionFunctions = (awsBucket ? packages : []).reduce(
+    const extractionFunctions = packages.reduce(
       (acc, { name, extract }) => {
-        if (extract) acc[name] = extract({ bucket: awsBucket!, table })
+        if (extract) acc[name] = extract({ bucket, table })
         return acc
       },
       {} as Record<string, ReturnType<ExtractionFunction>>
     )
-    const searchFunctions = (awsBucket ? packages : []).reduce(
+    const searchFunctions = packages.reduce(
       (acc, { name, search }) => {
         if (search)
           for (const [type, fn] of Object.entries(search)) {
-            acc[`${name}:${type}`] = fn({ bucket: awsBucket!, table, bus })
+            acc[`${name}:${type}`] = fn({ bucket, table, bus })
           }
         return acc
       },
       {} as Record<string, ReturnType<SearchFunction>>
     )
-    const refineFunctions = (awsBucket ? packages : []).reduce(
+    const refineFunctions = packages.reduce(
       (acc, { name, refine }) => {
-        if (refine) acc[name] = refine({ bucket: awsBucket!, table })
+        if (refine) acc[name] = refine({ bucket, table })
         return acc
       },
       {} as Record<string, ReturnType<MatchRefinementFunction>>
     )
+
+    if (
+      Object.keys(detectionFunctions).length > 0 &&
+      Object.keys(extractionFunctions).length === 0
+    ) {
+      throw new Error(
+        "Media processing requires an extraction extension when detection is configured"
+      )
+    }
 
     this._detectionFunctions = detectionFunctions
     this._extractionFunctions = extractionFunctions

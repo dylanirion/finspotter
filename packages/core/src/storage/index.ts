@@ -15,6 +15,9 @@ import {
   GetCommand,
   PutCommand,
   QueryCommand,
+  UpdateCommand,
+  type UpdateCommandInput,
+  type UpdateCommandOutput,
 } from "@aws-sdk/lib-dynamodb"
 import { createPresignedPost } from "@aws-sdk/s3-presigned-post"
 
@@ -66,7 +69,7 @@ const ddb = DynamoDBDocumentClient.from(
 //TODO: reuse connections?
 // https://docs.aws.amazon.com/sdk-for-javascript/v3/developer-guide/node-reusing-connections.html
 
-interface StorageRepository {
+export interface StorageRepository {
   getItem: <T>(table: string, key: Record<string, string>) => Promise<T>
   putItem: (
     table: string,
@@ -80,6 +83,10 @@ interface StorageRepository {
     items: Record<string, any>[]
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   ) => Promise<Record<string, any>>
+  updateItem: (
+    table: string,
+    input: Omit<UpdateCommandInput, "TableName">
+  ) => Promise<UpdateCommandOutput>
   queryItems: <T>(
     table: string,
     where: Condition,
@@ -187,6 +194,18 @@ class AwsStorageRepository implements StorageRepository {
             },
           })
         )
+      })
+    )
+  }
+
+  updateItem = async (
+    table: string,
+    input: Omit<UpdateCommandInput, "TableName">
+  ) => {
+    return this.docClient.send(
+      new UpdateCommand({
+        ...input,
+        TableName: table,
       })
     )
   }

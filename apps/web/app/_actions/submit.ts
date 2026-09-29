@@ -5,17 +5,17 @@ import { parse } from "path"
 import { headers } from "next/headers"
 import { ALLOWEDCONTENTTYPES, site } from "@finspotter/config/site"
 import { sendMail } from "@finspotter/core/email"
+import { createPipelineLifecycleRepository } from "@finspotter/core/pipeline"
 import { validateReCaptcha } from "@finspotter/core/recaptcha"
 import { createStorageRepository } from "@finspotter/core/storage"
 import { Template as VerifySubmission } from "@finspotter/email/templates/VerifySubmission"
-import { invoke } from "@finspotter/pipeline/invoke"
+import { invoke, invokeMediaProcessing } from "@finspotter/pipeline/invoke"
 import { type EncounterSubmissionData } from "app/(public)/submit/EncounterSubmissionReducer"
 import {
   createEmailVerificationToken,
   createUserOnly,
   getSession,
 } from "lib/auth"
-import { splitBy } from "lib/utils"
 import { extension } from "mime-types"
 import { Resource } from "sst"
 
@@ -26,8 +26,11 @@ interface UserData {
   emailOthers?: string[] | string
 }
 
-const { getPresignedPostUrl, putItem, putItems, copyObject } =
+const { getPresignedPostUrl, putItem, copyObject } =
   createStorageRepository()
+const lifecycle = createPipelineLifecycleRepository({
+  table: Resource.SubmissionReviewPipeline.table,
+})
 
 export async function doSubmission({
   submissionId,
@@ -54,12 +57,10 @@ export async function doSubmission({
 
   console.debug(encounters, formData)
 
-  const pending = await copyMediaToPending(submissionId, encounters)
-  const [images, videos] = splitBy(pending, ({ type }) =>
-    type.startsWith("image/")
+  await lifecycle.closeSubmission(
+    submissionId,
+    encounters.map(({ id }) => id)
   )
-  await addMediaToSubmissionTable(submissionId, images)
-  await addMediaToSubmissionTableAsResult(submissionId, videos)
   await setStatusSubmitted(submissionId)
 
   //TODO: process videos (HLS, DASH?)
@@ -85,51 +86,15 @@ export async function doSubmission({
     })
   }
 
-  //TODO just playing with this for now, function is almost identical to demo job
-  //TODO this should only run if a default detection function & model exists or manual annotations have been provided
-
   return invoke<
-    "yolact",
-    "hesaff",
+    undefined,
+    undefined,
     "faiss:pairwise",
     ["ratio", "homog", "sum"]
   >({
     submissionId,
-    payload: images.map(({ id, src }) => ({
-      pk: submissionId,
-      sk: `media#${id}`,
-      media_id: id,
-      bucket: Resource.Uploads.name,
-      key: src,
-    })),
-    detect: {
-      //TODO: get default detection function from database, if no detection function? - extract features on entire image? wait for bbox?
-      functionName:
-        Resource.MediaProcessingPipeline.detectionFunctions["yolact"],
-      //TODO: get config from database
-      config: {
-        model: {
-          bucket: Resource.Uploads.name,
-          key: "_assets/yolact/weights/yolact_base_255_11000.pth",
-        },
-        dataset: {
-          class_names: [
-            "haploblepharus_pictus",
-            "haploblepharus_edwardsii",
-            "poroderma_africanum",
-            "poroderma_pantherinum",
-          ],
-          label_map: { 0: 1, 1: 2, 2: 3, 3: 4 },
-        },
-        num_classes: 4 + 1,
-        score_threshold: 0.5,
-      },
-    },
-    extract: {
-      functionName:
-        Resource.MediaProcessingPipeline.extractionFunctions["hesaff"],
-      config: { rotation_invariance: true },
-    },
+    payload: [],
+    reconcileProcessing: true,
     search: {
       type: "pairwise",
       functionName:
@@ -159,7 +124,11 @@ export async function getUploadUrl(
   contentType: string,
   contentLength: number,
   key: string = randomUUID(),
-  token?: string
+  token?: string,
+  media?: {
+    submissionId: string
+    mediaId: string
+  }
 ) {
   const session = await getSession({ headers: await headers() })
   if (!session?.user) {
@@ -181,7 +150,7 @@ export async function getUploadUrl(
       `${contentType} is not configured as an allowed content type in @finspotter/config/site`
     )
 
-  return await getPresignedPostUrl({
+  const upload = await getPresignedPostUrl({
     bucket: Resource.Uploads.name,
     prefix: "",
     key: "temp/daily/" + key + "." + extension(contentType),
@@ -189,6 +158,112 @@ export async function getUploadUrl(
     contentType,
     contentLength,
   })
+
+  if (media) {
+    await lifecycle.registerSubmission(media.submissionId)
+    await lifecycle.registerMedia({
+      submissionId: media.submissionId,
+      mediaId: media.mediaId,
+      type: contentType,
+      uri: { bucket: upload.bucket, key: upload.key },
+    })
+  }
+
+  return upload
+}
+
+export async function completeMediaUpload({
+  submissionId,
+  mediaId,
+}: {
+  submissionId: string
+  mediaId: string
+}) {
+  // TODO: bind upload completion to the user or upload capability.
+  const media = await lifecycle.completeMediaUpload(submissionId, mediaId)
+  const suffix = parse(media.uri.key).ext
+  const pendingKey = `pending/${submissionId}/${mediaId}${suffix}`
+
+  if (media.uri.key !== pendingKey) {
+    await copyObject(
+      `${media.uri.bucket}/${media.uri.key}`,
+      media.uri.bucket,
+      pendingKey
+    )
+    await lifecycle.setMediaUri(submissionId, mediaId, {
+      bucket: media.uri.bucket,
+      key: pendingKey,
+    })
+  }
+
+  if (!media.type.startsWith("image/")) {
+    await lifecycle.completeMediaProcessing(submissionId, mediaId)
+    return
+  }
+
+  const detectionFunction =
+    Resource.MediaProcessingPipeline.detectionFunctions["yolact"]
+  const extractionFunction =
+    Resource.MediaProcessingPipeline.extractionFunctions["hesaff"]
+  if (!detectionFunction || !extractionFunction) {
+    await lifecycle.completeMediaProcessing(
+      submissionId,
+      mediaId,
+      "partially_succeeded"
+    )
+    return
+  }
+
+  const claimed = await lifecycle.claimMediaProcessing(submissionId, mediaId)
+  if (!claimed) return
+
+  try {
+    const input = {
+      submissionId,
+      reportProgress: false,
+      payload: [
+        {
+          pk: submissionId,
+          sk: `media#${mediaId}`,
+          media_id: mediaId,
+          bucket: media.uri.bucket,
+          key: pendingKey,
+        },
+      ],
+      detect: {
+        functionName: detectionFunction,
+        config: {
+          model: {
+            bucket: Resource.Uploads.name,
+            key: "assets/yolact/weights/yolact_base_255_11000.pth",
+          },
+          dataset: {
+            class_names: [
+              "haploblepharus_pictus",
+              "haploblepharus_edwardsii",
+              "poroderma_africanum",
+              "poroderma_pantherinum",
+            ],
+            label_map: { 0: 1, 1: 2, 2: 3, 3: 4 },
+          },
+          num_classes: 5,
+          score_threshold: 0.5,
+        },
+      },
+      expires: null,
+    }
+
+    return await invokeMediaProcessing<"yolact", "hesaff">({
+      ...input,
+      extract: {
+        functionName: extractionFunction,
+        config: { rotation_invariance: true },
+      },
+    })
+  } catch (error) {
+    await lifecycle.failMediaProcessingStart(submissionId, mediaId)
+    throw error
+  }
 }
 
 async function createUserAndVerify(opts: {
@@ -222,64 +297,6 @@ async function createUserAndVerify(opts: {
         })
       )
     )
-}
-
-function copyMediaToPending(
-  submissionId: string,
-  encounters: Omit<EncounterSubmissionData, "presignedUrl" | "file" | "xhr">[]
-) {
-  return Promise.all(
-    encounters.map(async (encounter) => {
-      const { name, ext } = parse(encounter.src)
-      const key = `pending/${submissionId}/${name}${ext}`
-      await copyObject(
-        `${Resource.Uploads.name}/${encounter.src}`,
-        Resource.Uploads.name,
-        key
-      )
-      return {
-        ...encounter,
-        src: key,
-      }
-    })
-  )
-}
-
-function addMediaToSubmissionTable(
-  submissionId: string,
-  encounters: Omit<EncounterSubmissionData, "presignedUrl" | "file" | "xhr">[]
-) {
-  return putItems(
-    Resource.SubmissionReviewPipeline.table,
-    encounters.map(({ id, src, type }) => ({
-      pk: submissionId,
-      sk: `media#${id}`,
-      media_id: id,
-      type,
-      uri: { bucket: Resource.Uploads.name, key: src },
-      gsi1pk: "result",
-      created_at: new Date().toISOString(),
-    }))
-  )
-}
-
-function addMediaToSubmissionTableAsResult(
-  submissionId: string,
-  encounters: Omit<EncounterSubmissionData, "presignedUrl" | "file" | "xhr">[]
-) {
-  return putItems(
-    Resource.SubmissionReviewPipeline.table,
-    encounters.map(({ id, src, type }) => ({
-      pk: submissionId,
-      sk: `media#${id}`,
-      media_id: id,
-      type,
-      uri: { bucket: Resource.Uploads.name, key: src },
-      gsi1pk: "result",
-      final: true,
-      created_at: new Date().toISOString(),
-    }))
-  )
 }
 
 function setStatusSubmitted(submissionId: string) {

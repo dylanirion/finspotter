@@ -1,6 +1,5 @@
 "use client"
 
-import { randomUUID } from "crypto"
 import {
   createContext,
   useCallback,
@@ -22,6 +21,7 @@ import { useSession } from "hooks/useSession"
 import { generateUuidFromFile } from "lib/utils"
 import { useReCaptcha } from "next-recaptcha-v3"
 import toast from "react-hot-toast"
+import { v4 as uuid } from "uuid"
 
 import { AboutCanvas } from "./AboutCanvas"
 import { AboutCarousel } from "./AboutCarousel"
@@ -46,7 +46,7 @@ export const DemoContext = createContext<
 export function About() {
   const queryClient = useQueryClient()
   const { connect, subscribe } = useRealtime()
-  const [submissionId] = useState(randomUUID)
+  const [submissionId] = useState(() => uuid())
   const [media, setMedia] = useState<DemoMedia | undefined>()
   const [isProcessing, setIsProcessing] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)

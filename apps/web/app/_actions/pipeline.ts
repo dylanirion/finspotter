@@ -112,7 +112,7 @@ export async function createDemoJob({
       config: {
         model: {
           bucket: Resource.Uploads.name,
-          key: "_assets/yolact/weights/yolact_base_255_11000.pth",
+          key: "assets/yolact/weights/yolact_base_255_11000.pth",
         },
         dataset: {
           class_names: [
@@ -192,7 +192,7 @@ export async function createDetectionJob(mediaId: string[]) {
       config: {
         model: {
           bucket: Resource.Uploads.name,
-          key: "_assets/yolact/weights/yolact_base_255_11000.pth",
+          key: "assets/yolact/weights/yolact_base_255_11000.pth",
         },
         dataset: {
           class_names: [

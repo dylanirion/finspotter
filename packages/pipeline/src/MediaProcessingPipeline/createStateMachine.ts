@@ -399,7 +399,16 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
             IsPresent: true,
           },
         ],
-        Next: setStatusDetecting.next(iterateImages),
+        Next: new Choice("Report detection progress?", {
+          Choices: [
+            {
+              Variable: $.stringAt("$.reportProgress"),
+              BooleanEquals: false,
+              Next: iterateImages,
+            },
+          ],
+          Default: setStatusDetecting.next(iterateImages),
+        }),
       },
     ],
     Default: new Pass("No detection"),
@@ -418,7 +427,16 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
             IsPresent: true,
           },
         ],
-        Next: setStatusExtracting.next(iterateDetections),
+        Next: new Choice("Report extraction progress?", {
+          Choices: [
+            {
+              Variable: $.stringAt("$.reportProgress"),
+              BooleanEquals: false,
+              Next: iterateDetections,
+            },
+          ],
+          Default: setStatusExtracting.next(iterateDetections),
+        }),
       },
     ],
     Default: new Pass("No extraction"),
@@ -445,9 +463,18 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
             IsPresent: true,
           },
         ],
-        Next: buildPairwiseSet
-          .next(setStatusSearching)
-          .next(iterateFeatureSets),
+        Next: buildPairwiseSet.next(
+          new Choice("Report pairwise search progress?", {
+            Choices: [
+              {
+                Variable: $.stringAt("$.reportProgress"),
+                BooleanEquals: false,
+                Next: iterateFeatureSets,
+              },
+            ],
+            Default: setStatusSearching.next(iterateFeatureSets),
+          })
+        ),
       },
       {
         And: [
@@ -468,7 +495,16 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
             IsPresent: true,
           },
         ],
-        Next: setStatusSearching.next(iterateFeatureSets),
+        Next: new Choice("Report indexed search progress?", {
+          Choices: [
+            {
+              Variable: $.stringAt("$.reportProgress"),
+              BooleanEquals: false,
+              Next: iterateFeatureSets,
+            },
+          ],
+          Default: setStatusSearching.next(iterateFeatureSets),
+        }),
       },
     ],
     Default: new Pass("No search"),
