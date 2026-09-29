@@ -8,10 +8,10 @@ export default $config({
       home: "aws",
       providers: {
         aws: {
+          version: "latest",
           profile:
             input.stage === "production" ? "finspotter-prod" : "finspotter-dev",
         },
-        "docker-build": "latest",
         gcp: {
           version: "latest",
           project: "finspotter",
@@ -21,7 +21,6 @@ export default $config({
     }
   },
   async run() {
-    /*
     const bbox_xywh = await import("@finspotter/annotation-bbox_xywh")
     const bbox_xywha = await import("@finspotter/annotation-bbox_xywha")
     const segmentation = await import("@finspotter/annotation-segmentation")
@@ -38,6 +37,7 @@ export default $config({
     //TODO: expose a notify() function or similar( event?) to display warning when no model or index exists? (ask to upload or train/create)
     const { default: yolact } = await import("@finspotter/yolact")
     const { default: hesaff } = await import("@finspotter/hesaff")
+    /*
     const { default: faiss } = await import("@finspotter/faiss")
     const { default: pgvector } = await import("@finspotter/pgvector")
     const { default: ratio } = await import("@finspotter/ratio")
@@ -47,18 +47,18 @@ export default $config({
 
     const { defineInfra } = await import("./infra")
     const { web } = defineInfra({
-      /*
       annotations,
       pipeline: [
         yolact.setAnnotationType(segmentation.name),
         hesaff, //TODO: register ellipse? (separate class from Annotation, just needs draw method)
+      /*
         faiss,
         pgvector.vector({ hesaff: 128 }),
         ratio,
         homog,
         sum,
+        */
       ],
-      */
     })
 
     return {

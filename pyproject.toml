@@ -1,0 +1,15 @@
+[project]
+name = "finspotter"
+version = "0.0.0"
+requires-python = "==3.13.*"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = [
+  "extensions/pipeline/*/detect",
+  "extensions/pipeline/*/extract",
+  "packages/pipeline/client",
+]

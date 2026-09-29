@@ -1,6 +1,6 @@
-This is a [Docker](https://www.docker.com/) container that runs instance segmentation with [yolact](https://github.com/dbolya/yolact).
+This is an SST Python function that runs instance segmentation with [yolact](https://github.com/dbolya/yolact).
 
-See [here](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html) for more information on deploying Docker containers as AWS Lambda functions
+Dependencies are managed by `uv`. SST runs the function locally during `sst dev` and builds a container image for deployment because the PyTorch dependency exceeds Lambda's zip size limit.
 
 The function expects an event with the type `EventData`
 ```python
@@ -44,32 +44,14 @@ where payload identifies the location of an image on S3, and model, the location
 
 ## Test locally
 
-First, build the container.
+Install the Python dependencies from the repository root:
 
 ```bash
-docker build image/ -t yolact:detect
+uv sync --all-packages
 ```
 
-Then run the container with:
+Then start SST Live development:
 
 ```bash
-docker run -p 9000:8080 yolact:detect
-```
-
-From another terminal, invoke the function by posting an event to the endpoint:
-
-```bash
-curl "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
-```
-
-To stop the container, find the ID:
-
-```bash
-docker ps
-```
-
-Then, replacing `<3766c4ab331c>` with the contiainer ID
-
-```bash
-docker kill <3766c4ab331c>
+pnpm dev
 ```

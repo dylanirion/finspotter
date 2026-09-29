@@ -1,9 +1,9 @@
 import json
 import numpy as np
 import cv2
-import boto3
 import pyhesaff
 import logging
+from client import get_client
 from os import environ
 from operator import itemgetter
 from pathlib import Path
@@ -94,8 +94,8 @@ HESAFF_PARAMS: HesaffConfig = {
 }
 
 logging.getLogger("botocore").setLevel(logging.INFO)
-s3 = boto3.client("s3")
-dynamodb = boto3.client("dynamodb")
+s3 = get_client("s3")
+dynamodb = get_client("dynamodb")
 
 
 def extraction(event: EventData) -> Payload:

@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 import cv2
-import boto3
 import logging
+from client import get_client
 from yolact_cpu.data.config import Config
 from yolact_cpu.yolact import Yolact
 from yolact_cpu.eval import Detections
@@ -66,8 +66,8 @@ YOLACT_PARAMS: YolactConfig = {
 }
 
 logging.getLogger("botocore").setLevel(logging.INFO)
-s3 = boto3.client("s3")
-dynamodb = boto3.client("dynamodb")
+s3 = get_client("s3")
+dynamodb = get_client("dynamodb")
 
 
 # TODO: https://www.reddit.com/r/aws/comments/17qn3ez/comment/k8ig17t/

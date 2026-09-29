@@ -9,74 +9,28 @@ type PipelineFunctionFactoryArgs =
   | Omit<aws.lambda.FunctionArgs, "role">
   | sst.aws.FunctionArgs
 
+// TODO: Remove or simplify this helper if it continues to only wrap sst.aws.Function.
 export function createPipelineFunction(
   name: string,
   args: PipelineFunctionFactoryArgs,
   bucket: PipelineBucket,
   table: sst.aws.Dynamo
 ): $util.Output<aws.lambda.Function> {
-  const role = new aws.iam.Role(`${name}Role`, {
-    name: `${$app.name}-${$app.stage}-${name}Role`,
-    assumeRolePolicy: aws.iam.assumeRolePolicyForPrincipal({
-      Service: "lambda.amazonaws.com",
-    }),
-    inlinePolicies: [
-      {
-        name: "bucketPolicy",
-        policy: bucket.arn.apply((arn) =>
-          aws.iam
-            .getPolicyDocument({
-              version: "2012-10-17",
-              statements: [
-                {
-                  effect: "Allow",
-                  actions: [
-                    "s3:GetObject",
-                    "s3:PutObject",
-                    "s3:PutObjectTagging",
-                    "s3:ListBucket",
-                  ],
-                  resources: [`${arn}/*`],
-                },
-              ],
-            })
-            .then((doc) => doc.json)
-        ),
-      },
-      {
-        name: "tablePolicy",
-        policy: table.arn.apply((arn) =>
-          aws.iam
-            .getPolicyDocument({
-              version: "2012-10-17",
-              statements: [
-                {
-                  effect: "Allow",
-                  actions: [
-                    "dynamodb:BatchGetItem",
-                    "dynamodb:BatchWriteItem",
-                    "dynamodb:ConditionCheckItem",
-                    "dynamodb:PutItem",
-                    "dynamodb:DescribeTable",
-                    "dynamodb:DeleteItem",
-                    "dynamodb:GetItem",
-                    "dynamodb:Scan",
-                    "dynamodb:Query",
-                    "dynamodb:UpdateItem",
-                  ],
-                  resources: [arn],
-                },
-              ],
-            })
-            .then((doc) => doc.json)
-        ),
-      },
-    ],
-    managedPolicyArns: [
-      "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-    ],
+  const functionArgs = args as sst.aws.FunctionArgs
+
+  const fn = new sst.aws.Function(name, {
+    ...functionArgs,
+    environment: {
+      ...functionArgs.environment,
+      BUCKET: bucket.name,
+      TABLE: table.name,
+    },
+    link: $util
+      .output(functionArgs.link ?? [])
+      .apply((links) => [...links, bucket, table]),
   })
 
+  /*
   const fn = isContainerFunctionArgs(args)
     ? new ContainerFunction(name, {
         ...args,
@@ -114,6 +68,7 @@ export function createPipelineFunction(
           },
           role: role.arn,
         })
+      */
 
   return "nodes" in fn ? fn.nodes.function : $util.output(fn)
 }

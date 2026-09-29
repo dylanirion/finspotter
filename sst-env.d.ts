@@ -24,6 +24,28 @@ declare module "sst" {
       "sender": string
       "type": "sst.aws.Email"
     }
+    "Hesaff": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "MediaProcessingPipeline": {
+      "detectionFunctions": {
+        "yolact": string
+      }
+      "extractionFunctions": {
+        "hesaff": string
+      }
+      "pipeline": string
+      "refineFunctions": {
+      }
+      "searchFunctions": {
+      }
+      "type": "finspotter.pipeline.MediaProcessingPipeline"
+    }
+    "PipelineAlertsEmail": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
     "SESSender": {
       "type": "sst.sst.Secret"
       "value": string
@@ -31,6 +53,8 @@ declare module "sst" {
     "SubmissionReviewPipeline": {
       "eventBus": string
       "identityPool": string
+      "mediaProcessingJob": string
+      "pipeline": string
       "realtime": {
         "4dabf18193072939515e22adb298388d": string
         "id": string
@@ -40,17 +64,35 @@ declare module "sst" {
       "table": string
       "type": "finspotter.pipeline.SubmissionReviewPipeline"
     }
+    "SubmissionReviewPipelineMediaProcessingJob": {
+      "arn": string
+      "id": string
+      "name": string
+      "roleArn": string
+      "type": "sst.aws.StateMachine"
+    }
+    "SubmissionReviewPipelineOrchestrator": {
+      "arn": string
+      "id": string
+      "name": string
+      "roleArn": string
+      "type": "sst.aws.StateMachine"
+    }
     "SubmissionReviewPipelineSubmissions": {
       "name": string
       "type": "sst.aws.Dynamo"
     }
     "Uploads": {
       "name": string
-      "type": "sst.sst.Linkable"
+      "type": "sst.aws.Bucket"
     }
     "Web": {
       "type": "sst.aws.Nextjs"
       "url": string
+    }
+    "Yolact": {
+      "name": string
+      "type": "sst.aws.Function"
     }
   }
 }

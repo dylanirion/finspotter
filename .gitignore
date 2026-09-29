@@ -7,3 +7,5 @@ node_modules
 .rendered
 .github
 graphify-out
+__pycache__
+sst.pyi
