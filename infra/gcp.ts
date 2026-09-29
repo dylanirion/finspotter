@@ -2,10 +2,14 @@ sst.Linkable.wrap(gcp.iam.WorkloadIdentityPoolProvider, (provider) => ({
   properties: { name: provider.name, project: gcp.config.project! },
 }))
 
-export const gcpIdentityPool = new gcp.iam.WorkloadIdentityPool("AwsPool", {
-  workloadIdentityPoolId: "aws-pool",
-  disabled: false,
-})
+export const gcpIdentityPool = new gcp.iam.WorkloadIdentityPool(
+  "AwsPool",
+  {
+    workloadIdentityPoolId: "aws-pool",
+    disabled: false,
+  },
+  //{ import: "aws-pool" }
+)
 
 export const gcpIdentityProvider = new gcp.iam.WorkloadIdentityPoolProvider(
   "AwsPoolProvider",
@@ -21,7 +25,9 @@ export const gcpIdentityProvider = new gcp.iam.WorkloadIdentityPoolProvider(
     aws: {
       accountId: aws.getCallerIdentityOutput({}).accountId,
     },
-  }
+  },
+  //{ import: `${gcp.organizations.getProject({}).then(proj => proj.id)}/locations/global/workloadIdentityPools/{gcpIdentityPool.workloadIdentityPoolId}/providers/aws-pool-provider" }
+  //{ import: "projects/finspotter/locations/global/workloadIdentityPools/aws-pool/providers/aws-pool-provider" }
 )
 
 new gcp.projects.IAMMember("AwsPoolRecaptchaPermission", {
