@@ -29,15 +29,9 @@ Start up a development environment:
 pnpm run dev
 ```
 
-> Note: You only need to perform the following two steps when setting up your development environment
+> Note: You only need to perform the following step once per environment
 
-In a separate terminal, create the dev bucket
-
-```bash
-pnpm run create-dev storage
-```
-
-And create an admin user
+In a separate terminal, create an admin user
 
 ```bash
 pnpm run create-admin --email your@email.com --name "Your Name" --data '{"firstName": "Your", "lastName": "Name"}'
