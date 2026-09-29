@@ -18,6 +18,8 @@ const MEDIAQUERY = "(prefers-color-scheme: dark)"
 const themes = ["light", "dark"]
 type Themes = (typeof themes)[number] | "system"
 
+// TODO: Revisit the theme context and template initialization; the first load still flashes white.
+
 export function useTheme() {
   const context = useContext(ThemeContext)
 
