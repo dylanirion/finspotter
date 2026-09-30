@@ -15,7 +15,10 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
     retentionInDays: 3,
   })
   const pipelineFailed = new Fail("Media Processing Failed")
-  const setStatusDetecting = createStatusState("Set Status Detecting", "detecting")
+  const setStatusDetecting = createStatusState(
+    "Set Status Detecting",
+    "detecting"
+  )
   const setStatusExtracting = createStatusState(
     "Set Status Extracting",
     "extracting"
@@ -60,6 +63,47 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
     MaxAttempts: 6,
     BackoffRate: 2,
   })
+  const validateDetectionOutput = new Choice("Validate detection output", {
+    Choices: [
+      {
+        And: [
+          { Variable: $.stringAt("$[0]"), IsPresent: false },
+          { Variable: $.stringAt("$"), IsString: false },
+        ],
+        Next: new Pass("Empty detection output valid"),
+      },
+      {
+        And: [
+          { Variable: $.stringAt("$[0].pk"), IsPresent: true },
+          { Variable: $.stringAt("$[0].sk"), IsPresent: true },
+          { Variable: $.stringAt("$[0].media_id"), IsPresent: true },
+          { Variable: $.stringAt("$[0].detection_id"), IsPresent: true },
+          { Variable: $.stringAt("$[0].bucket"), IsPresent: true },
+          { Variable: $.stringAt("$[0].key"), IsPresent: true },
+        ],
+        Next: new Pass("Detection output valid"),
+      },
+    ],
+    Default: new Fail("Invalid detection output"),
+  })
+  const validateExtractionOutput = new Choice("Validate extraction output", {
+    Choices: [
+      {
+        And: [
+          { Variable: $.stringAt("$.pk"), IsPresent: true },
+          { Variable: $.stringAt("$.sk"), IsPresent: true },
+          { Variable: $.stringAt("$.media_id"), IsPresent: true },
+          { Variable: $.stringAt("$.detection_id"), IsPresent: true },
+          { Variable: $.stringAt("$.bucket"), IsPresent: true },
+          { Variable: $.stringAt("$.key"), IsPresent: true },
+        ],
+        Next: new Pass("Extraction output valid"),
+      },
+    ],
+    Default: new Fail("Invalid extraction output"),
+  })
+  const detectionProcessor = invokeDetection.next(validateDetectionOutput)
+  const extractionProcessor = invokeExtraction.next(validateExtractionOutput)
   const iterateImages = new Map("Iterate images", {
     ItemsPath: $.stringAt("$.payload"),
     ItemSelector: {
@@ -79,7 +123,7 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
       ),
     },
     OutputPath: $.stringAt("$.merged"),
-    ItemProcessor: invokeDetection,
+    ItemProcessor: detectionProcessor,
   }).addCatch({
     ErrorEquals: ["States.ALL"],
     ResultPath: $.stringAt("$.error"),
@@ -95,7 +139,7 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
       "expires.$": $.stringAt("$.expires"),
     },
     ResultPath: $.stringAt("$.payload"),
-    ItemProcessor: invokeExtraction,
+    ItemProcessor: extractionProcessor,
   }).addCatch({
     ErrorEquals: ["States.ALL"],
     ResultPath: $.stringAt("$.error"),

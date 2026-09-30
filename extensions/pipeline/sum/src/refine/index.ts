@@ -6,6 +6,7 @@ import {
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb"
 import { getClient } from "@finspotter/core/client"
+import { requireObjectPayload } from "@finspotter/pipeline/validation"
 
 type Payload = {
   pk: string
@@ -56,12 +57,13 @@ const ddb = DynamoDBDocumentClient.from(
 )
 
 export async function handler(event: Event) {
-  const {
-    pk,
-    sk: prevSk,
-    bucket: matchsetBucket,
-    key: matchsetKey,
-  } = event.payload
+  const payload = requireObjectPayload<Payload>(event, [
+    "pk",
+    "sk",
+    "bucket",
+    "key",
+  ])
+  const { pk, sk: prevSk, bucket: matchsetBucket, key: matchsetKey } = payload
   const { index, expires } = event
   const matchset_path = parse(matchsetKey)
 

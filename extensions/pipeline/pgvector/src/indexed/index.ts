@@ -2,6 +2,7 @@ import {
   ExecuteStatementCommand,
   RDSDataClient,
 } from "@aws-sdk/client-rds-data"
+import { requireObjectPayload } from "@finspotter/pipeline/validation"
 import { Resource } from "sst"
 
 export type QueryEvent = {
@@ -34,7 +35,13 @@ const rds = new RDSDataClient({})
 
 //TODO: this will take a list of embeddings and return n closest matches to each in the vector store
 export async function handler(event: Event) {
-  const { pk, sk, bucket, key } = event.payload
+  const payload = requireObjectPayload<Payload>(event, [
+    "pk",
+    "sk",
+    "bucket",
+    "key",
+  ])
+  const { pk, sk, bucket, key } = payload
   console.log("test")
   /*
   db.execute(

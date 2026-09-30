@@ -11,6 +11,7 @@ import {
 // TODO: other comparison operators
 type Comparison =
   | { IsPresent: boolean }
+  | { IsString: boolean }
   | { StringEquals: string }
   | { NumericEquals: number }
   | { NumericLessThan: number }

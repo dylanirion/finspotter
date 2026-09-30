@@ -6,10 +6,10 @@ from os import environ
 from base64 import urlsafe_b64decode
 from operator import itemgetter
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 from boto3.dynamodb.types import TypeDeserializer
 from datetime import datetime, UTC
-from client import get_client
+from client import get_client, require_object_payload
 
 
 class S3Object(TypedDict):
@@ -47,18 +47,18 @@ s3 = get_client("s3")
 dynamodb = get_client("dynamodb")
 deserializer = TypeDeserializer()
 
+PAYLOAD_KEYS = ("pk", "sk", "bucket", "key")
 
-def homography(event) -> Payload:
 
-    assert "payload" in event, "Missing payload"
-
+def homography(event: EventData) -> Payload:
     index = event["index"]
     expires = event["expires"]
 
-    print(f"Got payload: {event['payload']}")
+    payload = cast(Payload, require_object_payload(event, PAYLOAD_KEYS))
+    print(f"Got payload: {payload}")
     pk, prev_sk, matchset_bucket, matchset_key = itemgetter(
-        "pk", "sk", "bucket", "key"
-    )(event["payload"])
+        *PAYLOAD_KEYS
+    )(payload)
     matchset_path = Path(
         matchset_key
     )  # {...}/{pipeline_id}/{}/{a_image_id}_{a_detection_id}-{b_image_id}_{b_detection_id}.json"

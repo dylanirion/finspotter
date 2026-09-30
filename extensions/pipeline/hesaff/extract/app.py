@@ -3,11 +3,11 @@ import numpy as np
 import cv2
 import pyhesaff
 import logging
-from client import get_client
+from client import get_client, require_object_payload
 from os import environ
 from operator import itemgetter
 from pathlib import Path
-from typing import TypedDict
+from typing import TypedDict, cast
 from datetime import datetime, UTC
 
 
@@ -97,15 +97,15 @@ logging.getLogger("botocore").setLevel(logging.INFO)
 s3 = get_client("s3")
 dynamodb = get_client("dynamodb")
 
+PAYLOAD_KEYS = ("pk", "sk", "media_id", "detection_id", "bucket", "key")
+
 
 def extraction(event: EventData) -> Payload:
-
-    assert "payload" in event, "Missing payload"
-
-    print(f"Got payload: {event['payload']}")
+    payload = get_payload(event)
+    print(f"Got payload: {payload}")
     pk, prev_sk, media_id, detection_id, detection_bucket, detection_key = itemgetter(
-        "pk", "sk", "media_id", "detection_id", "bucket", "key"
-    )(event["payload"])
+        *PAYLOAD_KEYS
+    )(payload)
 
     expires = event["expires"]
 
@@ -278,6 +278,10 @@ def extraction(event: EventData) -> Payload:
 
 def lambda_handler(event, context):
     return extraction(event)
+
+
+def get_payload(event: EventData) -> Payload:
+    return cast(Payload, require_object_payload(event, PAYLOAD_KEYS))
 
 
 def get_config(event: EventData) -> HesaffConfig:

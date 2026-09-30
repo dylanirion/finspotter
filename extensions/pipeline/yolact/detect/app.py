@@ -2,14 +2,14 @@ import numpy as np
 import torch
 import cv2
 import logging
-from client import get_client
+from client import get_client, require_object_payload
 from yolact_cpu.data.config import Config
 from yolact_cpu.yolact import Yolact
 from yolact_cpu.eval import Detections
 from yolact_cpu.utils.augmentations import FastBaseTransform
 from yolact_cpu.layers.output_utils import postprocess
 from io import BytesIO
-from typing import TypedDict, List, Dict
+from typing import TypedDict, List, Dict, cast
 from operator import itemgetter
 from pathlib import Path
 from os import environ
@@ -69,16 +69,16 @@ logging.getLogger("botocore").setLevel(logging.INFO)
 s3 = get_client("s3")
 dynamodb = get_client("dynamodb")
 
+PAYLOAD_KEYS = ("pk", "sk", "media_id", "bucket", "key")
+
 
 # TODO: https://www.reddit.com/r/aws/comments/17qn3ez/comment/k8ig17t/
 def detection(event: EventData) -> list[Response]:
-
-    assert "payload" in event, "Missing payload"
-
-    print(f"Got payload: {event['payload']}")
+    payload = cast(Payload, require_object_payload(event, PAYLOAD_KEYS))
+    print(f"Got payload: {payload}")
     pk, prev_sk, media_id, media_bucket, media_key = itemgetter(
-        "pk", "sk", "media_id", "bucket", "key"
-    )(event["payload"])
+        *PAYLOAD_KEYS
+    )(payload)
 
     expires = event["expires"]
 

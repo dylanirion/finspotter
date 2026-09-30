@@ -132,10 +132,24 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
     ],
     Default: new Pass("No further refinement"), //TODO: this will go to clustering
   })
+  const validateRefinementOutput = new Choice("Validate refinement output", {
+    Choices: [
+      {
+        And: [
+          { Variable: $.stringAt("$.payload.Payload.pk"), IsPresent: true },
+          { Variable: $.stringAt("$.payload.Payload.sk"), IsPresent: true },
+          { Variable: $.stringAt("$.payload.Payload.bucket"), IsPresent: true },
+          { Variable: $.stringAt("$.payload.Payload.key"), IsPresent: true },
+        ],
+        Next: incrementIndex.next(continueRefining),
+      },
+    ],
+    Default: new Fail("Invalid refinement output"),
+  })
   const refinementLoop = initRefinement
     .next(pullFunction)
     .next(invokeRefinement)
-  invokeRefinement.next(incrementIndex).next(continueRefining)
+  invokeRefinement.next(validateRefinementOutput)
   const refinementChoice = new Choice("Do match refinement?", {
     Choices: [
       {
@@ -147,6 +161,20 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
       },
     ],
     Default: new Pass("No match refinement"),
+  })
+  const validateSearchOutput = new Choice("Validate search output", {
+    Choices: [
+      {
+        And: [
+          { Variable: $.stringAt("$.payload.pk"), IsPresent: true },
+          { Variable: $.stringAt("$.payload.sk"), IsPresent: true },
+          { Variable: $.stringAt("$.payload.bucket"), IsPresent: true },
+          { Variable: $.stringAt("$.payload.key"), IsPresent: true },
+        ],
+        Next: refinementChoice,
+      },
+    ],
+    Default: new Fail("Invalid search output"),
   })
   const iterateFeatureSets = new Map("Iterate feature sets", {
     ItemsPath: $.stringAt("$.payload"),
@@ -168,7 +196,7 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
       ),
     },
     OutputPath: $.stringAt("$.merged"),
-    ItemProcessor: invokeSearch.next(refinementChoice),
+    ItemProcessor: invokeSearch.next(validateSearchOutput),
   }).addCatch({
     ErrorEquals: ["States.ALL"],
     ResultPath: $.stringAt("$.error"),
@@ -185,9 +213,7 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
             StringEquals: "pairwise",
           },
         ],
-        Next: createProgressChoice(
-          "Report prepared pairwise search progress?"
-        ),
+        Next: createProgressChoice("Report prepared pairwise search progress?"),
       },
       {
         And: [

@@ -5,10 +5,10 @@ import json
 import logging
 from os import environ
 from base64 import urlsafe_b64encode
-from typing import TypedDict
+from typing import TypedDict, cast
 from pathlib import Path
 from datetime import datetime, UTC
-from client import get_client
+from client import get_client, require_object_list_payload
 
 
 class S3Object(TypedDict):
@@ -49,6 +49,8 @@ logging.getLogger("botocore").setLevel(logging.INFO)
 s3 = get_client("s3")
 dynamodb = get_client("dynamodb")
 
+PAYLOAD_KEYS = ("pk", "sk", "media_id", "detection_id", "bucket", "key")
+
 
 # FAISS guidelines
 # <1M vectors https://github.com/facebookresearch/faiss/wiki/Guidelines-to-choose-an-index#if-below-1m-vectors-ivfk
@@ -57,23 +59,20 @@ dynamodb = get_client("dynamodb")
 
 
 def search(event: EventData) -> Response:
-
-    assert "payload" in event, "Missing payload"
-
     submission_id = event["submissionId"]
     expires = event["expires"]
 
     cfg = get_config(event)
-    payload = event["payload"]
-
-    assert len(payload) == 2, "Expected payload length == 2"
+    payload = cast(
+        list[Payload], require_object_list_payload(event, PAYLOAD_KEYS, 2)
+    )
 
     (a, b) = payload
     a_pk, a_sk, a_media_id, a_detection_id, a_bucket, a_key = itemgetter(
-        "pk", "sk", "media_id", "detection_id", "bucket", "key"
+        *PAYLOAD_KEYS
     )(a)
     b_pk, b_sk, b_media_id, b_detection_id, b_bucket, b_key = itemgetter(
-        "pk", "sk", "media_id", "detection_id", "bucket", "key"
+        *PAYLOAD_KEYS
     )(b)
 
     # TODO: Validate Content-Type from S3?
