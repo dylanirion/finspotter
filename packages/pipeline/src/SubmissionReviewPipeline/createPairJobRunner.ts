@@ -21,7 +21,7 @@ export interface PairJobRunnerConfig {
 export function createPairJobRunnerStateMachine(
   name: string,
   table: sst.aws.Dynamo,
-  mediaProcessing: StateMachine,
+  similaritySearch: StateMachine,
   config: PairJobRunnerConfig
 ) {
   const logGroup = new aws.cloudwatch.LogGroup(`${name}PairJobRunnerLog`, {
@@ -101,7 +101,7 @@ export function createPairJobRunnerStateMachine(
   })
   const runPairwise = new StepFunctionInvoke(
     "Run Pairwise Search",
-    mediaProcessing,
+    similaritySearch,
     {
       Parameters: {
         "Input.$": $.jsonToString("$.request"),

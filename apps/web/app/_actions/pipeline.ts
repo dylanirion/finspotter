@@ -135,7 +135,7 @@ export async function createDemoJob({
     search: {
       type: "indexed",
       functionName:
-        Resource.MediaProcessingPipeline.searchFunctions["pgvector:indexed"],
+        Resource.SimilaritySearchPipeline.searchFunctions["pgvector:indexed"],
       config: null,
     },
     expires,

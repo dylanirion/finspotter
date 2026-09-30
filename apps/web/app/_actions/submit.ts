@@ -98,20 +98,20 @@ export async function doSubmission({
     search: {
       type: "pairwise",
       functionName:
-        Resource.MediaProcessingPipeline.searchFunctions["faiss:pairwise"],
+        Resource.SimilaritySearchPipeline.searchFunctions["faiss:pairwise"],
       config: null,
     },
     refine: [
       {
-        functionName: Resource.MediaProcessingPipeline.refineFunctions["ratio"],
+        functionName: Resource.SimilaritySearchPipeline.refineFunctions["ratio"],
         config: { threshold: 0.625 },
       },
       {
-        functionName: Resource.MediaProcessingPipeline.refineFunctions["homog"],
+        functionName: Resource.SimilaritySearchPipeline.refineFunctions["homog"],
         config: { ransacReprojThreshold: 50 },
       },
       {
-        functionName: Resource.MediaProcessingPipeline.refineFunctions["sum"],
+        functionName: Resource.SimilaritySearchPipeline.refineFunctions["sum"],
         config: null,
       },
     ],

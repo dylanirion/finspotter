@@ -44,14 +44,6 @@ declare module "sst" {
         "hesaff": string
       }
       "pipeline": string
-      "refineFunctions": {
-        "homog": string
-        "ratio": string
-        "sum": string
-      }
-      "searchFunctions": {
-        "faiss:pairwise": string
-      }
       "type": "finspotter.pipeline.MediaProcessingPipeline"
     }
     "PipelineAlertsEmail": {
@@ -65,6 +57,18 @@ declare module "sst" {
     "SESSender": {
       "type": "sst.sst.Secret"
       "value": string
+    }
+    "SimilaritySearchPipeline": {
+      "pipeline": string
+      "refineFunctions": {
+        "homog": string
+        "ratio": string
+        "sum": string
+      }
+      "searchFunctions": {
+        "faiss:pairwise": string
+      }
+      "type": "finspotter.pipeline.SimilaritySearchPipeline"
     }
     "SubmissionReviewPipeline": {
       "eventBus": string

@@ -106,6 +106,7 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
 
   public orchestrate(
     mediaProcessing: StateMachine,
+    similaritySearch: StateMachine,
     pairJobs?: PairJobRunnerConfig
   ) {
     if (this._pipeline) {
@@ -115,6 +116,7 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
       this._name,
       this._table,
       mediaProcessing,
+      similaritySearch,
       pairJobs ? this._pairJobGenerator : undefined
     )
     this._mediaProcessingJob = createMediaProcessingJobStateMachine(
@@ -126,7 +128,7 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
       this._pairJobRunner = createPairJobRunnerStateMachine(
         this._name,
         this._table,
-        mediaProcessing,
+        similaritySearch,
         pairJobs
       )
       createPairJobDispatch(this._name, this._bus, this._pairJobRunner)

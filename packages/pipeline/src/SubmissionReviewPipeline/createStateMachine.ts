@@ -15,6 +15,7 @@ export function createSubmissionReviewStateMachine(
   name: string,
   table: sst.aws.Dynamo,
   mediaProcessing: StateMachine,
+  similaritySearch: StateMachine,
   pairJobGenerator?: $util.Output<aws.lambda.Function>
 ) {
   const logGroup = new aws.cloudwatch.LogGroup(`${name}OrchestratorLog`, {
@@ -48,6 +49,28 @@ export function createSubmissionReviewStateMachine(
         "Input.$": $.jsonToString("$"),
       },
       ResultPath: $.stringAt("$.mediaProcessing"),
+    },
+    "sync"
+  )
+  const runSimilaritySearch = new StepFunctionInvoke(
+    "Run Similarity Search",
+    similaritySearch,
+    {
+      Parameters: {
+        "Input.$": $.stringAt("$.mediaProcessing.Output"),
+      },
+      ResultPath: $.stringAt("$.similaritySearch"),
+    },
+    "sync"
+  )
+  const runAccumulatedSimilaritySearch = new StepFunctionInvoke(
+    "Run Accumulated Similarity Search",
+    similaritySearch,
+    {
+      Parameters: {
+        "Input.$": $.jsonToString("$"),
+      },
+      ResultPath: $.stringAt("$.similaritySearch"),
     },
     "sync"
   )
@@ -162,15 +185,39 @@ export function createSubmissionReviewStateMachine(
       {
         Variable: $.stringAt("$.mediaProcessing.Status"),
         StringEquals: "SUCCEEDED",
+        Next: runSimilaritySearch,
+      },
+    ],
+    Default: processingFailed,
+  })
+  const checkSimilarityResult = new Choice("Check Similarity Search Result", {
+    Choices: [
+      {
+        Variable: $.stringAt("$.similaritySearch.Status"),
+        StringEquals: "SUCCEEDED",
         Next: processingSucceeded,
       },
     ],
     Default: processingFailed,
   })
+  runSimilaritySearch.next(checkSimilarityResult)
+  runAccumulatedSimilaritySearch.next(checkSimilarityResult)
+  runSimilaritySearch.addCatch({
+    ErrorEquals: ["States.ALL"],
+    ResultPath: $.stringAt("$.similaritySearch"),
+    Next: processingFailed,
+  })
+  runAccumulatedSimilaritySearch.addCatch({
+    ErrorEquals: ["States.ALL"],
+    ResultPath: $.stringAt("$.similaritySearch"),
+    Next: processingFailed,
+  })
 
   const pairJobsReady = pairJobGenerator
     ? createPairJobReconciliation(pairJobGenerator)
-    : findExtractions.next(buildSearchPayload).next(runMediaProcessing)
+    : findExtractions
+        .next(buildSearchPayload)
+        .next(runAccumulatedSimilaritySearch)
 
   const checkIncompleteMedia = new Choice("Check Incomplete Media", {
     Choices: [

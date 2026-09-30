@@ -4,6 +4,7 @@ import {
 } from "@finspotter/annotations/init"
 import { MediaProcessingPipeline } from "@finspotter/pipeline/MediaProcessingPipeline"
 import { type PipelinePackage } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
+import { SimilaritySearchPipeline } from "@finspotter/pipeline/SimilaritySearchPipeline"
 import { SubmissionReviewPipeline } from "@finspotter/pipeline/SubmissionReviewPipeline"
 
 import { db } from "./database"
@@ -33,26 +34,38 @@ export function defineInfra({
   const pipeline = new MediaProcessingPipeline("MediaProcessingPipeline", {
     packages,
     bucket,
-    bus: submissionReview.bus,
     table: submissionReview.table,
   })
-  submissionReview.orchestrate(pipeline.stateMachine, {
-    searchFunction: pipeline.searchFunctions["faiss:pairwise"],
-    refinements: [
-      {
-        functionName: pipeline.refineFunctions.ratio,
-        config: { threshold: 0.625 },
-      },
-      {
-        functionName: pipeline.refineFunctions.homog,
-        config: { ransacReprojThreshold: 50 },
-      },
-      {
-        functionName: pipeline.refineFunctions.sum,
-        config: null,
-      },
-    ],
-  })
+  const similaritySearch = new SimilaritySearchPipeline(
+    "SimilaritySearchPipeline",
+    {
+      packages,
+      bucket,
+      bus: submissionReview.bus,
+      table: submissionReview.table,
+    }
+  )
+  submissionReview.orchestrate(
+    pipeline.stateMachine,
+    similaritySearch.stateMachine,
+    {
+      searchFunction: similaritySearch.searchFunctions["faiss:pairwise"],
+      refinements: [
+        {
+          functionName: similaritySearch.refineFunctions.ratio,
+          config: { threshold: 0.625 },
+        },
+        {
+          functionName: similaritySearch.refineFunctions.homog,
+          config: { ransacReprojThreshold: 50 },
+        },
+        {
+          functionName: similaritySearch.refineFunctions.sum,
+          config: null,
+        },
+      ],
+    }
+  )
 
   const web = new sst.aws.Nextjs("Web", {
     domain,
@@ -64,6 +77,7 @@ export function defineInfra({
       email,
       submissionReview,
       pipeline,
+      similaritySearch,
       recaptcha,
       gcpIdentityProvider,
     ],
@@ -85,5 +99,14 @@ export function defineInfra({
     },
   })
 
-  return { db, bucket, email, submissionReview, pipeline, secret, web }
+  return {
+    db,
+    bucket,
+    email,
+    submissionReview,
+    pipeline,
+    similaritySearch,
+    secret,
+    web,
+  }
 }
