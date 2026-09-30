@@ -5,8 +5,10 @@
   "exports": {
     "./auth": "./src/auth/index.ts",
     "./auth/*": "./src/auth/*.ts",
+    "./client": "./src/client/index.ts",
     "./recaptcha": "./src/recaptcha/index.ts",
     "./email": "./src/email/index.ts",
+    "./pipeline/pairs": "./src/pipeline/pairs.ts",
     "./storage": "./src/storage/index.ts",
     "./pipeline": "./src/pipeline/index.ts",
     "./*": [

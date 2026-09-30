@@ -3,6 +3,11 @@
 
 import { createRealtime } from "./createRealtime"
 import { createMediaProcessingJobStateMachine } from "./createMediaProcessingJob"
+import {
+  createPairJobDispatch,
+  createPairJobRunnerStateMachine,
+  type PairJobRunnerConfig,
+} from "./createPairJobRunner"
 import { createSubmissionReviewStateMachine } from "./createStateMachine"
 import { StateMachine } from "../StepFunction"
 
@@ -15,6 +20,8 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
   private _table: sst.aws.Dynamo
   private _pipeline?: StateMachine
   private _mediaProcessingJob?: StateMachine
+  private _pairJobRunner?: StateMachine
+  private _pairJobGenerator: $util.Output<aws.lambda.Function>
 
   constructor(
     name: string,
@@ -66,13 +73,14 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
       },
     })
 
-    const { bus, identityPool, realtime } = createRealtime(
+    const { bus, identityPool, pairJobGenerator, realtime } = createRealtime(
       name,
       this._table,
       args.notificationEmail
     )
     this._bus = bus
     this._identityPool = identityPool
+    this._pairJobGenerator = pairJobGenerator
     this._realtime = realtime
   }
 
@@ -96,20 +104,33 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
     return this._table
   }
 
-  public orchestrate(mediaProcessing: StateMachine) {
+  public orchestrate(
+    mediaProcessing: StateMachine,
+    pairJobs?: PairJobRunnerConfig
+  ) {
     if (this._pipeline) {
       throw new Error("Submission review orchestration is already configured")
     }
     this._pipeline = createSubmissionReviewStateMachine(
       this._name,
       this._table,
-      mediaProcessing
+      mediaProcessing,
+      pairJobs ? this._pairJobGenerator : undefined
     )
     this._mediaProcessingJob = createMediaProcessingJobStateMachine(
       this._name,
       this._table,
       mediaProcessing
     )
+    if (pairJobs) {
+      this._pairJobRunner = createPairJobRunnerStateMachine(
+        this._name,
+        this._table,
+        mediaProcessing,
+        pairJobs
+      )
+      createPairJobDispatch(this._name, this._bus, this._pairJobRunner)
+    }
     return this
   }
 

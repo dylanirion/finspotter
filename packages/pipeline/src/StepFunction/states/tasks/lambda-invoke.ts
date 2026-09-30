@@ -41,7 +41,7 @@ export class LambdaInvoke extends TaskStateBase<LambdaInvokeTaskParameters> {
       new aws.iam.RolePolicy(
         `${prefix}Invoke${funcName}SfnRolePolicy`,
         {
-          name: physicalName(256, `${prefix}Invoke${funcName}SfnRolePolicy`),
+          name: physicalName(128, `${prefix}Invoke${funcName}SfnRolePolicy`),
           role: role.name,
           policy: {
             Version: "2012-10-17",

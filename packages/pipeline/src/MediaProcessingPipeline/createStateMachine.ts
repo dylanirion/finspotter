@@ -1,11 +1,9 @@
-import { buildSet } from "../buildSet"
 import {
   $,
   Choice,
   Custom,
   Dynamo,
   Fail,
-  LambdaInvoke,
   Map,
   Pass,
   StateMachine,
@@ -272,24 +270,6 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
     Next: pipelineFailed,
   })
 
-  const buildPairwiseSet = new LambdaInvoke("Build Pairwise Set", buildSet, {
-    Parameters: {
-      Payload: {
-        "payload.$": $.stringAt("$.payload"),
-      },
-    },
-    ResultSelector: {
-      "merged.$": $.jsonMerge(
-        "$$.Execution.Input",
-        $.stringToJson(
-          // eslint-disable-next-line no-useless-escape
-          $.format('\\{\"payload\": {}\\}', $.stringAt("$.Payload"))
-        )
-      ),
-    },
-    OutputPath: $.stringAt("$.merged"),
-  })
-
   const initRefinementLoop = new Pass("Initialise match refinement loop", {
     Parameters: {
       "submissionId.$": $.stringAt("$.submissionId"),
@@ -447,34 +427,28 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
       {
         And: [
           {
-            Variable: $.stringAt("$.payload[1]"), // ensure array is atleast two items
+            Variable: $.stringAt("$.payload[0][1]"),
             IsPresent: true,
           },
           {
-            Variable: $.stringAt("$.search"),
-            IsPresent: true,
+            Variable: $.stringAt("$.pairsPrepared"),
+            BooleanEquals: true,
           },
           {
             Variable: $.stringAt("$.search.type"),
             StringEquals: "pairwise",
           },
-          {
-            Variable: $.stringAt("$.search.functionName"),
-            IsPresent: true,
-          },
         ],
-        Next: buildPairwiseSet.next(
-          new Choice("Report pairwise search progress?", {
-            Choices: [
-              {
-                Variable: $.stringAt("$.reportProgress"),
-                BooleanEquals: false,
-                Next: iterateFeatureSets,
-              },
-            ],
-            Default: setStatusSearching.next(iterateFeatureSets),
-          })
-        ),
+        Next: new Choice("Report prepared pairwise search progress?", {
+          Choices: [
+            {
+              Variable: $.stringAt("$.reportProgress"),
+              BooleanEquals: false,
+              Next: iterateFeatureSets,
+            },
+          ],
+          Default: setStatusSearching.next(iterateFeatureSets),
+        }),
       },
       {
         And: [

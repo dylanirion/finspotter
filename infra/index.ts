@@ -36,7 +36,23 @@ export function defineInfra({
     bus: submissionReview.bus,
     table: submissionReview.table,
   })
-  submissionReview.orchestrate(pipeline.stateMachine)
+  submissionReview.orchestrate(pipeline.stateMachine, {
+    searchFunction: pipeline.searchFunctions["faiss:pairwise"],
+    refinements: [
+      {
+        functionName: pipeline.refineFunctions.ratio,
+        config: { threshold: 0.625 },
+      },
+      {
+        functionName: pipeline.refineFunctions.homog,
+        config: { ransacReprojThreshold: 50 },
+      },
+      {
+        functionName: pipeline.refineFunctions.sum,
+        config: null,
+      },
+    ],
+  })
 
   const web = new sst.aws.Nextjs("Web", {
     domain,

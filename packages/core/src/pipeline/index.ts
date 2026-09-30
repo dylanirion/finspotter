@@ -18,6 +18,13 @@ import {
   type StorageRepository,
 } from "../storage"
 
+export {
+  createPairJobKey,
+  type ExtractionReference,
+  type PairJobItem,
+  type PairJobState,
+} from "./pairs"
+
 export type PipelineStatus =
   | "submitted"
   | "initialised"
@@ -196,6 +203,7 @@ export interface JobProps<
 > {
   submissionId: string
   payload: PayloadFor<InferEntry<D, E, S, R>>[]
+  pairsPrepared?: boolean
   reconcileProcessing?: boolean
   reportProgress?: boolean
   detect?: D extends string

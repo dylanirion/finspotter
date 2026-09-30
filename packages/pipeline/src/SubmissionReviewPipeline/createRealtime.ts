@@ -7,9 +7,14 @@ export function createRealtime(
 ) {
   const realtime = createEventsApi(name)
   const identityPool = createIdentityPool(name, realtime)
-  const bus = createEventBus(name, table, realtime, notificationEmail)
+  const { bus, pairJobGenerator } = createEventBus(
+    name,
+    table,
+    realtime,
+    notificationEmail
+  )
 
-  return { bus, identityPool, realtime }
+  return { bus, identityPool, pairJobGenerator, realtime }
 }
 
 function createEventsApi(name: string) {
@@ -244,6 +249,69 @@ function createEventBus(
       }),
     }
   )
+  const extractionRule = new aws.cloudwatch.EventRule(
+    `${name}ExtractionPairJobRule`,
+    {
+      name: physicalName(256, `${name}ExtractionPairJobRule`),
+      eventBusName: bus.name,
+      eventPattern: JSON.stringify({
+        detail: {
+          dynamodb: {
+            NewImage: {
+              sk: { S: [{ prefix: "extraction#" }] },
+              gsi1pk: { S: ["result"] },
+            },
+          },
+        },
+      }),
+    }
+  )
+  const pairJobGenerator = new sst.aws.Function(`${name}PairJobGenerator`, {
+    handler: "packages/pipeline/src/pairJobs/index.handler",
+    dev: false,
+    timeout: "30 seconds",
+    environment: {
+      TABLE: table.name,
+      PAIRWISE_ALGORITHM: "faiss:pairwise:v1",
+    },
+    permissions: [
+      {
+        actions: [
+          "dynamodb:BatchGetItem",
+          "dynamodb:Query",
+          "dynamodb:UpdateItem",
+        ],
+        resources: [table.arn],
+      },
+    ],
+  })
+
+  new aws.lambda.Permission(`${name}PairJobGeneratorPermission`, {
+    action: "lambda:InvokeFunction",
+    function: pairJobGenerator.nodes.function.name,
+    principal: "events.amazonaws.com",
+    sourceArn: extractionRule.arn,
+  })
+
+  new aws.cloudwatch.EventTarget(`${name}ExtractionPairJobTarget`, {
+    targetId: physicalName(256, `${name}ExtractionPairJobTarget`),
+    eventBusName: bus.name,
+    rule: extractionRule.name,
+    arn: pairJobGenerator.nodes.function.arn,
+    inputTransformer: {
+      inputPaths: {
+        pk: "$.detail.dynamodb.NewImage.pk.S",
+        sk: "$.detail.dynamodb.NewImage.sk.S",
+        mediaId: "$.detail.dynamodb.NewImage.media_id.S",
+        detectionId: "$.detail.dynamodb.NewImage.detection_id.S",
+        bucket:
+          "$.detail.dynamodb.NewImage.uri.M.features.M.bucket.S",
+        key: "$.detail.dynamodb.NewImage.uri.M.features.M.key.S",
+      },
+      inputTemplate:
+        '{"pk":"<pk>","sk":"<sk>","media_id":"<mediaId>","detection_id":"<detectionId>","bucket":"<bucket>","key":"<key>"}',
+    },
+  })
 
   new aws.cloudwatch.EventTarget(`${name}StatusEventsApiTarget`, {
     targetId: physicalName(256, `${name}StatusTarget`),
@@ -288,7 +356,7 @@ function createEventBus(
     roleArn: destinationRole.arn,
   })
 
-  return bus
+  return { bus, pairJobGenerator: pairJobGenerator.nodes.function }
 }
 
 function createApiKeyExpiryWarning(

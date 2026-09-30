@@ -4,6 +4,7 @@ import {
   Custom,
   Dynamo,
   Fail,
+  LambdaInvoke,
   Map,
   Pass,
   StateMachine,
@@ -13,7 +14,8 @@ import {
 export function createSubmissionReviewStateMachine(
   name: string,
   table: sst.aws.Dynamo,
-  mediaProcessing: StateMachine
+  mediaProcessing: StateMachine,
+  pairJobGenerator?: $util.Output<aws.lambda.Function>
 ) {
   const logGroup = new aws.cloudwatch.LogGroup(`${name}OrchestratorLog`, {
     name: `/aws/sfn/${$app.name}-${$app.stage}-${name}Orchestrator`,
@@ -166,12 +168,16 @@ export function createSubmissionReviewStateMachine(
     Default: processingFailed,
   })
 
+  const pairJobsReady = pairJobGenerator
+    ? createPairJobReconciliation(pairJobGenerator)
+    : findExtractions.next(buildSearchPayload).next(runMediaProcessing)
+
   const checkIncompleteMedia = new Choice("Check Incomplete Media", {
     Choices: [
       {
         Variable: $.stringAt("$.incompleteMedia.Count"),
         NumericEquals: 0,
-        Next: findExtractions.next(buildSearchPayload).next(runMediaProcessing),
+        Next: pairJobsReady,
       },
       {
         Variable: $.stringAt("$.reconciliation.attempt"),
@@ -288,7 +294,7 @@ export function createSubmissionReviewStateMachine(
   const stateMachine = new StateMachine(
     `${name}Orchestrator`,
     {
-      type: "EXPRESS",
+      type: "STANDARD",
       definition,
       loggingConfiguration: {
         logDestination: $util.interpolate`${logGroup.arn}:*`,
@@ -378,5 +384,109 @@ export function createSubmissionReviewStateMachine(
       },
       ResultPath: $.DISCARD,
     })
+  }
+
+  function createPairJobReconciliation(
+    generator: $util.Output<aws.lambda.Function>
+  ) {
+    const reconcilePairs = new LambdaInvoke("Reconcile Pair Jobs", generator, {
+      Parameters: {
+        Payload: {
+          "submissionId.$": $.stringAt("$.submissionId"),
+        },
+      },
+      ResultPath: $.stringAt("$.pairJobReconciliation"),
+    })
+    const initialisePairWait = new Pass("Initialise Pair Job Wait", {
+      Result: { attempt: 0 },
+      ResultPath: $.stringAt("$.pairJobWait"),
+    })
+    const findIncompletePairJobs = new Custom("Find Incomplete Pair Jobs", {
+      Type: "Task",
+      Resource: "arn:aws:states:::aws-sdk:dynamodb:query",
+      Parameters: {
+        TableName: table.name.apply(async (tableName) => tableName),
+        KeyConditionExpression: "#PK = :pk AND begins_with(#SK, :pair)",
+        FilterExpression: "#STATE = :pending OR #STATE = :running",
+        ExpressionAttributeNames: {
+          "#PK": "pk",
+          "#SK": "sk",
+          "#STATE": "state",
+        },
+        ExpressionAttributeValues: {
+          ":pk": { "S.$": $.stringAt("$.submissionId") },
+          ":pair": { S: "pair#" },
+          ":pending": { S: "pending" },
+          ":running": { S: "running" },
+        },
+        Select: "COUNT",
+      },
+      ResultPath: $.stringAt("$.incompletePairJobs"),
+    })
+    const waitForPairJobs = new Custom("Wait For Pair Jobs", {
+      Type: "Wait",
+      Seconds: 5,
+    })
+    const findFailedPairJobs = new Custom("Find Failed Pair Jobs", {
+      Type: "Task",
+      Resource: "arn:aws:states:::aws-sdk:dynamodb:query",
+      Parameters: {
+        TableName: table.name.apply(async (tableName) => tableName),
+        KeyConditionExpression: "#PK = :pk AND begins_with(#SK, :pair)",
+        FilterExpression: "#STATE = :failed",
+        ExpressionAttributeNames: {
+          "#PK": "pk",
+          "#SK": "sk",
+          "#STATE": "state",
+        },
+        ExpressionAttributeValues: {
+          ":pk": { "S.$": $.stringAt("$.submissionId") },
+          ":pair": { S: "pair#" },
+          ":failed": { S: "failed" },
+        },
+        Select: "COUNT",
+      },
+      ResultPath: $.stringAt("$.failedPairJobs"),
+    })
+    const checkFailedPairJobs = new Choice("Check Failed Pair Jobs", {
+      Choices: [
+        {
+          Variable: $.stringAt("$.failedPairJobs.Count"),
+          NumericEquals: 0,
+          Next: processingSucceeded,
+        },
+      ],
+      Default: processingFailed,
+    })
+    const incrementPairWait = new Pass("Increment Pair Job Wait", {
+      Parameters: {
+        "attempt.$": $.mathAdd("$.pairJobWait.attempt", 1),
+      },
+      ResultPath: $.stringAt("$.pairJobWait"),
+    })
+    const checkPairJobs = new Choice("Check Incomplete Pair Jobs", {
+      Choices: [
+        {
+          Variable: $.stringAt("$.incompletePairJobs.Count"),
+          NumericEquals: 0,
+          Next: findFailedPairJobs.next(checkFailedPairJobs),
+        },
+        {
+          Variable: $.stringAt("$.pairJobWait.attempt"),
+          NumericLessThan: 59,
+          Next: waitForPairJobs,
+        },
+      ],
+      Default: processingFailed,
+    })
+    waitForPairJobs
+      .next(incrementPairWait)
+      .next(findIncompletePairJobs)
+      .next(checkPairJobs)
+
+    return reconcilePairs
+      .next(initialisePairWait)
+      .next(findIncompletePairJobs)
+      .next(checkPairJobs)
   }
 }
