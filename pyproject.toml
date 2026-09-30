@@ -11,5 +11,7 @@ package = false
 members = [
   "extensions/pipeline/*/detect",
   "extensions/pipeline/*/extract",
+  "extensions/pipeline/*/pairwise",
+  "extensions/pipeline/*/refine",
   "packages/pipeline/client",
 ]

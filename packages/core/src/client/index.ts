@@ -1,14 +1,14 @@
 import { S3Client } from "@aws-sdk/client-s3"
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-let client: any | null = null
+const clients = new WeakMap<object, any>()
 
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
 export function getClient<C extends any>(
   c: new (config: any) => C,
   opts?: any
 ): C {
-  const isDev = process.env.NODE_ENV !== "production"
+  const isDev = isLocalDevelopment()
 
   if (isDev) {
     if (c === S3Client) {
@@ -26,9 +26,16 @@ export function getClient<C extends any>(
     return new c({ ...opts })
   }
 
-  if (!client) {
-    client = new c({ ...opts })
-  }
+  const existing = clients.get(c)
+  if (existing) return existing
 
+  const client = new c({ ...opts })
+  clients.set(c, client)
   return client
+}
+
+export function isLocalDevelopment() {
+  return (
+    process.env.SST_DEV === "true" || process.env.NODE_ENV === "development"
+  )
 }

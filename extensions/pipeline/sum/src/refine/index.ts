@@ -5,6 +5,7 @@ import {
   DynamoDBDocumentClient,
   TransactWriteCommand,
 } from "@aws-sdk/lib-dynamodb"
+import { getClient } from "@finspotter/core/client"
 
 type Payload = {
   pk: string
@@ -28,11 +29,11 @@ type MatchSet = {
   score: number
 }[]
 
-const s3 = new S3Client({
+const s3 = getClient(S3Client, {
   logger: {
     ...console,
-    debug(..._args) {},
-    trace(..._args) {},
+    debug(..._args: unknown[]) {},
+    trace(..._args: unknown[]) {},
   },
   requestHandler: {
     requestTimeout: 3_000,
@@ -41,11 +42,11 @@ const s3 = new S3Client({
 })
 
 const ddb = DynamoDBDocumentClient.from(
-  new DynamoDBClient({
+  getClient(DynamoDBClient, {
     logger: {
       ...console,
-      debug(..._args) {},
-      trace(..._args) {},
+      debug(..._args: unknown[]) {},
+      trace(..._args: unknown[]) {},
     },
     requestHandler: {
       requestTimeout: 3_000,

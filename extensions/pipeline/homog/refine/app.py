@@ -1,7 +1,6 @@
 import json
 import numpy as np
 import cv2
-import boto3
 import logging
 from os import environ
 from base64 import urlsafe_b64decode
@@ -10,6 +9,7 @@ from pathlib import Path
 from typing import TypedDict
 from boto3.dynamodb.types import TypeDeserializer
 from datetime import datetime, UTC
+from client import get_client
 
 
 class S3Object(TypedDict):
@@ -43,8 +43,8 @@ Match = TypedDict("Match", {"from": int, "to": int, "distance": float})
 HOMOG_PARAMS: HomogConfig = {"ransacReprojThreshold": 3}
 
 logging.getLogger("botocore").setLevel(logging.INFO)
-s3 = boto3.client("s3")
-dynamodb = boto3.client("dynamodb")
+s3 = get_client("s3")
+dynamodb = get_client("dynamodb")
 deserializer = TypeDeserializer()
 
 

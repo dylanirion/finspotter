@@ -3,6 +3,8 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "types": ["node"],
   },
+  "include": ["src/**/*.ts", "sst-env.d.ts", "../../../.sst/platform/config.d.ts"],
   "exclude": ["node_modules"]
 }

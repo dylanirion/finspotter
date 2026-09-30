@@ -24,7 +24,15 @@ declare module "sst" {
       "sender": string
       "type": "sst.aws.Email"
     }
+    "FaissPairwise": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
     "Hesaff": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "Homog": {
       "name": string
       "type": "sst.aws.Function"
     }
@@ -37,14 +45,22 @@ declare module "sst" {
       }
       "pipeline": string
       "refineFunctions": {
+        "homog": string
+        "ratio": string
+        "sum": string
       }
       "searchFunctions": {
+        "faiss:pairwise": string
       }
       "type": "finspotter.pipeline.MediaProcessingPipeline"
     }
     "PipelineAlertsEmail": {
       "type": "sst.sst.Secret"
       "value": string
+    }
+    "Ratio": {
+      "name": string
+      "type": "sst.aws.Function"
     }
     "SESSender": {
       "type": "sst.sst.Secret"
@@ -78,9 +94,24 @@ declare module "sst" {
       "roleArn": string
       "type": "sst.aws.StateMachine"
     }
+    "SubmissionReviewPipelinePairJobGenerator": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "SubmissionReviewPipelinePairJobRunner": {
+      "arn": string
+      "id": string
+      "name": string
+      "roleArn": string
+      "type": "sst.aws.StateMachine"
+    }
     "SubmissionReviewPipelineSubmissions": {
       "name": string
       "type": "sst.aws.Dynamo"
+    }
+    "Sum": {
+      "name": string
+      "type": "sst.aws.Function"
     }
     "Uploads": {
       "name": string

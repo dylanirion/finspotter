@@ -6,15 +6,16 @@ export const refine: MatchRefinementFunction = ({ bucket, table }) =>
     "Ratio",
     {
       runtime: "python3.13",
-      handler: "app.lambda_handler",
-      code: new $util.asset.AssetArchive({
-        ".": new $util.asset.FileArchive(
-          "../../extensions/pipeline/ratio/refine"
-        ),
+      handler: "extensions/pipeline/ratio/refine/app.lambda_handler",
+      memory: "256 MB",
+      architecture: "x86_64",
+      timeout: "90 seconds",
+      ...($dev && {
+        environment: {
+          RUSTFS_ACCESS_KEY: process.env.RUSTFS_ACCESS_KEY,
+          RUSTFS_SECRET_KEY: process.env.RUSTFS_SECRET_KEY,
+        },
       }),
-      memorySize: 256,
-      architectures: ["x86_64"],
-      timeout: 90,
     },
     bucket,
     table

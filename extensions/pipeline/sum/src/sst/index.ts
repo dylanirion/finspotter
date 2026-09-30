@@ -7,10 +7,15 @@ export const refine: MatchRefinementFunction = ({ bucket, table }) =>
     {
       runtime: "nodejs22.x",
       handler: "extensions/pipeline/sum/src/refine/index.handler",
-      memorySize: "256 MB",
-      architectures: "x86_64",
+      memory: "256 MB",
+      architecture: "x86_64",
       timeout: "90 seconds",
-      dev: false,
+      ...($dev && {
+        environment: {
+          RUSTFS_ACCESS_KEY: process.env.RUSTFS_ACCESS_KEY!,
+          RUSTFS_SECRET_KEY: process.env.RUSTFS_SECRET_KEY!,
+        },
+      }),
     },
     bucket,
     table

@@ -5,12 +5,20 @@ export const pairwise: SearchFunction = ({ bucket, table }) =>
   createPipelineFunction(
     "FaissPairwise",
     {
-      context: {
-        location: "../../extensions/pipeline/faiss/pairwise",
+      runtime: "python3.13",
+      handler: "extensions/pipeline/faiss/pairwise/app.lambda_handler",
+      python: {
+        container: true,
       },
-      memorySize: 512,
-      architectures: ["x86_64"],
-      timeout: 180,
+      memory: "512 MB",
+      architecture: "x86_64",
+      timeout: "180 seconds",
+      ...($dev && {
+        environment: {
+          RUSTFS_ACCESS_KEY: process.env.RUSTFS_ACCESS_KEY,
+          RUSTFS_SECRET_KEY: process.env.RUSTFS_SECRET_KEY,
+        },
+      }),
     },
     bucket,
     table

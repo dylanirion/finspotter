@@ -2,13 +2,13 @@ from operator import itemgetter
 import faiss
 import numpy as np
 import json
-import boto3
 import logging
 from os import environ
 from base64 import urlsafe_b64encode
 from typing import TypedDict
 from pathlib import Path
 from datetime import datetime, UTC
+from client import get_client
 
 
 class S3Object(TypedDict):
@@ -46,8 +46,8 @@ FAISS_PARAMS: FaissConfig = {
 }
 
 logging.getLogger("botocore").setLevel(logging.INFO)
-s3 = boto3.client("s3")
-dynamodb = boto3.client("dynamodb")
+s3 = get_client("s3")
+dynamodb = get_client("dynamodb")
 
 
 # FAISS guidelines
