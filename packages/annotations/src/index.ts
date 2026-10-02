@@ -4,6 +4,10 @@ import * as bbox_xywh from "@finspotter/annotation-bbox_xywh/machine"
 import * as bbox_xywha from "@finspotter/annotation-bbox_xywha/machine"
 import * as segmentation from "@finspotter/annotation-segmentation/machine"
 import * as bbox_xywha$segmentation from "@finspotter/annotation-bbox_xywha_segmentation/machine"
+import { materialize as materialize_bbox_xywh } from "@finspotter/annotation-bbox_xywh"
+import { materialize as materialize_bbox_xywha } from "@finspotter/annotation-bbox_xywha"
+import { materialize as materialize_segmentation } from "@finspotter/annotation-segmentation"
+import { materialize as materialize_bbox_xywha_segmentation } from "@finspotter/annotation-bbox_xywha_segmentation"
 
 import { machine as nullMachine } from "./null/machine"
 
@@ -39,3 +43,21 @@ const _machines = {
 
 export type MachineType<T extends AnnotationType | "null"> =
   (typeof _machines)[T]
+
+const _materializers = {
+  bbox_xywh: materialize_bbox_xywh,
+  bbox_xywha: materialize_bbox_xywha,
+  segmentation: materialize_segmentation,
+  "bbox_xywha$segmentation": materialize_bbox_xywha_segmentation,
+} as const
+
+export function materializeAnnotation<T extends AnnotationType>(
+  type: T,
+  data: AnnotationDataTypes[T]
+) {
+  return (
+    _materializers[type] as (
+      value: AnnotationDataTypes[T]
+    ) => import("./materialization").MaterializationPlan
+  )(data)
+}

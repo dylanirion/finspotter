@@ -30,6 +30,22 @@ export class MediaProcessingPipeline extends $util.ComponentResource {
 
     // TODO: persist extension function registrations in db instead of linking them as properties?
     const { bucket, packages, table } = args
+    const materializer = new sst.aws.Function(`${name}Materializer`, {
+      handler: "packages/pipeline/materialize/app.lambda_handler",
+      runtime: "python3.13",
+      python: { container: true },
+      memory: "1024 MB",
+      timeout: "90 seconds",
+      link: [bucket, table],
+      environment: {
+        BUCKET: bucket.name,
+        TABLE: table.name,
+        ...($dev && {
+          RUSTFS_ACCESS_KEY: process.env.RUSTFS_ACCESS_KEY,
+          RUSTFS_SECRET_KEY: process.env.RUSTFS_SECRET_KEY,
+        }),
+      },
+    })
 
     const detectionFunctions = packages.reduce(
       (acc, { name, detect }) => {
@@ -56,7 +72,11 @@ export class MediaProcessingPipeline extends $util.ComponentResource {
 
     this._detectionFunctions = detectionFunctions
     this._extractionFunctions = extractionFunctions
-    this._pipeline = createStateMachine(name, table)
+    this._pipeline = createStateMachine(
+      name,
+      table,
+      materializer.nodes.function
+    )
     createRolePolicies(this._pipeline.role)
 
     function createRolePolicies(role: aws.iam.Role) {
@@ -76,6 +96,7 @@ export class MediaProcessingPipeline extends $util.ComponentResource {
               Object.values({
                 ...detectionFunctions,
                 ...extractionFunctions,
+                materializer: materializer.nodes.function,
               }).map((func) => func.arn)
             )
             .apply(async (arns) =>

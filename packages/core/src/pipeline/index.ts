@@ -1,6 +1,9 @@
 import "server-only"
 
-import { type AnnotationDataTypes } from "@finspotter/annotations"
+import {
+  type AnnotationDataTypes,
+} from "@finspotter/annotations"
+import type { MaterializationPlan } from "@finspotter/annotations/materialization"
 import {
   type AnnotationTypes,
   type DetectConfig,
@@ -29,6 +32,7 @@ export type PipelineStatus =
   | "submitted"
   | "initialised"
   | "detecting"
+  | "materializing"
   | "extracting"
   | "searching (pairwise)"
   | "searching (indexed)"
@@ -172,6 +176,7 @@ type ExtractPayload = DynamoItem &
   S3Object & {
     media_id: string
     detection_id: string
+    materialization?: MaterializationPlan
     autoReview?: {
       annotationId: string
       reviewedBy: string

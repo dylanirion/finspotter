@@ -12,6 +12,7 @@ members = [
     "finspotter-faiss",
     "finspotter-hesaff",
     "finspotter-homog",
+    "finspotter-materialize",
     "finspotter-pipeline-client",
     "finspotter-ratio",
     "finspotter-yolact",
@@ -150,6 +151,23 @@ dependencies = [
 requires-dist = [
     { name = "finspotter-pipeline-client", editable = "packages/pipeline/client" },
     { name = "numpy" },
+    { name = "opencv-python-headless" },
+]
+
+[[package]]
+name = "finspotter-materialize"
+version = "0.0.0"
+source = { virtual = "packages/pipeline/materialize" }
+dependencies = [
+    { name = "finspotter-pipeline-client" },
+    { name = "numpy" },
+    { name = "opencv-python-headless" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "finspotter-pipeline-client", editable = "packages/pipeline/client" },
+    { name = "numpy", specifier = "<2.3.0" },
     { name = "opencv-python-headless" },
 ]
 

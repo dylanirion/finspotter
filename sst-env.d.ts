@@ -46,6 +46,10 @@ declare module "sst" {
       "pipeline": string
       "type": "finspotter.pipeline.MediaProcessingPipeline"
     }
+    "MediaProcessingPipelineMaterializer": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
     "PipelineAlertsEmail": {
       "type": "sst.sst.Secret"
       "value": string

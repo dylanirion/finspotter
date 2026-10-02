@@ -47,6 +47,7 @@ type StatusEvent = {
     | "submitted"
     | "initialised"
     | "detecting"
+    | "materializing"
     | "extracting"
     | "searching (pairwise)"
     | "searching (indexed)"

@@ -121,11 +121,15 @@ def extraction(event: EventData) -> Payload:
     source_detection = dynamodb.get_item(
         TableName=environ["TABLE"],
         Key={"pk": {"S": pk}, "sk": {"S": prev_sk}},
-        ProjectionExpression="#CATEGORY",
-        ExpressionAttributeNames={"#CATEGORY": "category"},
+        ProjectionExpression="#CATEGORY, #MAPPING",
+        ExpressionAttributeNames={
+            "#CATEGORY": "category",
+            "#MAPPING": "coordinate_mapping",
+        },
         ConsistentRead=True,
     ).get("Item", {})
     category = source_detection.get("category")
+    coordinate_mapping = source_detection.get("coordinate_mapping")
 
     # TODO: Validate Content-Type from S3?
     print(f"Downloading image from {detection_bucket}/{detection_key}")
@@ -193,6 +197,8 @@ def extraction(event: EventData) -> Payload:
     ]
     if category is not None:
         update_expr.append("#CATEGORY = :category")
+    if coordinate_mapping is not None:
+        update_expr.append("#MAPPING = :mapping")
     auto_review = payload.get("autoReview")
     if auto_review is not None:
         update_expr.extend(
@@ -223,6 +229,11 @@ def extraction(event: EventData) -> Payload:
                         "#GSI1PK": "gsi1pk",
                         "#SOURCEDETECTION": "source_detection",
                         **({"#CATEGORY": "category"} if category is not None else {}),
+                        **(
+                            {"#MAPPING": "coordinate_mapping"}
+                            if coordinate_mapping is not None
+                            else {}
+                        ),
                         "#SUPERSEDEDBY": "superseded_by",
                     },
                     "ExpressionAttributeValues": {
@@ -303,6 +314,11 @@ def extraction(event: EventData) -> Payload:
                             }
                         },
                         **({":category": category} if category is not None else {}),
+                        **(
+                            {":mapping": coordinate_mapping}
+                            if coordinate_mapping is not None
+                            else {}
+                        ),
                         **(
                             {
                                 ":autoreview": {"BOOL": True},

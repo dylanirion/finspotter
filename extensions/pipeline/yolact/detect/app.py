@@ -2,6 +2,8 @@ import numpy as np
 import torch
 import cv2
 import logging
+from decimal import Decimal
+from boto3.dynamodb.types import TypeSerializer
 from client import get_client, require_object_payload
 from yolact_cpu.data.config import Config
 from yolact_cpu.yolact import Yolact
@@ -11,7 +13,6 @@ from yolact_cpu.layers.output_utils import postprocess
 from io import BytesIO
 from typing import TypedDict, List, Dict, cast
 from operator import itemgetter
-from pathlib import Path
 from os import environ
 from datetime import datetime, UTC
 
@@ -68,6 +69,7 @@ YOLACT_PARAMS: YolactConfig = {
 logging.getLogger("botocore").setLevel(logging.INFO)
 s3 = get_client("s3")
 dynamodb = get_client("dynamodb")
+serializer = TypeSerializer()
 
 PAYLOAD_KEYS = ("pk", "sk", "media_id", "bucket", "key")
 
@@ -82,7 +84,6 @@ def detection(event: EventData) -> list[Response]:
 
     expires = event["expires"]
 
-    media_path = Path(media_key)
     cfg = get_config(event)
 
     assert "model" in cfg, "Missing required property `model` in config."
@@ -138,37 +139,12 @@ def detection(event: EventData) -> list[Response]:
             detection.add_bbox(i, classes[i], boxes[i, :], scores[i])
             detection.add_poly(i, classes[i], masks[i, :, :], scores[i])
 
-        img_masked = mask_image_feathered(img, detection.mask_data["segmentation"])
-        is_success, buffer = cv2.imencode(".jpg", img_masked)
-        if not is_success:
-            raise ValueError("Unable to imencode()")
-        result = BytesIO(buffer.tobytes()).getvalue()
-
-        # put results on s3
-        (image_result_bucket, image_result_key) = (
-            environ["BUCKET"],
-            (
-                f"{media_path.parent}/{media_id}/{i}.jpg"
-                if str(media_path.parent).startswith("temp")
-                else f"pending/{pk}/{media_id}/{i}.jpg"
-            ),
-        )
-
-        print(f"Storing detection in s3:{image_result_bucket}/{image_result_key}")
-        s3.put_object(
-            Body=result,
-            ContentType="image/jpeg",
-            Bucket=image_result_bucket,
-            Key=image_result_key,
-            Metadata={
-                "type": "yolact",
-                "model": model_key,
-            },
-        )
-
         # put results on dynamo
         sk = f"detection#{media_id}#{i}#yolact"
         print(f"Storing detection in dynamo:{pk}/{sk}")
+        materialization = polygon_materialization(
+            detection.mask_data["segmentation"]
+        )
         result = detection.serialize()
 
         expr_names = {
@@ -182,6 +158,7 @@ def detection(event: EventData) -> list[Response]:
             "#CREATEDAT": "created_at",
             "#GSI1PK": "gsi1pk",
             "#SOURCEMEDIA": "source_media",
+            "#MATERIALIZATION": "materialization",
         }
         expr_values = {
             ":mediaid": {"S": media_id},
@@ -192,8 +169,8 @@ def detection(event: EventData) -> list[Response]:
             ":score": result["score"],
             ":uri": {
                 "M": {
-                    "bucket": {"S": image_result_bucket},
-                    "key": {"S": image_result_key},
+                    "bucket": {"S": media_bucket},
+                    "key": {"S": media_key},
                 }
             },
             ":createdat": {
@@ -208,6 +185,9 @@ def detection(event: EventData) -> list[Response]:
                     "sk": {"S": prev_sk},
                 }
             },
+            ":materialization": serializer.serialize(
+                to_dynamo_value(materialization)
+            ),
         }
         update_expr = [
             "#MEDIAID = :mediaid",
@@ -220,6 +200,7 @@ def detection(event: EventData) -> list[Response]:
             "#CREATEDAT = :createdat",
             "#GSI1PK = :gsi1pk",
             "#SOURCEMEDIA = :sourcemedia",
+            "#MATERIALIZATION = :materialization",
         ]
         if expires is not None:
             expr_names["#EXPIRES"] = "expires"
@@ -242,8 +223,9 @@ def detection(event: EventData) -> list[Response]:
                 "sk": sk,
                 "media_id": media_id,
                 "detection_id": str(i),
-                "bucket": image_result_bucket,
-                "key": image_result_key,
+                "bucket": media_bucket,
+                "key": media_key,
+                "materialization": materialization,
             }
         )
 
@@ -284,62 +266,38 @@ def get_config(event: EventData) -> EventConfig:
     return cfg
 
 
-def mask_image(img, segs):
-    img_masked = img
-    if segs is not None:
-        mask = np.zeros(img_masked.shape, dtype=np.uint8)
-        for seg in segs:
-            poly = np.array(list(zip(seg[0::2], seg[1::2])), dtype=np.int32)
-            cv2.fillPoly(mask, [poly], (1, 1, 1))
-        img_masked = (img_masked * mask).clip(0, 255).astype(np.uint8)
-    return img_masked
+def polygon_materialization(polygons: list[list[float]]) -> dict:
+    points = [
+        (polygon[index], polygon[index + 1])
+        for polygon in polygons
+        for index in range(0, len(polygon) - 1, 2)
+    ]
+    if not points:
+        raise ValueError("Detection produced no materializable polygon")
+    left = min(point[0] for point in points)
+    top = min(point[1] for point in points)
+    right = max(point[0] for point in points)
+    bottom = max(point[1] for point in points)
+    return {
+        "sourceToDerived": {
+            "a": 1,
+            "b": 0,
+            "c": 0,
+            "d": 1,
+            "e": -left,
+            "f": -top,
+        },
+        "width": max(1, int(np.ceil(right - left))),
+        "height": max(1, int(np.ceil(bottom - top))),
+        "mask": {"polygons": polygons, "featherPixels": 50},
+    }
 
 
-def mask_image_feathered(img, segs, fade_width=50, blur_kernel=31):
-    """
-    Create a soft feathered edge that fades the image into the average color of the subject.
-
-    Args:
-        img (numpy.ndarray): Original image
-        segs (list): List of segmentation segments, where each segment is [x1, y1, x2, y2, ...]
-        fade_width (int): Width of the feather boundary in pixels (larger values = more gradual transitions)
-        blur_kernel (int): Kernel size for Gaussian blur to further soften edges
-
-    Returns:
-        numpy.ndarray: Masked image with feathered edges to average color
-    """
-    if segs is None or len(segs) == 0:
-        return img
-
-    # Create binary mask
-    mask = np.zeros(img.shape[:2], dtype=np.uint8)
-    for seg in segs:
-        poly = np.array(list(zip(seg[0::2], seg[1::2])), dtype=np.int32)
-        cv2.fillPoly(mask, [poly], (255,))
-
-    # Calculate average color of the subject
-    subject_mask = mask > 0
-    if np.sum(subject_mask) > 0:
-        avg_color = np.mean(img[subject_mask], axis=0).astype(np.uint8)
-    else:
-        avg_color = np.array([128, 128, 128])  # Fallback to gray if no object is found
-
-    # Create background with average color
-    background = np.ones_like(img) * avg_color.reshape(1, 1, 3)
-
-    # Calculate distance transform for feathering
-    dist_transform = cv2.distanceTransform(255 - mask, cv2.DIST_L2, 5)
-    dist_transform = np.clip(dist_transform, 0, fade_width) / fade_width
-
-    # Create feathered transition mask (linear feathering)
-    feather_mask = 1 - dist_transform
-    feather_mask = np.clip(feather_mask, 0, 1)
-
-    # Apply Gaussian blur for smooth feathered edges
-    feather_mask = cv2.GaussianBlur(feather_mask, (blur_kernel, blur_kernel), 0)
-    feather_mask = np.repeat(feather_mask[:, :, np.newaxis], 3, axis=2)
-
-    # Blend the image with the average color background using feathered mask
-    result = img * feather_mask + background * (1 - feather_mask)
-
-    return result.astype(np.uint8)
+def to_dynamo_value(value):
+    if isinstance(value, float):
+        return Decimal(str(value))
+    if isinstance(value, list):
+        return [to_dynamo_value(item) for item in value]
+    if isinstance(value, dict):
+        return {key: to_dynamo_value(item) for key, item in value.items()}
+    return value

@@ -12,6 +12,7 @@ export type Role = "admin" | "manager" | "matcher" | "annotator" | "user"
 
 //TODO: change to more "understandable" verbs read->view, update->add, etc
 type CrudAction = "create" | "read" | "update" | "delete"
+type ReviewAction = "auto_review"
 type OrgAction = "invite" | "remove"
 type MLAction = "train"
 
@@ -24,7 +25,7 @@ type ResourceType = {
 
 type ActionPermissions<T> = Partial<
   Record<
-    CrudAction,
+    CrudAction | ReviewAction,
     boolean | ((user: Session["user"] | undefined, data: T) => boolean)
   >
 > &
@@ -55,6 +56,7 @@ const permissions: RolePermissions = {
       read: true,
       update: true,
       delete: true,
+      auto_review: true,
     },
     Media: {
       create: true,
@@ -103,18 +105,20 @@ const permissions: RolePermissions = {
   },
 }
 
-export function can<R extends keyof ResourceType, A extends CrudAction>(
+export function can<
+  R extends keyof ResourceType,
+  A extends CrudAction | ReviewAction,
+>(
   user: Session["user"] | undefined,
   action: A,
   resource: R,
   data?: ResourceType[R]
 ): boolean {
   // check role base permissions
-  const organizations = user?.organizations
-    ? user.organizations
-    : { "0": "visitor" }
-  const hasRolePermission = Object.values(organizations)
-    .flat()
+  const organizations = user?.organizations ?? {}
+  const globalRole = user && "role" in user ? user.role : undefined
+  const hasRolePermission = [globalRole, ...Object.values(organizations).flat()]
+    .filter((role): role is string => typeof role === "string")
     .some((role) => {
       const permission =
         permissions[role as keyof RolePermissions][resource]?.[action]

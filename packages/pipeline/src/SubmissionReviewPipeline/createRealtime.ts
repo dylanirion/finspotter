@@ -263,7 +263,7 @@ function createEventBus(
   const autoReviewedExtractionRule = new aws.cloudwatch.EventRule(
     `${name}AutoReviewedExtractionEventRule`,
     {
-      name: physicalName(256, `${name}AutoReviewedExtractionEventRule`),
+      name: physicalName(64, `${name}AutoReview`),
       eventBusName: bus.name,
       eventPattern: JSON.stringify({
         detail: {
@@ -283,7 +283,7 @@ function createEventBus(
   const terminalResultRule = new aws.cloudwatch.EventRule(
     `${name}TerminalResultEventRule`,
     {
-      name: physicalName(256, `${name}TerminalResultEventRule`),
+      name: physicalName(64, `${name}TerminalResult`),
       eventBusName: bus.name,
       eventPattern: JSON.stringify({
         detail: {
@@ -450,7 +450,7 @@ function createEventBus(
   })
 
   new aws.cloudwatch.EventTarget(`${name}ExtractionProjectorTarget`, {
-    targetId: physicalName(256, `${name}ExtractionProjectorTarget`),
+    targetId: physicalName(64, `${name}AutoReviewTarget`),
     eventBusName: bus.name,
     rule: autoReviewedExtractionRule.name,
     arn: resultProjector.nodes.function.arn,
@@ -469,7 +469,7 @@ function createEventBus(
   })
 
   new aws.cloudwatch.EventTarget(`${name}TerminalResultProjectorTarget`, {
-    targetId: physicalName(256, `${name}TerminalResultProjectorTarget`),
+    targetId: physicalName(64, `${name}TerminalResultTarget`),
     eventBusName: bus.name,
     rule: terminalResultRule.name,
     arn: resultProjector.nodes.function.arn,

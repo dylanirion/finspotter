@@ -222,7 +222,10 @@ const drizzleAnnotationRepository: AnnotationRepository = {
             })
             .returning({
               id: annotationsTable.id,
+              mediaId: annotationsTable.mediaId,
+              detectionId: annotationsTable.detectionId,
               individualId: annotationsTable.individualId,
+              updatedAt: annotationsTable.updatedAt,
             })
 
           if (individualId)

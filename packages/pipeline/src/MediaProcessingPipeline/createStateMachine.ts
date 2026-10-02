@@ -9,7 +9,11 @@ import {
   StateMachine,
 } from "../StepFunction"
 
-export function createStateMachine(name: string, table: sst.aws.Dynamo) {
+export function createStateMachine(
+  name: string,
+  table: sst.aws.Dynamo,
+  materializer: aws.lambda.Function
+) {
   const logGroup = new aws.cloudwatch.LogGroup(`${name}Log`, {
     name: `/aws/sfn/${$app.name}-${$app.stage}-${name}`,
     retentionInDays: 3,
@@ -22,6 +26,10 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
   const setStatusExtracting = createStatusState(
     "Set Status Extracting",
     "extracting"
+  )
+  const setStatusMaterializing = createStatusState(
+    "Set Status Materializing",
+    "materializing"
   )
   const invokeDetection = new Custom("Invoke detection function", {
     Type: "Task",
@@ -54,6 +62,25 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
         "expires.$": $.stringAt("$.expires"),
       },
       "FunctionName.$": $.stringAt("$.functionName"),
+    },
+    ResultPath: $.stringAt("$"),
+    OutputPath: $.stringAt("$.Payload"),
+  }).addRetry({
+    ErrorEquals: ["Lambda.ServiceException", "Lambda.AWSLambdaException"],
+    IntervalSeconds: 2,
+    MaxAttempts: 6,
+    BackoffRate: 2,
+  })
+  const invokeMaterializer = new Custom("Materialize annotation image", {
+    Type: "Task",
+    Resource: "arn:aws:states:::lambda:invoke",
+    Parameters: {
+      Payload: {
+        "submissionId.$": $.stringAt("$.submissionId"),
+        "payload.$": $.stringAt("$.payload"),
+        "expires.$": $.stringAt("$.expires"),
+      },
+      FunctionName: materializer.name,
     },
     ResultPath: $.stringAt("$"),
     OutputPath: $.stringAt("$.Payload"),
@@ -102,8 +129,34 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
     ],
     Default: new Fail("Invalid extraction output"),
   })
+  const validateMaterializationOutput = new Choice(
+    "Validate materialization output",
+    {
+      Choices: [
+        {
+          And: [
+            { Variable: $.stringAt("$.pk"), IsPresent: true },
+            { Variable: $.stringAt("$.sk"), IsPresent: true },
+            { Variable: $.stringAt("$.media_id"), IsPresent: true },
+            { Variable: $.stringAt("$.detection_id"), IsPresent: true },
+            { Variable: $.stringAt("$.bucket"), IsPresent: true },
+            { Variable: $.stringAt("$.key"), IsPresent: true },
+            {
+              Variable: $.stringAt("$.coordinate_mapping"),
+              IsPresent: true,
+            },
+          ],
+          Next: new Pass("Materialization output valid"),
+        },
+      ],
+      Default: new Fail("Invalid materialization output"),
+    }
+  )
   const detectionProcessor = invokeDetection.next(validateDetectionOutput)
   const extractionProcessor = invokeExtraction.next(validateExtractionOutput)
+  const materializationProcessor = invokeMaterializer.next(
+    validateMaterializationOutput
+  )
   const iterateImages = new Map("Iterate images", {
     ItemsPath: $.stringAt("$.payload"),
     ItemSelector: {
@@ -140,6 +193,20 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
     },
     ResultPath: $.stringAt("$.payload"),
     ItemProcessor: extractionProcessor,
+  }).addCatch({
+    ErrorEquals: ["States.ALL"],
+    ResultPath: $.stringAt("$.error"),
+    Next: pipelineFailed,
+  })
+  const materializeDetections = new Map("Materialize detections", {
+    ItemsPath: $.stringAt("$.payload"),
+    ItemSelector: {
+      "submissionId.$": $.stringAt("$.submissionId"),
+      "payload.$": $.stringAt("$$.Map.Item.Value"),
+      "expires.$": $.stringAt("$.expires"),
+    },
+    ResultPath: $.stringAt("$.payload"),
+    ItemProcessor: materializationProcessor,
   }).addCatch({
     ErrorEquals: ["States.ALL"],
     ResultPath: $.stringAt("$.error"),
@@ -183,12 +250,27 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
     ],
     Default: new Pass("No extraction"),
   })
+  const materializationChoice = new Choice("Materialize annotations?", {
+    Choices: [
+      {
+        Variable: $.stringAt("$.payload[0].materialization"),
+        IsPresent: true,
+        Next: createProgressChoice(
+          "Report materialization progress?",
+          setStatusMaterializing,
+          materializeDetections
+        ),
+      },
+    ],
+    Default: new Pass("No materialization"),
+  })
 
   return new StateMachine(
     name,
     {
       type: "EXPRESS",
       definition: detectionChoice
+        .next(materializationChoice)
         .next(extractionChoice)
         .next(new Pass("Media Processing Complete")),
       loggingConfiguration: {

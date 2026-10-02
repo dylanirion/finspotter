@@ -106,3 +106,22 @@ export async function invokeMediaProcessing<
     startedAt: response.startDate,
   }
 }
+
+export async function invokeMediaPipeline<
+  D extends string | undefined = undefined,
+  E extends string | undefined = undefined,
+>(input: JobProps<D, E>) {
+  const response = await startExecution(
+    sfn,
+    Resource.MediaProcessingPipeline.pipeline,
+    input
+  )
+  if (!response.executionArn || !response.startDate) {
+    throw new Error("Step Functions did not return a media pipeline handle")
+  }
+
+  return {
+    id: response.executionArn,
+    startedAt: response.startDate,
+  }
+}
