@@ -2,7 +2,9 @@ import {
   BatchExecuteStatementCommand,
   RDSDataClient,
 } from "@aws-sdk/client-rds-data"
+import { createStorageRepository } from "@finspotter/core/storage"
 import { Resource } from "sst"
+import { z } from "zod"
 
 const TWO_MEGABYTES = 2 * 1024 * 1024
 
@@ -25,6 +27,8 @@ const rds = new RDSDataClient({
     httpsAgent: { maxSockets: 25 },
   },
 })
+const storage = createStorageRepository()
+const featuresSchema = z.array(z.array(z.number()))
 
 export async function handler(event: Event) {
   const allowedTables = JSON.parse(process.env.ALLOWED_TABLES || "[]")
@@ -33,18 +37,19 @@ export async function handler(event: Event) {
     throw new Error(`Invalid table name: ${event.type}`)
   }
 
-  const { id, category } = event
-  //TODO: read s3
-  const features = []
+  const features = featuresSchema.parse(
+    JSON.parse(await storage.getObjectText(event.bucket, event.key))
+  )
 
-  batchInsertFeatures(features, id, category)
-  return {}
+  await batchInsertFeatures(features, event.id, event.category, event.type)
+  return { indexed: features.length }
 }
 
 async function batchInsertFeatures(
   features: number[][],
   id: string,
-  category: string
+  category: string,
+  table: string
 ) {
   const chunks = chunkFeatures(features, id, category)
 
@@ -61,11 +66,7 @@ async function batchInsertFeatures(
       },
       {
         name: ":embedding",
-        value: {
-          arrayValue: {
-            doubleValues: feature.embedding,
-          },
-        },
+        value: { stringValue: `[${feature.embedding.join(",")}]` },
       },
     ])
 
@@ -74,7 +75,7 @@ async function batchInsertFeatures(
         secretArn: Resource.Vector.secretArn,
         resourceArn: Resource.Vector.clusterArn,
         database: Resource.Vector.database,
-        sql: `insert into ${event.type} (annotation_id, feature_id, category, embedding) values (:annotation_id, :feature_id, :category, :embedding)`,
+        sql: `insert into ${table} (annotation_id, feature_id, category, embedding) values (:annotation_id, :feature_id, :category, cast(:embedding as vector)) on conflict (annotation_id, feature_id) do update set category = excluded.category, embedding = excluded.embedding`,
         parameterSets,
       })
     )

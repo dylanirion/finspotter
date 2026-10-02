@@ -128,22 +128,7 @@ def detection(event: EventData) -> list[Response]:
     masks = masks.view(-1, h, w).detach().numpy()
     result_list: list[Response] = []
 
-    transact_items = [
-        {
-            "Update": {
-                "TableName": environ["TABLE"],
-                "Key": {"pk": {"S": pk}, "sk": {"S": prev_sk}},
-                "ExpressionAttributeNames": {
-                    "#GSI1PK": "gsi1pk",
-                    "#SUPERSEDEDBY": "superseded_by",
-                },
-                "ExpressionAttributeValues": {
-                    ":supersededby": {"S": f"detection#{media_id}"},
-                },
-                "UpdateExpression": "REMOVE #GSI1PK SET #SUPERSEDEDBY = :supersededby",
-            }
-        }
-    ]
+    transact_items = []
 
     for i in range(masks.shape[0]):
         detection = Detections(config, media_bucket + "/" + media_key)
@@ -196,6 +181,7 @@ def detection(event: EventData) -> list[Response]:
             "#URI": "uri",
             "#CREATEDAT": "created_at",
             "#GSI1PK": "gsi1pk",
+            "#SOURCEMEDIA": "source_media",
         }
         expr_values = {
             ":mediaid": {"S": media_id},
@@ -216,6 +202,12 @@ def detection(event: EventData) -> list[Response]:
                 .replace("+00:00", "Z")
             },
             ":gsi1pk": {"S": "result"},
+            ":sourcemedia": {
+                "M": {
+                    "pk": {"S": pk},
+                    "sk": {"S": prev_sk},
+                }
+            },
         }
         update_expr = [
             "#MEDIAID = :mediaid",
@@ -227,6 +219,7 @@ def detection(event: EventData) -> list[Response]:
             "#URI = :uri",
             "#CREATEDAT = :createdat",
             "#GSI1PK = :gsi1pk",
+            "#SOURCEMEDIA = :sourcemedia",
         ]
         if expires is not None:
             expr_names["#EXPIRES"] = "expires"
@@ -254,7 +247,25 @@ def detection(event: EventData) -> list[Response]:
             }
         )
 
-    dynamodb.transact_write_items(TransactItems=transact_items)
+    if result_list:
+        transact_items.insert(
+            0,
+            {
+                "Update": {
+                    "TableName": environ["TABLE"],
+                    "Key": {"pk": {"S": pk}, "sk": {"S": prev_sk}},
+                    "ExpressionAttributeNames": {
+                        "#GSI1PK": "gsi1pk",
+                        "#SUPERSEDEDBY": "superseded_by",
+                    },
+                    "ExpressionAttributeValues": {
+                        ":supersededby": {"S": f"detection#{media_id}"},
+                    },
+                    "UpdateExpression": "REMOVE #GSI1PK SET #SUPERSEDEDBY = :supersededby",
+                }
+            },
+        )
+        dynamodb.transact_write_items(TransactItems=transact_items)
     return result_list
 
 

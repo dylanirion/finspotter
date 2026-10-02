@@ -5,6 +5,13 @@ export type PairJobState =
   | "failed"
   | "cancelled"
 
+export type PairReviewStatus =
+  | "ready"
+  | "claimed"
+  | "approved"
+  | "rejected"
+  | "inferred"
+
 export type ExtractionReference = {
   pk: string
   sk: string

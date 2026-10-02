@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@aws-sdk/client-rds-data": "^3.1130.0",
+    "@finspotter/core": "workspace:*",
     "@finspotter/pipeline": "workspace:*",
     "zod": "^4.1.12"
   }

@@ -7,7 +7,7 @@ from client import get_client, require_object_payload
 from os import environ
 from operator import itemgetter
 from pathlib import Path
-from typing import TypedDict, cast
+from typing import NotRequired, TypedDict, cast
 from datetime import datetime, UTC
 
 
@@ -48,9 +48,16 @@ class HesaffConfig(TypedDict):
     siftPower: float
 
 
+class AutoReview(TypedDict):
+    annotationId: str
+    reviewedBy: str
+    reviewedAt: str
+
+
 class Payload(S3Object, DynamoItem):
     media_id: str
     detection_id: str
+    autoReview: NotRequired[AutoReview]
 
 
 class EventData(TypedDict):
@@ -111,6 +118,14 @@ def extraction(event: EventData) -> Payload:
 
     detection_path = Path(detection_key)
     cfg = get_config(event)
+    source_detection = dynamodb.get_item(
+        TableName=environ["TABLE"],
+        Key={"pk": {"S": pk}, "sk": {"S": prev_sk}},
+        ProjectionExpression="#CATEGORY",
+        ExpressionAttributeNames={"#CATEGORY": "category"},
+        ConsistentRead=True,
+    ).get("Item", {})
+    category = source_detection.get("category")
 
     # TODO: Validate Content-Type from S3?
     print(f"Downloading image from {detection_bucket}/{detection_key}")
@@ -174,7 +189,21 @@ def extraction(event: EventData) -> Payload:
         "#URI = :uri",
         "#CREATEDAT = :createdat",
         "#GSI1PK = :gsi1pk",
+        "#SOURCEDETECTION = :sourcedetection",
     ]
+    if category is not None:
+        update_expr.append("#CATEGORY = :category")
+    auto_review = payload.get("autoReview")
+    if auto_review is not None:
+        update_expr.extend(
+            [
+                "#AUTOREVIEW = :autoreview",
+                "#ANNOTATIONID = :annotationid",
+                "#REVIEWEDBY = :reviewedby",
+                "#REVIEWEDAT = :reviewedat",
+                "#FINAL = :final",
+            ]
+        )
     if expires is not None:
         update_expr.append("#EXPIRES = :expires")
     dynamodb.transact_write_items(
@@ -192,6 +221,8 @@ def extraction(event: EventData) -> Payload:
                     },
                     "ExpressionAttributeNames": {
                         "#GSI1PK": "gsi1pk",
+                        "#SOURCEDETECTION": "source_detection",
+                        **({"#CATEGORY": "category"} if category is not None else {}),
                         "#SUPERSEDEDBY": "superseded_by",
                     },
                     "ExpressionAttributeValues": {
@@ -220,6 +251,17 @@ def extraction(event: EventData) -> Payload:
                         "#URI": "uri",
                         "#CREATEDAT": "created_at",
                         "#GSI1PK": "gsi1pk",
+                        **(
+                            {
+                                "#AUTOREVIEW": "auto_review",
+                                "#ANNOTATIONID": "annotation_id",
+                                "#REVIEWEDBY": "reviewed_by",
+                                "#REVIEWEDAT": "reviewed_at",
+                                "#FINAL": "final",
+                            }
+                            if auto_review is not None
+                            else {}
+                        ),
                         **({"#EXPIRES": "expires"} if expires is not None else {}),
                     },
                     "ExpressionAttributeValues": {
@@ -254,6 +296,24 @@ def extraction(event: EventData) -> Payload:
                             .replace("+00:00", "Z")
                         },
                         ":gsi1pk": {"S": "result"},
+                        ":sourcedetection": {
+                            "M": {
+                                "pk": {"S": pk},
+                                "sk": {"S": prev_sk},
+                            }
+                        },
+                        **({":category": category} if category is not None else {}),
+                        **(
+                            {
+                                ":autoreview": {"BOOL": True},
+                                ":annotationid": {"S": auto_review["annotationId"]},
+                                ":reviewedby": {"S": auto_review["reviewedBy"]},
+                                ":reviewedat": {"S": auto_review["reviewedAt"]},
+                                ":final": {"BOOL": True},
+                            }
+                            if auto_review is not None
+                            else {}
+                        ),
                         **(
                             {":expires": {"N": str(expires)}}
                             if expires is not None

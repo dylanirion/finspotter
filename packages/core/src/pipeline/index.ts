@@ -169,7 +169,15 @@ type DynamoItem = {
 
 type DetectPayload = DynamoItem & S3Object & { media_id: string }
 type ExtractPayload = DynamoItem &
-  S3Object & { media_id: string; detection_id: string }
+  S3Object & {
+    media_id: string
+    detection_id: string
+    autoReview?: {
+      annotationId: string
+      reviewedBy: string
+      reviewedAt: string
+    }
+  }
 type SearchPayload = ExtractPayload
 type RefinePayload = DynamoItem & S3Object
 

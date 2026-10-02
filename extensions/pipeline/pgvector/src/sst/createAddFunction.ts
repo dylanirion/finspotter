@@ -2,7 +2,10 @@ import { physicalName } from "@finspotter/pipeline/StepFunction/sst-helpers"
 
 import { db } from "./db"
 
-export function createAddFunction(tables: $util.Output<string[]>) {
+export function createAddFunction(
+  tables: $util.Output<string[]>,
+  bucket: aws.s3.Bucket
+) {
   const role = new aws.iam.Role("PgVectorAddRole", {
     name: physicalName(256, "PgVectorAddRole"),
     assumeRolePolicy: aws.iam.assumeRolePolicyForPrincipal({
@@ -35,6 +38,21 @@ export function createAddFunction(tables: $util.Output<string[]>) {
               })
               .then((doc) => doc.json)
           ),
+      },
+      {
+        name: "featuresPolicy",
+        policy: bucket.arn.apply((bucketArn) =>
+          JSON.stringify({
+            Version: "2012-10-17",
+            Statement: [
+              {
+                Effect: "Allow",
+                Action: "s3:GetObject",
+                Resource: `${bucketArn}/*`,
+              },
+            ],
+          })
+        ),
       },
     ],
   })

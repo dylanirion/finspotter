@@ -1,9 +1,12 @@
 import { physicalName } from "../StepFunction/sst-helpers"
 
+type DatabaseLink = sst.Linkable<{ host: $util.Output<string> }>
+
 export function createRealtime(
   name: string,
   table: sst.aws.Dynamo,
-  notificationEmail: $util.Input<string>
+  notificationEmail: $util.Input<string>,
+  database: DatabaseLink
 ) {
   const realtime = createEventsApi(name)
   const identityPool = createIdentityPool(name, realtime)
@@ -11,7 +14,8 @@ export function createRealtime(
     name,
     table,
     realtime,
-    notificationEmail
+    notificationEmail,
+    database
   )
 
   return { bus, identityPool, pairJobGenerator, realtime }
@@ -104,7 +108,8 @@ function createEventBus(
   name: string,
   table: sst.aws.Dynamo,
   eventsApi: aws.appsync.Api,
-  notificationEmail: $util.Input<string>
+  notificationEmail: $util.Input<string>,
+  database: DatabaseLink
 ) {
   // AppSync Events API keys currently have a maximum 365-day lifetime.
   const oneYear = new Date()
@@ -225,26 +230,78 @@ function createEventBus(
       eventBusName: bus.name,
       eventPattern: JSON.stringify({
         detail: {
-          $or: [
-            {
-              dynamodb: {
-                NewImage: {
-                  sk: {
-                    S: [{ prefix: "detection" }, { prefix: "extraction" }],
-                  },
-                  gsi1pk: { S: ["result"] },
-                },
+          dynamodb: {
+            NewImage: {
+              sk: {
+                S: [{ prefix: "detection" }, { prefix: "extraction" }],
               },
+              gsi1pk: { S: ["result"] },
             },
-            {
-              dynamodb: {
-                NewImage: {
-                  sk: { S: [{ prefix: "search" }] },
-                  score: { N: [{ exists: true }] },
-                },
+          },
+        },
+      }),
+    }
+  )
+  const reviewReadyRule = new aws.cloudwatch.EventRule(
+    `${name}ReviewReadyEventRule`,
+    {
+      name: physicalName(256, `${name}ReviewReadyEventRule`),
+      eventBusName: bus.name,
+      eventPattern: JSON.stringify({
+        detail: {
+          dynamodb: {
+            NewImage: {
+              item_type: { S: ["pair_result"] },
+              review_status: { S: ["ready"] },
+              review_score: { N: [{ exists: true }] },
+            },
+          },
+        },
+      }),
+    }
+  )
+  const autoReviewedExtractionRule = new aws.cloudwatch.EventRule(
+    `${name}AutoReviewedExtractionEventRule`,
+    {
+      name: physicalName(256, `${name}AutoReviewedExtractionEventRule`),
+      eventBusName: bus.name,
+      eventPattern: JSON.stringify({
+        detail: {
+          dynamodb: {
+            NewImage: {
+              sk: { S: [{ prefix: "extraction#" }] },
+              auto_review: { BOOL: [true] },
+              annotation_id: { S: [{ exists: true }] },
+              reviewed_by: { S: [{ exists: true }] },
+              reviewed_at: { S: [{ exists: true }] },
+            },
+          },
+        },
+      }),
+    }
+  )
+  const terminalResultRule = new aws.cloudwatch.EventRule(
+    `${name}TerminalResultEventRule`,
+    {
+      name: physicalName(256, `${name}TerminalResultEventRule`),
+      eventBusName: bus.name,
+      eventPattern: JSON.stringify({
+        detail: {
+          dynamodb: {
+            NewImage: {
+              sk: {
+                S: [
+                  { prefix: "media#" },
+                  { prefix: "detection#" },
+                  { prefix: "extraction#" },
+                ],
               },
+              gsi1pk: { S: ["result"] },
+              final: { BOOL: [true] },
+              review_status: { S: ["ready"] },
+              review_ready_at: { S: [{ exists: true }] },
             },
-          ],
+          },
         },
       }),
     }
@@ -285,6 +342,59 @@ function createEventBus(
       },
     ],
   })
+  const resultProjector = new sst.aws.Function(`${name}ResultProjector`, {
+    handler: "packages/pipeline/src/resultProjector/index.handler",
+    dev: false,
+    timeout: "30 seconds",
+    link: [database],
+  })
+  const resultProjectorDeadLetterQueue = new aws.sqs.Queue(
+    `${name}ResultProjectorDeadLetterQueue`,
+    {
+      name: physicalName(80, `${name}ResultProjectorFailures`),
+      messageRetentionSeconds: 14 * 24 * 60 * 60,
+      sqsManagedSseEnabled: true,
+    }
+  )
+
+  new aws.sqs.QueuePolicy(`${name}ResultProjectorDeadLetterQueuePolicy`, {
+    queueUrl: resultProjectorDeadLetterQueue.url,
+    policy: {
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Sid: "AllowEventBridgeDelivery",
+          Effect: "Allow",
+          Principal: { Service: "events.amazonaws.com" },
+          Action: "sqs:SendMessage",
+          Resource: resultProjectorDeadLetterQueue.arn,
+          Condition: {
+            ArnEquals: { "aws:SourceArn": reviewReadyRule.arn },
+          },
+        },
+        {
+          Sid: "AllowAutoReviewedExtractionDelivery",
+          Effect: "Allow",
+          Principal: { Service: "events.amazonaws.com" },
+          Action: "sqs:SendMessage",
+          Resource: resultProjectorDeadLetterQueue.arn,
+          Condition: {
+            ArnEquals: { "aws:SourceArn": autoReviewedExtractionRule.arn },
+          },
+        },
+        {
+          Sid: "AllowTerminalResultDelivery",
+          Effect: "Allow",
+          Principal: { Service: "events.amazonaws.com" },
+          Action: "sqs:SendMessage",
+          Resource: resultProjectorDeadLetterQueue.arn,
+          Condition: {
+            ArnEquals: { "aws:SourceArn": terminalResultRule.arn },
+          },
+        },
+      ],
+    },
+  })
 
   new aws.lambda.Permission(`${name}PairJobGeneratorPermission`, {
     action: "lambda:InvokeFunction",
@@ -310,6 +420,63 @@ function createEventBus(
       },
       inputTemplate:
         '{"pk":"<pk>","sk":"<sk>","media_id":"<mediaId>","detection_id":"<detectionId>","bucket":"<bucket>","key":"<key>"}',
+    },
+  })
+
+  new aws.lambda.Permission(`${name}ResultProjectorPermission`, {
+    action: "lambda:InvokeFunction",
+    function: resultProjector.nodes.function.name,
+    principal: "events.amazonaws.com",
+    sourceArn: reviewReadyRule.arn,
+  })
+
+  new aws.cloudwatch.EventTarget(`${name}ResultProjectorTarget`, {
+    targetId: physicalName(256, `${name}ResultProjectorTarget`),
+    eventBusName: bus.name,
+    rule: reviewReadyRule.name,
+    arn: resultProjector.nodes.function.arn,
+    deadLetterConfig: { arn: resultProjectorDeadLetterQueue.arn },
+    retryPolicy: {
+      maximumEventAgeInSeconds: 60 * 60,
+      maximumRetryAttempts: 10,
+    },
+  })
+
+  new aws.lambda.Permission(`${name}ExtractionProjectorPermission`, {
+    action: "lambda:InvokeFunction",
+    function: resultProjector.nodes.function.name,
+    principal: "events.amazonaws.com",
+    sourceArn: autoReviewedExtractionRule.arn,
+  })
+
+  new aws.cloudwatch.EventTarget(`${name}ExtractionProjectorTarget`, {
+    targetId: physicalName(256, `${name}ExtractionProjectorTarget`),
+    eventBusName: bus.name,
+    rule: autoReviewedExtractionRule.name,
+    arn: resultProjector.nodes.function.arn,
+    deadLetterConfig: { arn: resultProjectorDeadLetterQueue.arn },
+    retryPolicy: {
+      maximumEventAgeInSeconds: 60 * 60,
+      maximumRetryAttempts: 10,
+    },
+  })
+
+  new aws.lambda.Permission(`${name}TerminalResultProjectorPermission`, {
+    action: "lambda:InvokeFunction",
+    function: resultProjector.nodes.function.name,
+    principal: "events.amazonaws.com",
+    sourceArn: terminalResultRule.arn,
+  })
+
+  new aws.cloudwatch.EventTarget(`${name}TerminalResultProjectorTarget`, {
+    targetId: physicalName(256, `${name}TerminalResultProjectorTarget`),
+    eventBusName: bus.name,
+    rule: terminalResultRule.name,
+    arn: resultProjector.nodes.function.arn,
+    deadLetterConfig: { arn: resultProjectorDeadLetterQueue.arn },
+    retryPolicy: {
+      maximumEventAgeInSeconds: 60 * 60,
+      maximumRetryAttempts: 10,
     },
   })
 
@@ -352,6 +519,35 @@ function createEventBus(
         key: "$.detail.dynamodb.NewImage.sk.S",
       },
       inputTemplate: `{"channel": "pipeline/<pk>", "events": ["{\\"invalidate\\": \\"<key>\\"}"]}`,
+    },
+    roleArn: destinationRole.arn,
+  })
+
+  new aws.cloudwatch.EventTarget(`${name}ReviewReadyEventsApiTarget`, {
+    targetId: physicalName(256, `${name}ReviewReadyTarget`),
+    eventBusName: bus.name,
+    rule: reviewReadyRule.name,
+    arn: destination.arn,
+    httpTarget: {
+      headerParameters: {
+        "Content-Type": "application/json",
+      },
+    },
+    inputTransformer: {
+      inputPaths: {
+        pk: "$.detail.dynamodb.Keys.pk.S",
+        key: "$.detail.dynamodb.NewImage.sk.S",
+        score: "$.detail.dynamodb.NewImage.review_score.N",
+        queryMediaId:
+          "$.detail.dynamodb.NewImage.query.M.media_id.S",
+        queryDetectionId:
+          "$.detail.dynamodb.NewImage.query.M.detection_id.S",
+        refMediaId: "$.detail.dynamodb.NewImage.ref.M.media_id.S",
+        refDetectionId:
+          "$.detail.dynamodb.NewImage.ref.M.detection_id.S",
+        readyAt: "$.detail.dynamodb.NewImage.review_ready_at.S",
+      },
+      inputTemplate: `{"channel": "pipeline/<pk>", "events": ["{\\"type\\":\\"review-ready\\",\\"key\\":\\"<key>\\",\\"score\\":<score>,\\"query\\":{\\"mediaId\\":\\"<queryMediaId>\\",\\"detectionId\\":\\"<queryDetectionId>\\"},\\"ref\\":{\\"mediaId\\":\\"<refMediaId>\\",\\"detectionId\\":\\"<refDetectionId>\\"},\\"readyAt\\":\\"<readyAt>\\"}"]}`,
     },
     roleArn: destinationRole.arn,
   })

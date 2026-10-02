@@ -11,6 +11,8 @@ import {
 import { createSubmissionReviewStateMachine } from "./createStateMachine"
 import { StateMachine } from "../StepFunction"
 
+type DatabaseLink = sst.Linkable<{ host: $util.Output<string> }>
+
 //TODO: maybe an api key renewal service?
 export class SubmissionReviewPipeline extends $util.ComponentResource {
   private _bus: aws.cloudwatch.EventBus
@@ -26,6 +28,7 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
   constructor(
     name: string,
     args: {
+      database: DatabaseLink
       notificationEmail: $util.Input<string>
     },
     opts?: $util.ComponentResourceOptions
@@ -76,7 +79,8 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
     const { bus, identityPool, pairJobGenerator, realtime } = createRealtime(
       name,
       this._table,
-      args.notificationEmail
+      args.notificationEmail,
+      args.database,
     )
     this._bus = bus
     this._identityPool = identityPool

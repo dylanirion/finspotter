@@ -109,6 +109,10 @@ declare module "sst" {
       "roleArn": string
       "type": "sst.aws.StateMachine"
     }
+    "SubmissionReviewPipelineResultProjector": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
     "SubmissionReviewPipelineSubmissions": {
       "name": string
       "type": "sst.aws.Dynamo"

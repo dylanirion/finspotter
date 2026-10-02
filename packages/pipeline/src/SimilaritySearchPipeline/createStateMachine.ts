@@ -122,6 +122,89 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
       "expires.$": $.stringAt("$.expires"),
     },
   })
+  const getReviewResult = new Custom("Get Review Result", {
+    Type: "Task",
+    Resource: "arn:aws:states:::dynamodb:getItem",
+    Parameters: {
+      TableName: table.name.apply(async (tableName) => tableName),
+      Key: {
+        pk: { "S.$": $.stringAt("$.payload.pk") },
+        sk: { "S.$": $.stringAt("$.payload.sk") },
+      },
+      ProjectionExpression: "#SCORE",
+      ExpressionAttributeNames: {
+        "#SCORE": "score",
+      },
+      ConsistentRead: true,
+    },
+    ResultPath: $.stringAt("$.reviewResult"),
+  })
+  const publishReviewReady = new Custom("Publish Review Ready", {
+    Type: "Task",
+    Resource: "arn:aws:states:::dynamodb:updateItem",
+    Parameters: {
+      TableName: table.name.apply(async (tableName) => tableName),
+      Key: {
+        pk: { "S.$": $.stringAt("$.payload.pk") },
+        sk: { "S.$": $.stringAt("$.payload.sk") },
+      },
+      ConditionExpression: "attribute_exists(#SCORE)",
+      ExpressionAttributeNames: {
+        "#SCORE": "score",
+        "#ITEMTYPE": "item_type",
+        "#REVIEWSTATUS": "review_status",
+        "#REVIEWSCORE": "review_score",
+        "#REVIEWREADYAT": "review_ready_at",
+        "#SOURCEQUERY": "source_query",
+        "#SOURCEREF": "source_ref",
+      },
+      ExpressionAttributeValues: {
+        ":itemType": { S: "pair_result" },
+        ":reviewStatus": { S: "ready" },
+        ":reviewScore": {
+          "N.$": $.stringAt("$.reviewResult.Item.score.N"),
+        },
+        ":reviewReadyAt": {
+          "S.$": $.stringAt("$$.State.EnteredTime"),
+        },
+        ":sourceQuery": {
+          M: {
+            pk: { "S.$": $.stringAt("$$.Execution.Input.payload[0].pk") },
+            sk: { "S.$": $.stringAt("$$.Execution.Input.payload[0].sk") },
+          },
+        },
+        ":sourceRef": {
+          M: {
+            pk: { "S.$": $.stringAt("$$.Execution.Input.payload[1].pk") },
+            sk: { "S.$": $.stringAt("$$.Execution.Input.payload[1].sk") },
+          },
+        },
+      },
+      UpdateExpression:
+        "SET #ITEMTYPE = :itemType, #REVIEWSTATUS = :reviewStatus, #REVIEWSCORE = :reviewScore, #REVIEWREADYAT = :reviewReadyAt, #SOURCEQUERY = :sourceQuery, #SOURCEREF = :sourceRef",
+    },
+    ResultPath: $.DISCARD,
+  })
+  const validateReviewScore = new Choice("Validate Review Score", {
+    Choices: [
+      {
+        Variable: $.stringAt("$.reviewResult.Item.score.N"),
+        IsPresent: true,
+        Next: publishReviewReady,
+      },
+    ],
+    Default: new Fail("Final pair result has no score"),
+  })
+  const reviewPublication = new Choice("Publish pair result for review?", {
+    Choices: [
+      {
+        Variable: $.stringAt("$$.Execution.Input.pairsPrepared"),
+        BooleanEquals: true,
+        Next: getReviewResult.next(validateReviewScore),
+      },
+    ],
+    Default: new Pass("Do not publish for review"),
+  })
   const continueRefining = new Choice("Continue Refining?", {
     Choices: [
       {
@@ -130,7 +213,7 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
         Next: pullFunction.next(invokeRefinement),
       },
     ],
-    Default: new Pass("No further refinement"), //TODO: this will go to clustering
+    Default: reviewPublication, //TODO: clustering should run before publication
   })
   const validateRefinementOutput = new Choice("Validate refinement output", {
     Choices: [
@@ -160,7 +243,7 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
         Next: refinementLoop,
       },
     ],
-    Default: new Pass("No match refinement"),
+    Default: reviewPublication,
   })
   const validateSearchOutput = new Choice("Validate search output", {
     Choices: [

@@ -23,6 +23,13 @@ import {
   membersTable,
   organizationsTable,
 } from "../organization/sql"
+import {
+  pipelineResultKindEnum,
+  pipelineResultLinksTable,
+  pipelineResultRelationEnum,
+  pipelineResultsTable,
+  pipelineReviewStatusEnum,
+} from "../pipelineResult/sql"
 import { sessionsTable } from "../session/sql"
 import { submissionsTable } from "../submission/sql"
 import { subscribersTable } from "../subscriber/sql"
@@ -50,6 +57,11 @@ export {
   organizationsTable,
   membersTable,
   invitationsTable,
+  pipelineResultKindEnum,
+  pipelineResultLinksTable,
+  pipelineResultRelationEnum,
+  pipelineResultsTable,
+  pipelineReviewStatusEnum,
   sessionsTable,
   submissionsTable,
   subscribersTable,
@@ -79,6 +91,8 @@ export const relations = defineRelations(
     sessionsTable,
     tagsTable,
     adoptionsTable,
+    pipelineResultsTable,
+    pipelineResultLinksTable,
   },
   (r) => ({
     annotationsTable: {
@@ -103,6 +117,15 @@ export const relations = defineRelations(
         ],
       }),
       meta: r.many.annotationMetaTable(),
+    },
+    pipelineResultsTable: {
+      links: r.many.pipelineResultLinksTable(),
+    },
+    pipelineResultLinksTable: {
+      result: r.one.pipelineResultsTable({
+        from: r.pipelineResultLinksTable.resultId,
+        to: r.pipelineResultsTable.id,
+      }),
     },
     annotationMetaTable: {
       annotation: r.one.annotationsTable({

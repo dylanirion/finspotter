@@ -1,5 +1,3 @@
-import "server-only"
-
 import { type Readable } from "stream"
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb"
 import {
@@ -105,6 +103,7 @@ export interface StorageRepository {
     body: ReadableStream | Readable | Blob
     metadata: ObjectMetadata
   }>
+  getObjectText: (bucket: string, key: string) => Promise<string>
   getHead: (bucket: string, key: string) => Promise<ObjectMetadata>
   putObject: (
     bucket: string,
@@ -353,6 +352,15 @@ class AwsStorageRepository implements StorageRepository {
         ...response.Metadata,
       },
     }
+  }
+
+  getObjectText = async (bucket: string, key: string) => {
+    const response = await this.s3Client.send(
+      new GetObjectCommand({ Bucket: bucket, Key: key })
+    )
+    if (!response.Body)
+      throw new Error(`S3 object ${key} returned with no body.`)
+    return response.Body.transformToString()
   }
 
   getHead = async (bucket: string, key: string) => {

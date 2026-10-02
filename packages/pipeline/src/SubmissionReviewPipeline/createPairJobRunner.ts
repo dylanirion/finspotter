@@ -112,13 +112,20 @@ export function createPairJobRunnerStateMachine(
   )
   const setSucceeded = createTerminalState("Set Pair Job Succeeded", "succeeded")
   const setFailed = createTerminalState("Set Pair Job Failed", "failed")
+  const parseResult = new Pass("Parse Pairwise Result", {
+    Parameters: {
+      "pk.$": $.stringAt("$.pk"),
+      "sk.$": $.stringAt("$.sk"),
+      "result.$": $.stringToJson("$.pairwise.Output"),
+    },
+  })
   const fail = setFailed.next(new Fail("Pairwise Search Failed"))
   const finish = new Choice("Check Pairwise Search Result", {
     Choices: [
       {
         Variable: $.stringAt("$.pairwise.Status"),
         StringEquals: "SUCCEEDED",
-        Next: setSucceeded,
+        Next: parseResult.next(setSucceeded),
       },
     ],
     Default: fail,
@@ -161,6 +168,7 @@ export function createPairJobRunnerStateMachine(
   return stateMachine
 
   function createTerminalState(stateName: string, state: string) {
+    const succeeded = state === "succeeded"
     return new Custom(stateName, {
       Type: "Task",
       Resource: "arn:aws:states:::dynamodb:updateItem",
@@ -174,13 +182,21 @@ export function createPairJobRunnerStateMachine(
         ExpressionAttributeNames: {
           "#STATE": "state",
           "#UPDATEDAT": "updated_at",
+          ...(succeeded && { "#RESULTKEY": "result_key" }),
         },
         ExpressionAttributeValues: {
           ":running": { S: "running" },
           ":state": { S: state },
           ":now": { "S.$": $.stringAt("$$.State.EnteredTime") },
+          ...(succeeded && {
+            ":resultKey": {
+              "S.$": $.stringAt("$.result.payload[0].sk"),
+            },
+          }),
         },
-        UpdateExpression: "SET #STATE = :state, #UPDATEDAT = :now",
+        UpdateExpression: succeeded
+          ? "SET #STATE = :state, #UPDATEDAT = :now, #RESULTKEY = :resultKey"
+          : "SET #STATE = :state, #UPDATEDAT = :now",
       },
       ResultPath: $.DISCARD,
     })

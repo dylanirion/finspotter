@@ -82,6 +82,21 @@ export class SimilaritySearchPipeline extends $util.ComponentResource {
         { parent: role }
       )
     }
+
+    new aws.iam.RolePolicy(`${name}ReviewReadySfnRolePolicy`, {
+      name: physicalName(128, `${name}ReviewReadySfnRolePolicy`),
+      role: this._pipeline.role.name,
+      policy: {
+        Version: "2012-10-17",
+        Statement: [
+          {
+            Effect: "Allow",
+            Action: ["dynamodb:GetItem", "dynamodb:UpdateItem"],
+            Resource: [table.arn],
+          },
+        ],
+      },
+    })
   }
 
   public get pipeline() {

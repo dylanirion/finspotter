@@ -39,7 +39,7 @@ export function createAutoAddMachine(
     {
       Parameters: {
         Input: {
-          "id.$": $.stringAt("$.type"),
+          "id.$": $.stringAt("$.id"),
           "type.$": $.stringAt("$.type"),
           "category.$": $.stringAt("$.category"),
           "bucket.$": $.stringAt("$.bucket"),
@@ -55,7 +55,7 @@ export function createAutoAddMachine(
     Choices: [
       {
         Variable: $.stringAt("$.status.Item.auto_review.BOOL"),
-        IsPresent: true,
+        BooleanEquals: true,
         Next: invokeAddMachine,
       },
     ],

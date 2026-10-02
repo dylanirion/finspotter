@@ -18,11 +18,27 @@ import { Resource } from "sst"
 export type Event = {
   event:
     | StatusEvent
+    | ReviewReadyEvent
     | {
         invalidate: string
       }
   id: string
   type: "data"
+}
+
+export type ReviewReadyEvent = {
+  type: "review-ready"
+  key: string
+  score: number
+  query: {
+    mediaId: string
+    detectionId: string
+  }
+  ref: {
+    mediaId: string
+    detectionId: string
+  }
+  readyAt: string
 }
 
 type StatusEvent = {

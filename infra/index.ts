@@ -28,6 +28,7 @@ export function defineInfra({
   const submissionReview = new SubmissionReviewPipeline(
     "SubmissionReviewPipeline",
     {
+      database: db,
       notificationEmail: secret.PipelineAlertsEmail.value,
     }
   )

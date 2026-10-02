@@ -288,13 +288,20 @@ export function createSubmissionReviewStateMachine(
       },
       ExpressionAttributeNames: {
         "#FINAL": "final",
+        "#REVIEWSTATUS": "review_status",
+        "#REVIEWREADYAT": "review_ready_at",
       },
       ExpressionAttributeValues: {
         ":final": {
           BOOL: true,
         },
+        ":reviewStatus": { S: "ready" },
+        ":reviewReadyAt": {
+          "S.$": $.stringAt("$$.State.EnteredTime"),
+        },
       },
-      UpdateExpression: "SET #FINAL = :final",
+      UpdateExpression:
+        "SET #FINAL = :final, #REVIEWSTATUS = :reviewStatus, #REVIEWREADYAT = :reviewReadyAt",
     },
     ResultPath: $.DISCARD,
   })

@@ -18,7 +18,7 @@ export const indexed = ({
 }) => {
   //TODO: return handlers to pipeline?
 
-  const add = createAddMachine(tables)
+  const add = createAddMachine(tables, bucket)
   const autoAddMachine = createAutoAddMachine(table, add)
 
   const autoAddRole = new aws.iam.Role("PgVectorAutoAddRole", {
@@ -61,8 +61,11 @@ export const indexed = ({
               final: {
                 BOOL: [true],
               },
-              expires: {
-                N: [{ exists: true }],
+              auto_review: {
+                BOOL: [true],
+              },
+              annotation_id: {
+                S: [{ exists: true }],
               },
             },
           },
@@ -79,14 +82,13 @@ export const indexed = ({
     inputTransformer: {
       inputPaths: {
         pk: "$.detail.dynamodb.NewImage.pk.S",
-        mediaId: "$.detail.dynamodb.NewImage.media_id.S",
-        detectionId: "$.detail.dynamodb.NewImage.detection_id.S",
+        annotationId: "$.detail.dynamodb.NewImage.annotation_id.S",
         type: "$.detail.dynamodb.NewImage.type.S",
         category: "$.detail.dynamodb.NewImage.category.S",
         bucket: "$.detail.dynamodb.NewImage.uri.M.features.M.bucket.S",
         key: "$.detail.dynamodb.NewImage.uri.M.features.M.key.S",
       },
-      inputTemplate: `{"pk": <pk>, "id": "<mediaId>#<detectionId>", "type": <type>, "category": <category>, "bucket": <bucket>, "key": <key>}`,
+      inputTemplate: `{"pk":"<pk>","id":"<annotationId>","type":"<type>","category":"<category>","bucket":"<bucket>","key":"<key>"}`,
     },
     roleArn: autoAddRole.arn,
   })

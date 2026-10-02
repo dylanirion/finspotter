@@ -73,7 +73,7 @@ class PGVectorPipelinePackage
                       secretArn,
                       resourceArn: clusterArn,
                       database,
-                      sql: `create table if not exists ${key} (id bigserial primary key, annotation_id varchar(255) not null, feature_id integer not null, category varchar(255), embedding vector(${embeddings[key]}))`,
+                      sql: `create table if not exists ${key} (id bigserial primary key, annotation_id varchar(255) not null, feature_id integer not null, category varchar(255), embedding vector(${embeddings[key]}), unique (annotation_id, feature_id))`,
                     })
                   )
                 )
@@ -94,7 +94,7 @@ class PGVectorPipelinePackage
                         secretArn,
                         resourceArn: clusterArn,
                         database,
-                        sql: `create index if not exists idx_annotation_id on ${key} (annotation_id)`,
+                        sql: `create unique index if not exists idx_${key}_annotation_feature on ${key} (annotation_id, feature_id)`,
                       })
                     )
                   ),
