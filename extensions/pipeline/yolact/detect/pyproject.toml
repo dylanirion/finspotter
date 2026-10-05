@@ -8,7 +8,7 @@ dependencies = [
   "numpy",
   "opencv-python-headless",
   "pycocotools",
-  "torch",
+  "torch==2.6.0",
 ]
 
 [tool.uv]
