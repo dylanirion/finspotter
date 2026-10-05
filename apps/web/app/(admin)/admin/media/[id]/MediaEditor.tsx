@@ -45,7 +45,11 @@ import {
   insertAnnotations,
   updateAnnotation,
 } from "app/_actions/annotations"
-import { getSingleMedia } from "app/_actions/media"
+import { getSingleMedia as getPersistedMedia } from "app/_actions/media"
+import {
+  approveDetectionReview,
+  getSingleMedia as getPipelineMedia,
+} from "app/_actions/pipeline"
 import {
   humanReadableBytes,
   parseDate,
@@ -54,14 +58,27 @@ import {
   type PartialBy,
 } from "lib/utils"
 
-export function MediaEditor({ id }: { id: string }) {
+export function MediaEditor({
+  id,
+  detectionId,
+  reviewId,
+  variant = "media",
+}: {
+  id: string
+  detectionId?: number
+  reviewId?: string
+  variant?: "media" | "review"
+}) {
   //TODO: this needs to cache annotation infinitely, otherwise it refires on tab refocus
   const {
     data: { annotations = [], ...media },
   } = useQuery({
     queryKey: ["media", id],
     queryFn: async (): Promise<Media> => {
-      const media = await getSingleMedia(id)
+      const media =
+        variant === "review"
+          ? await getPipelineMedia(id)
+          : await getPersistedMedia(id)
       if (!media) throw new Error("Media not found!")
       return media
     },
@@ -71,7 +88,10 @@ export function MediaEditor({ id }: { id: string }) {
   const queryClient = useQueryClient()
 
   const { mutateAsync: handleInsert } = useMutation({
-    mutationFn: (variables: Annotation) => insertAnnotations([variables]),
+    mutationFn: (variables: Annotation) =>
+      reviewId
+        ? approveDetectionReview(reviewId, variables)
+        : insertAnnotations([variables]),
     onSuccess: (result, variables) => {
       //If mysql had a returning insert, we could just queryClient.setQueryData()
       queryClient.invalidateQueries({
@@ -171,7 +191,7 @@ export function MediaEditor({ id }: { id: string }) {
   })
 
   const { props: imgProps } = getImageProps({
-    src: `/api/media/${media.src}`,
+    src: `/api/media/${media.id}`,
     width: Number(media.exif?.width ?? 4000),
     height: Number(media.exif?.height ?? 3000),
     alt: "",
@@ -200,7 +220,13 @@ export function MediaEditor({ id }: { id: string }) {
             <FiltersPanel />
           </FiltersPopover>
           <PanZoomPanel className="absolute top-1 right-1" />
-          {annotations.map((annotation, i) => {
+          {annotations
+            .filter(
+              (annotation) =>
+                detectionId === undefined ||
+                annotation.detectionId === detectionId
+            )
+            .map((annotation, i) => {
             //TODO: use this as an actual hook and make it return a Map or something?
             //TODO: catch and toast unknown annotation type error
             const {
@@ -216,7 +242,10 @@ export function MediaEditor({ id }: { id: string }) {
               <AnnotationLayer
                 key={annotation.id}
                 index={i}
-                active={active.includes(String(annotation.id))}
+                active={
+                  variant === "review" ||
+                  active.includes(String(annotation.id))
+                }
                 annotation={annotation}
                 style={{ color: twCols[i % twCols.length].hex }}
                 editable={true}
@@ -244,24 +273,26 @@ export function MediaEditor({ id }: { id: string }) {
                 </EditPopover>
               </AnnotationLayer>
             )
-          })}
+            })}
         </MediaLayer>
       </Canvas>
-      <div className="grid auto-cols-auto grid-flow-col gap-3 md:block md:space-y-3">
-        <MediaMeta
-          className="rounded-md border bg-white p-3 shadow-md dark:border-slate-600 dark:bg-slate-700"
-          media={media}
-        />
-        <AnnotationSelector
-          className="rounded-md border bg-white p-3 shadow-md dark:border-slate-600 dark:bg-slate-700"
-          mediaId={id}
-          annotations={annotations}
-          active={active}
-          setActive={setActive}
-          addNew={addNew}
-        />
-        <Log className="rounded-md border bg-white p-3 shadow-md dark:border-slate-600 dark:bg-slate-700" />
-      </div>
+      {variant === "media" && (
+        <div className="grid auto-cols-auto grid-flow-col gap-3 md:block md:space-y-3">
+          <MediaMeta
+            className="rounded-md border bg-white p-3 shadow-md dark:border-slate-600 dark:bg-slate-700"
+            media={media}
+          />
+          <AnnotationSelector
+            className="rounded-md border bg-white p-3 shadow-md dark:border-slate-600 dark:bg-slate-700"
+            mediaId={id}
+            annotations={annotations}
+            active={active}
+            setActive={setActive}
+            addNew={addNew}
+          />
+          <Log className="rounded-md border bg-white p-3 shadow-md dark:border-slate-600 dark:bg-slate-700" />
+        </div>
+      )}
     </div>
   )
 }

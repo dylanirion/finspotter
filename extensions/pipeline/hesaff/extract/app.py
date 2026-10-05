@@ -227,13 +227,6 @@ def extraction(event: EventData) -> Payload:
                     },
                     "ExpressionAttributeNames": {
                         "#GSI1PK": "gsi1pk",
-                        "#SOURCEDETECTION": "source_detection",
-                        **({"#CATEGORY": "category"} if category is not None else {}),
-                        **(
-                            {"#MAPPING": "coordinate_mapping"}
-                            if coordinate_mapping is not None
-                            else {}
-                        ),
                         "#SUPERSEDEDBY": "superseded_by",
                     },
                     "ExpressionAttributeValues": {
@@ -262,6 +255,13 @@ def extraction(event: EventData) -> Payload:
                         "#URI": "uri",
                         "#CREATEDAT": "created_at",
                         "#GSI1PK": "gsi1pk",
+                        "#SOURCEDETECTION": "source_detection",
+                        **({"#CATEGORY": "category"} if category is not None else {}),
+                        **(
+                            {"#MAPPING": "coordinate_mapping"}
+                            if coordinate_mapping is not None
+                            else {}
+                        ),
                         **(
                             {
                                 "#AUTOREVIEW": "auto_review",

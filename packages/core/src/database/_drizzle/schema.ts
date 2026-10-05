@@ -16,7 +16,7 @@ import { exifTable } from "../exif/sql"
 import { individualsTable } from "../individual/sql"
 import { individualSummariesTable } from "../individualSummary/sql"
 import { locationsTable } from "../location/sql"
-import { mediaMetaTable, mediaTable } from "../media/sql"
+import { mediaMetaTable, mediaStateEnum, mediaTable } from "../media/sql"
 import { namesTable, nameTypeEnum } from "../name/sql"
 import {
   invitationsTable,
@@ -51,6 +51,7 @@ export {
   exifTable,
   mediaTable,
   mediaMetaTable,
+  mediaStateEnum,
   //locationsTable,
   nameTypeEnum,
   namesTable,

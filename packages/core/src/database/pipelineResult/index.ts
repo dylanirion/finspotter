@@ -1,17 +1,25 @@
 import {
   and,
   asc,
-  desc,
   eq,
   gt,
   inArray,
+  isNull,
   isNotNull,
   lt,
   or,
   sql,
 } from "drizzle-orm"
 
+import { type Annotation } from "../annotation"
+import {
+  annotationsIncrementerTable,
+  annotationsTable,
+} from "../annotation/sql"
 import { db } from "../_drizzle"
+import { detectionsTable } from "../detection/sql"
+import { createIndividualSummaryRepository } from "../individualSummary"
+import { mediaTable } from "../media/sql"
 import {
   pipelineResultLinksTable,
   pipelineResultsTable,
@@ -52,12 +60,16 @@ export type PipelineResultProjection = {
 }
 
 export type PipelineReviewCursor = {
-  score: number
+  score: number | null
   readyAt: Date
   id: string
 }
 
 export type PipelineReviewDecision = "approved" | "rejected" | "inferred"
+export type DetectionApproval = Omit<
+  Annotation,
+  "id" | "detectionId" | "updatedAt"
+>
 
 export interface PipelineResultRepository {
   project(result: PipelineResultProjection): Promise<PipelineResult>
@@ -70,11 +82,23 @@ export interface PipelineResultRepository {
     reviewerId: string,
     leaseDurationMs?: number
   ): Promise<PipelineResult | null>
+  findClaimed(id: string, reviewerId: string): Promise<PipelineResult | null>
+  renewClaim(
+    id: string,
+    reviewerId: string,
+    leaseDurationMs?: number
+  ): Promise<PipelineResult | null>
+  releaseClaim(id: string, reviewerId: string): Promise<boolean>
   decide(
     id: string,
     reviewerId: string,
     decision: PipelineReviewDecision,
     annotationId?: string | null
+  ): Promise<PipelineResult | null>
+  approveDetection(
+    id: string,
+    reviewerId: string,
+    annotation: DetectionApproval
   ): Promise<PipelineResult | null>
 }
 
@@ -170,18 +194,30 @@ export function createPipelineResultRepository(): PipelineResultRepository {
     async findReviewReady(limit, cursor) {
       const now = new Date()
       const cursorCondition = cursor
-        ? or(
-            lt(pipelineResultsTable.reviewScore, cursor.score),
-            and(
-              eq(pipelineResultsTable.reviewScore, cursor.score),
-              gt(pipelineResultsTable.reviewReadyAt, cursor.readyAt)
-            ),
-            and(
-              eq(pipelineResultsTable.reviewScore, cursor.score),
-              eq(pipelineResultsTable.reviewReadyAt, cursor.readyAt),
-              gt(pipelineResultsTable.id, cursor.id)
+        ? cursor.score === null
+          ? and(
+              isNull(pipelineResultsTable.reviewScore),
+              or(
+                gt(pipelineResultsTable.reviewReadyAt, cursor.readyAt),
+                and(
+                  eq(pipelineResultsTable.reviewReadyAt, cursor.readyAt),
+                  gt(pipelineResultsTable.id, cursor.id)
+                )
+              )
             )
-          )
+          : or(
+              lt(pipelineResultsTable.reviewScore, cursor.score),
+              isNull(pipelineResultsTable.reviewScore),
+              and(
+                eq(pipelineResultsTable.reviewScore, cursor.score),
+                gt(pipelineResultsTable.reviewReadyAt, cursor.readyAt)
+              ),
+              and(
+                eq(pipelineResultsTable.reviewScore, cursor.score),
+                eq(pipelineResultsTable.reviewReadyAt, cursor.readyAt),
+                gt(pipelineResultsTable.id, cursor.id)
+              )
+            )
         : undefined
       const items = await db
         .select()
@@ -195,13 +231,13 @@ export function createPipelineResultRepository(): PipelineResultRepository {
                 lt(pipelineResultsTable.claimExpiresAt, now)
               )
             ),
-            isNotNull(pipelineResultsTable.reviewScore),
+            isNull(pipelineResultsTable.supersededBy),
             isNotNull(pipelineResultsTable.reviewReadyAt),
             cursorCondition
           )
         )
         .orderBy(
-          desc(pipelineResultsTable.reviewScore),
+          sql`${pipelineResultsTable.reviewScore} desc nulls last`,
           asc(pipelineResultsTable.reviewReadyAt),
           asc(pipelineResultsTable.id)
         )
@@ -210,7 +246,7 @@ export function createPipelineResultRepository(): PipelineResultRepository {
 
       return {
         items,
-        ...(last?.reviewScore !== null && last?.reviewReadyAt
+        ...(last?.reviewReadyAt
           ? {
               cursor: {
                 score: last.reviewScore,
@@ -250,16 +286,28 @@ export function createPipelineResultRepository(): PipelineResultRepository {
       return claimed ?? null
     },
 
-    async decide(id, reviewerId, decision, annotationId) {
+    async findClaimed(id, reviewerId) {
+      const [claimed] = await db
+        .select()
+        .from(pipelineResultsTable)
+        .where(
+          and(
+            eq(pipelineResultsTable.id, id),
+            eq(pipelineResultsTable.reviewStatus, "claimed"),
+            eq(pipelineResultsTable.claimedBy, reviewerId),
+            gt(pipelineResultsTable.claimExpiresAt, new Date())
+          )
+        )
+        .limit(1)
+      return claimed ?? null
+    },
+
+    async renewClaim(id, reviewerId, leaseDurationMs = 5 * 60 * 1000) {
       const now = new Date()
-      const [decided] = await db
+      const [renewed] = await db
         .update(pipelineResultsTable)
         .set({
-          reviewStatus: decision,
-          reviewedBy: reviewerId,
-          reviewedAt: now,
-          annotationId,
-          claimExpiresAt: null,
+          claimExpiresAt: new Date(now.getTime() + leaseDurationMs),
           updatedAt: now,
         })
         .where(
@@ -267,22 +315,153 @@ export function createPipelineResultRepository(): PipelineResultRepository {
             eq(pipelineResultsTable.id, id),
             eq(pipelineResultsTable.reviewStatus, "claimed"),
             eq(pipelineResultsTable.claimedBy, reviewerId),
-            or(
-              gt(pipelineResultsTable.claimExpiresAt, now),
-              eq(pipelineResultsTable.claimExpiresAt, now)
-            ),
-            inArray(pipelineResultsTable.kind, [
-              "media",
-              "detection",
-              "extraction",
-              "pair",
-              "indexed_match",
-            ])
+            gt(pipelineResultsTable.claimExpiresAt, now)
           )
         )
         .returning()
+      return renewed ?? null
+    },
 
-      return decided ?? null
+    async releaseClaim(id, reviewerId) {
+      const released = await db
+        .update(pipelineResultsTable)
+        .set({
+          reviewStatus: "ready",
+          claimedBy: null,
+          claimExpiresAt: null,
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(pipelineResultsTable.id, id),
+            eq(pipelineResultsTable.reviewStatus, "claimed"),
+            eq(pipelineResultsTable.claimedBy, reviewerId)
+          )
+        )
+        .returning({ id: pipelineResultsTable.id })
+      return released.length > 0
+    },
+
+    async decide(id, reviewerId, decision, annotationId) {
+      const now = new Date()
+      return db.transaction(async (tx) => {
+        const [decided] = await tx
+          .update(pipelineResultsTable)
+          .set({
+            reviewStatus: decision,
+            reviewedBy: reviewerId,
+            reviewedAt: now,
+            annotationId,
+            claimExpiresAt: null,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(pipelineResultsTable.id, id),
+              eq(pipelineResultsTable.reviewStatus, "claimed"),
+              eq(pipelineResultsTable.claimedBy, reviewerId),
+              or(
+                gt(pipelineResultsTable.claimExpiresAt, now),
+                eq(pipelineResultsTable.claimExpiresAt, now)
+              ),
+              inArray(pipelineResultsTable.kind, [
+                "media",
+                "detection",
+                "extraction",
+                "pair",
+                "indexed_match",
+              ])
+            )
+          )
+          .returning()
+
+        if (decided?.kind === "media" && decided.mediaId) {
+          await tx
+            .update(mediaTable)
+            .set({
+              state: decision === "rejected" ? "rejected" : "reviewed",
+            })
+            .where(eq(mediaTable.id, decided.mediaId))
+        }
+
+        return decided ?? null
+      })
+    },
+
+    async approveDetection(id, reviewerId, annotation) {
+      const now = new Date()
+      return db.transaction(async (tx) => {
+        const [claimed] = await tx
+          .select()
+          .from(pipelineResultsTable)
+          .where(
+            and(
+              eq(pipelineResultsTable.id, id),
+              eq(pipelineResultsTable.kind, "detection"),
+              eq(pipelineResultsTable.reviewStatus, "claimed"),
+              eq(pipelineResultsTable.claimedBy, reviewerId),
+              or(
+                gt(pipelineResultsTable.claimExpiresAt, now),
+                eq(pipelineResultsTable.claimExpiresAt, now)
+              )
+            )
+          )
+          .for("update")
+
+        if (!claimed || claimed.mediaId !== annotation.mediaId) return null
+
+        const [counter] = await tx
+          .insert(annotationsIncrementerTable)
+          .values({ mediaId: annotation.mediaId, lastId: 1 })
+          .onConflictDoUpdate({
+            target: annotationsIncrementerTable.mediaId,
+            set: {
+              lastId: sql`${annotationsIncrementerTable.lastId} + 1`,
+            },
+          })
+          .returning({ detectionId: annotationsIncrementerTable.lastId })
+        if (!counter) throw new Error("Failed to allocate detection ID")
+
+        await tx.insert(detectionsTable).values({
+          mediaId: annotation.mediaId,
+          detectionId: counter.detectionId,
+          source: annotation.source,
+          category: annotation.category,
+          type: annotation.type,
+          score: annotation.score,
+          data: annotation.data,
+          createdAt: now,
+          createdBy: reviewerId,
+        })
+        await tx.insert(annotationsTable).values({
+          id,
+          mediaId: annotation.mediaId,
+          detectionId: counter.detectionId,
+          individualId: annotation.individualId,
+          updatedAt: now,
+        })
+
+        const [decided] = await tx
+          .update(pipelineResultsTable)
+          .set({
+            reviewStatus: "approved",
+            reviewedBy: reviewerId,
+            reviewedAt: now,
+            annotationId: id,
+            claimExpiresAt: null,
+            updatedAt: now,
+          })
+          .where(eq(pipelineResultsTable.id, id))
+          .returning()
+
+        if (annotation.individualId) {
+          await createIndividualSummaryRepository().refresh(
+            [annotation.individualId],
+            tx
+          )
+        }
+        return decided ?? null
+      })
     },
   }
 }

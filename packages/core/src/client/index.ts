@@ -8,9 +8,7 @@ export function getClient<C extends any>(
   c: new (config: any) => C,
   opts?: any
 ): C {
-  const isDev = isLocalDevelopment()
-
-  if (isDev) {
+  if (isLocalDevelopment()) {
     if (c === S3Client) {
       return new c({
         ...opts,
@@ -22,7 +20,6 @@ export function getClient<C extends any>(
         },
       })
     }
-
     return new c({ ...opts })
   }
 

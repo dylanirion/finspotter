@@ -1,4 +1,5 @@
 import { fillPoint, strokeLineSegment } from "@finspotter/annotations/draw"
+import { polygonViewport } from "@finspotter/annotations/materialization"
 import { type AnnotationStrategy } from "@finspotter/annotations/react/BaseAnnotationLayer"
 import { SnapshotFrom } from "xstate"
 
@@ -127,5 +128,9 @@ export const strategy: AnnotationStrategy<"segmentation"> = {
         break
       }
     }
+  },
+  getTransformMatrix(data) {
+    const { sourceToDerived, width, height } = polygonViewport(data)
+    return { ...sourceToDerived, width, height }
   },
 }

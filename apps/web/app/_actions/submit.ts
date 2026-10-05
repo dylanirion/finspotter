@@ -5,6 +5,7 @@ import { parse } from "path"
 import { headers } from "next/headers"
 import { ALLOWEDCONTENTTYPES, site } from "@finspotter/config/site"
 import { sendMail } from "@finspotter/core/email"
+import { createMediaRepository } from "@finspotter/core/media"
 import { createPipelineLifecycleRepository } from "@finspotter/core/pipeline"
 import { validateReCaptcha } from "@finspotter/core/recaptcha"
 import { createStorageRepository } from "@finspotter/core/storage"
@@ -28,6 +29,7 @@ interface UserData {
 
 const { getPresignedPostUrl, putItem, copyObject } =
   createStorageRepository()
+const mediaRepository = createMediaRepository()
 const lifecycle = createPipelineLifecycleRepository({
   table: Resource.SubmissionReviewPipeline.table,
 })
@@ -160,6 +162,10 @@ export async function getUploadUrl(
   })
 
   if (media) {
+    await mediaRepository.register({
+      id: media.mediaId,
+      src: upload.key,
+    })
     await lifecycle.registerSubmission(media.submissionId)
     await lifecycle.registerMedia({
       submissionId: media.submissionId,
@@ -195,6 +201,7 @@ export async function completeMediaUpload({
       key: pendingKey,
     })
   }
+  await mediaRepository.setSource(mediaId, pendingKey)
 
   if (!media.type.startsWith("image/")) {
     await lifecycle.completeMediaProcessing(submissionId, mediaId)

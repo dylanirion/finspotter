@@ -1,7 +1,7 @@
-import { createHmac, timingSafeEqual } from "node:crypto"
 import { NextRequest, NextResponse } from "next/server"
 import { createMediaRepository } from "@finspotter/core/media"
 import { createStorageRepository } from "@finspotter/core/storage"
+import { verifyMediaCapability } from "lib/mediaAccess"
 import { Resource } from "sst"
 import { z } from "zod"
 
@@ -96,38 +96,7 @@ async function canViewMedia(
   if (access.visibility === "public") return true
 
   const token = request.nextUrl.searchParams.get("token")
-  return token ? verifyCapability(token, mediaId, access.version) : false
-}
-
-function verifyCapability(token: string, mediaId: string, version: number) {
-  const [expiresAtValue, suppliedSignature, ...extra] = token.split(".")
-  const expiresAt = Number(expiresAtValue)
-
-  if (
-    extra.length ||
-    !expiresAtValue ||
-    !suppliedSignature ||
-    !Number.isSafeInteger(expiresAt) ||
-    expiresAt <= Math.floor(Date.now() / 1000)
-  ) {
-    return false
-  }
-
-  const expectedSignature = createHmac("sha256", process.env.BETTER_AUTH_SECRET)
-    .update(`${mediaId}\n${version}\n${expiresAt}\nmedia`)
-    .digest()
-
-  let supplied: Buffer
-  try {
-    supplied = Buffer.from(suppliedSignature, "base64url")
-  } catch {
-    return false
-  }
-
-  return (
-    supplied.length === expectedSignature.length &&
-    timingSafeEqual(supplied, expectedSignature)
-  )
+  return token ? verifyMediaCapability(token, mediaId, access.version) : false
 }
 
 function notFound() {

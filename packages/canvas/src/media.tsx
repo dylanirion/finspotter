@@ -22,6 +22,8 @@ interface MediaLayerProps {
   ref?: Ref<{ matrix: DOMMatrix }>
   media: { src: string } & { srcSet?: string; sizes?: string }
   transform?: Transform
+  onLoad?: () => void
+  onError?: () => void
 }
 
 // TODO: video
@@ -33,6 +35,8 @@ export function MediaLayer({
   ref,
   media,
   transform,
+  onLoad,
+  onError,
   children,
 }: PropsWithChildren<MediaLayerProps>) {
   const imageRef = useRef<HTMLImageElement | null>(null)
@@ -99,16 +103,32 @@ export function MediaLayer({
         width: (transform?.width ?? img.width) * scale,
         height: (transform?.height ?? img.height) * scale,
       })
+      onLoad?.()
     }
     img.onerror = () => {
       setStatus("error")
+      onError?.()
     }
     img.src = media.src
     img.srcset = media.srcSet ?? ""
     img.sizes = media.sizes ?? ""
     img.fetchPriority = "high"
     imageRef.current = img
-  }, [])
+  }, [
+    media.src,
+    media.srcSet,
+    media.sizes,
+    onError,
+    onLoad,
+    transform?.a,
+    transform?.b,
+    transform?.c,
+    transform?.d,
+    transform?.e,
+    transform?.f,
+    transform?.width,
+    transform?.height,
+  ])
 
   const context = useMemo(
     () => ({

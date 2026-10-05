@@ -49,15 +49,17 @@ export class SubmissionReviewPipeline extends $util.ComponentResource {
         gsi1: {
           hashKey: "gsi1pk",
           rangeKey: "created_at",
-          // TODO: project reviewer visibility and assignment fields when the review model lands.
-          projection: ["locked_at", "expires", "final", "status"],
+          projection: ["status"],
         },
         gsi2: {
           hashKey: "media_id",
           rangeKey: "sk",
           projection: [
+            "annotation_type",
             "category",
+            "created_at",
             "data",
+            "detection_id",
             "expires",
             "score",
             "superseded_by",

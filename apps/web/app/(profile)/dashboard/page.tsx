@@ -1,5 +1,6 @@
 import { type Metadata } from "next"
 import { headers } from "next/headers"
+import { can } from "@finspotter/core/auth/permissions"
 import { getSession } from "lib/auth"
 import { Toaster } from "react-hot-toast"
 
@@ -30,7 +31,7 @@ export default async function DashboardPage() {
         <MySubmissions />
         <MyOrganization />
         <PipelineActivity />
-        <Review />
+        {can(user, "review", "Annotation") && <Review />}
       </div>
       <Toaster position="bottom-right" reverseOrder={false} />
     </>

@@ -12,7 +12,7 @@ import {
 export function createStateMachine(
   name: string,
   table: sst.aws.Dynamo,
-  materializer: aws.lambda.Function
+  materializer: $util.Output<aws.lambda.Function>
 ) {
   const logGroup = new aws.cloudwatch.LogGroup(`${name}Log`, {
     name: `/aws/sfn/${$app.name}-${$app.stage}-${name}`,

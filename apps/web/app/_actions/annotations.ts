@@ -32,12 +32,19 @@ export async function getAllAnnotations({
   where?: Where
   sort?: Sort
 }) {
-  //TODO: check permissions? inject filter based on permissions
+  await requireMediaReader()
   return await findAll({ limit, offset, where, sort })
 }
 
 export async function getSingleAnnotation(id: string) {
+  await requireMediaReader()
   return await findOne({ id: id })
+}
+
+async function requireMediaReader() {
+  const session = await getSession({ headers: await headers() })
+  if (!session?.user || !can(session.user, "read", "Media"))
+    throw new Error("Unauthorized access.")
 }
 
 //TODO: media editor should show unreviewed annotations
@@ -150,7 +157,8 @@ async function startAutoReviewedExtractions(
         item_type: "detection",
         media_id: created.mediaId,
         detection_id: String(created.detectionId),
-        type: annotation.type,
+        type: "manual",
+        annotation_type: annotation.type,
         category: annotation.category,
         data: annotation.data,
         score: annotation.score ?? 1,

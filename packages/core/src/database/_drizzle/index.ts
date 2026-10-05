@@ -49,7 +49,7 @@ export function jsonbBuildObject<T>(
   fields: Record<string, AnyColumn | SQL | SQL.Aliased>
 ) {
   const entries = Object.entries(fields).flatMap(([key, value]) => [
-    sql`${key}`,
+    sql`${key}::text`,
     value,
   ])
 

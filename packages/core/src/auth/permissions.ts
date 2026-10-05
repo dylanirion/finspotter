@@ -1,5 +1,3 @@
-import { Session } from "next-auth"
-
 import { type Annotation } from "../annotation"
 import { type Media } from "../media"
 import { type Organization } from "../organization"
@@ -12,9 +10,14 @@ export type Role = "admin" | "manager" | "matcher" | "annotator" | "user"
 
 //TODO: change to more "understandable" verbs read->view, update->add, etc
 type CrudAction = "create" | "read" | "update" | "delete"
-type ReviewAction = "auto_review"
+type ReviewAction = "review" | "auto_review"
 type OrgAction = "invite" | "remove"
 type MLAction = "train"
+
+type PermissionUser = {
+  role?: string | null
+  organizations?: Record<string, string | string[]>
+}
 
 type ResourceType = {
   Annotation: Annotation[]
@@ -26,7 +29,7 @@ type ResourceType = {
 type ActionPermissions<T> = Partial<
   Record<
     CrudAction | ReviewAction,
-    boolean | ((user: Session["user"] | undefined, data: T) => boolean)
+    boolean | ((user: PermissionUser | undefined, data: T) => boolean)
   >
 > &
   Partial<
@@ -36,7 +39,7 @@ type ActionPermissions<T> = Partial<
         ?
             | boolean
             | ((
-                user: Session["user"] | undefined,
+                user: PermissionUser | undefined,
                 data: Organization[]
               ) => boolean)
         : never
@@ -53,9 +56,9 @@ const permissions: RolePermissions = {
   admin: {
     Annotation: {
       create: true,
-      read: true,
       update: true,
       delete: true,
+      review: true,
       auto_review: true,
     },
     Media: {
@@ -89,7 +92,11 @@ const permissions: RolePermissions = {
       },
     },
   },
-  matcher: {},
+  matcher: {
+    Annotation: {
+      review: true,
+    },
+  },
   annotator: {},
   user: {
     Media: {
@@ -109,7 +116,7 @@ export function can<
   R extends keyof ResourceType,
   A extends CrudAction | ReviewAction,
 >(
-  user: Session["user"] | undefined,
+  user: PermissionUser | undefined,
   action: A,
   resource: R,
   data?: ResourceType[R]

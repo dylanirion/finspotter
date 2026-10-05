@@ -23,12 +23,16 @@ import { mediaTable } from "./sql"
 export interface Media {
   id: string
   src: string
+  state: "pending" | "reviewed" | "rejected"
   annotations: Annotation[]
   exif: ExifData
 }
 
 export type MediaColumns = keyof typeof mediaTable.$inferSelect
-type MediaRepository = Repository<Media>
+type MediaRepository = Repository<Media> & {
+  register: (media: { id: string; src: string }) => Promise<void>
+  setSource: (id: string, src: string) => Promise<void>
+}
 
 const drizzleMediaRepository: MediaRepository = {
   async findOne(where: Where<"id">) {
@@ -38,6 +42,7 @@ const drizzleMediaRepository: MediaRepository = {
       .select({
         id: mediaTable.id,
         src: mediaTable.src,
+        state: mediaTable.state,
         annotations: annotations.json,
         exif: exif.json,
       })
@@ -54,6 +59,7 @@ const drizzleMediaRepository: MediaRepository = {
       .select({
         id: mediaTable.id,
         src: mediaTable.src,
+        state: mediaTable.state,
         annotations: annotations.json,
         exif: exif.json,
       })
@@ -65,7 +71,11 @@ const drizzleMediaRepository: MediaRepository = {
   async findAll({ limit, offset, where, sort }) {
     const media = db
       .$with("media")
-      .as(selectFromMedia().where(buildWhereClause(mediaTable, {}))) //permissions filter
+      .as(
+        selectFromMedia().where(
+          buildWhereClause(mediaTable, { state: "reviewed" })
+        )
+      ) //permissions filter
     const { annotations, jsonAnnotations } = annotationCTEs()
     const { exif, jsonExif, flatExif } = exifCTEs()
     const searchSpace = db.$with("search_space").as(
@@ -73,6 +83,7 @@ const drizzleMediaRepository: MediaRepository = {
         .select({
           id: media.id,
           src: media.src,
+          state: media.state,
           category: annotations.category,
           type: annotations.type,
           contentType: flatExif.contentType,
@@ -90,6 +101,7 @@ const drizzleMediaRepository: MediaRepository = {
         .select({
           id: searchSpace.id,
           src: searchSpace.src,
+          state: searchSpace.state,
           category: searchSpace.category,
           type: searchSpace.type,
           sortOrder:
@@ -131,6 +143,7 @@ const drizzleMediaRepository: MediaRepository = {
         .selectDistinct({
           id: filteredMedia.id,
           src: filteredMedia.src,
+          state: filteredMedia.state,
           exif: jsonExif.json,
           annotations: jsonAnnotations.json,
         })
@@ -193,6 +206,29 @@ const drizzleMediaRepository: MediaRepository = {
   async remove(where) {
     return db.delete(mediaTable).where(buildWhereClause(mediaTable, where))
   },
+
+  async register(media) {
+    const [registered] = await db
+      .insert(mediaTable)
+      .values({ ...media, state: "pending" })
+      .onConflictDoNothing()
+      .returning({ id: mediaTable.id })
+    if (registered) return
+
+    const [existing] = await db
+      .select({ src: mediaTable.src, state: mediaTable.state })
+      .from(mediaTable)
+      .where(eq(mediaTable.id, media.id))
+      .limit(1)
+    if (existing?.state !== "pending" || existing.src !== media.src) {
+      throw new Error(`Media ${media.id} is already registered`)
+    }
+  },
+
+  async setSource(id, src) {
+    await db.update(mediaTable).set({ src }).where(eq(mediaTable.id, id))
+  },
+
 }
 
 export const selectFromMedia = () => db.select().from(mediaTable).$dynamic()
@@ -203,6 +239,7 @@ export const selectFromMediaWithExif = () => {
     .select({
       id: mediaTable.id,
       src: mediaTable.src,
+      state: mediaTable.state,
       exif: exif.json,
     })
     .from(mediaTable)

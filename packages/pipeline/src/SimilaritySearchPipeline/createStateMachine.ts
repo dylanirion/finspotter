@@ -169,14 +169,14 @@ export function createStateMachine(name: string, table: sst.aws.Dynamo) {
         },
         ":sourceQuery": {
           M: {
-            pk: { "S.$": $.stringAt("$$.Execution.Input.payload[0].pk") },
-            sk: { "S.$": $.stringAt("$$.Execution.Input.payload[0].sk") },
+            pk: { "S.$": $.stringAt("$$.Execution.Input.payload[0][0].pk") },
+            sk: { "S.$": $.stringAt("$$.Execution.Input.payload[0][0].sk") },
           },
         },
         ":sourceRef": {
           M: {
-            pk: { "S.$": $.stringAt("$$.Execution.Input.payload[1].pk") },
-            sk: { "S.$": $.stringAt("$$.Execution.Input.payload[1].sk") },
+            pk: { "S.$": $.stringAt("$$.Execution.Input.payload[0][1].pk") },
+            sk: { "S.$": $.stringAt("$$.Execution.Input.payload[0][1].sk") },
           },
         },
       },

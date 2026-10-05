@@ -1,9 +1,20 @@
-import { index, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core"
+import { index, pgEnum, pgTable, primaryKey, text, uuid } from "drizzle-orm/pg-core"
 
-export const mediaTable = pgTable("media", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  src: text("src").notNull(),
-})
+export const mediaStateEnum = pgEnum("media_state", [
+  "pending",
+  "reviewed",
+  "rejected",
+])
+
+export const mediaTable = pgTable(
+  "media",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    src: text("src").notNull(),
+    state: mediaStateEnum("state").notNull().default("reviewed"),
+  },
+  (table) => [index().on(table.state)]
+)
 
 export const mediaMetaTable = pgTable(
   "media_meta",

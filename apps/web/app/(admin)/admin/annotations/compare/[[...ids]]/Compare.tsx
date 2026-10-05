@@ -1,20 +1,21 @@
 "use client"
 
-import { useEffect, useReducer, useRef, useState } from "react"
+import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import { getAnnotationComponents } from "@finspotter/annotations/react"
 import { Canvas } from "@finspotter/canvas"
 import { MediaLayer } from "@finspotter/canvas/media"
 import { PanZoomPanel, type PanZoomService } from "@finspotter/canvas/pan-zoom"
 import { type Annotation } from "@finspotter/core/annotation"
-import { Media } from "@finspotter/core/media"
+import { type Media } from "@finspotter/core/media"
 import { useQuery } from "@tanstack/react-query"
 import { getSingleAnnotation } from "app/_actions/annotations"
+import {
+  getReviewComparisonArtifacts,
+  type ReviewComparisonData,
+} from "app/_actions/pipeline"
 import { cn } from "lib/utils"
 
-import matches from "./[70zlTQ8WzEXg97Wvg9r_yolact_0_hesaff_pPOw_71i_1XGE4dvWHG_yolact_0_hesaff]_faiss_ratio_homog.json"
-import featuresA from "./70zlTQ8WzEXg97Wvg9r_yolact_0_hesaff.json"
 import { MediaGroup } from "./MediaGroup"
-import featuresB from "./pPOw_71i_1XGE4dvWHG_yolact_0_hesaff.json"
 
 //TODO: smart select orientation, i.e. top-up, top-right
 //TODO: will depend on w>h, etc, and whether both can be rotated
@@ -25,7 +26,21 @@ import featuresB from "./pPOw_71i_1XGE4dvWHG_yolact_0_hesaff.json"
 //TODO: clear MediaLayers on render
 //TODO: rotate canvas, pick side by side top or bottom
 
-export function Compare({ ids }: { ids: [string, string] }) {
+type CompareProps =
+  | { ids: [string, string]; comparison?: never }
+  | { ids?: never; comparison: ReviewComparisonData; reviewId: string }
+
+export function ReviewCompare({
+  comparison,
+  reviewId,
+}: {
+  comparison: ReviewComparisonData
+  reviewId: string
+}) {
+  return <Compare comparison={comparison} reviewId={reviewId} />
+}
+
+export function Compare({ ids, comparison, reviewId }: CompareProps) {
   const [container, setContainer] = useState<HTMLDivElement | null>()
   const [canvasA, setCanvasA] = useState<HTMLCanvasElement | null>()
   const [canvasB, setCanvasB] = useState<HTMLCanvasElement | null>()
@@ -33,26 +48,75 @@ export function Compare({ ids }: { ids: [string, string] }) {
   const [mediaB, setMediaB] = useState<{ matrix: DOMMatrix } | null>()
   const [panZoomA, setPanZoomA] = useState<{ service: PanZoomService } | null>()
   const [panZoomB, setPanZoomB] = useState<{ service: PanZoomService } | null>()
+  const [mediaLoaded, setMediaLoaded] = useState<[boolean, boolean]>([
+    false,
+    false,
+  ])
+  const [mediaFailed, setMediaFailed] = useState(false)
+  const handleMediaLoaded = useCallback((index: 0 | 1) => {
+    setMediaLoaded((loaded) => {
+      if (loaded[index]) return loaded
+      const next: [boolean, boolean] = [...loaded]
+      next[index] = true
+      return next
+    })
+  }, [])
+  const handleMediaALoaded = useCallback(
+    () => handleMediaLoaded(0),
+    [handleMediaLoaded]
+  )
+  const handleMediaBLoaded = useCallback(
+    () => handleMediaLoaded(1),
+    [handleMediaLoaded]
+  )
+  const handleMediaError = useCallback(() => setMediaFailed(true), [])
 
-  const { data: a, isFetching: isFetchingA } = useQuery({
-    queryKey: ["annotation", String(ids[0])],
+  const { data: persistedA, isFetching: isFetchingA } = useQuery({
+    queryKey: ["annotation", String(ids?.[0])],
     queryFn: (): Promise<
       | (Annotation & {
           media?: Pick<Media, "id" | "src" | "exif">
         })
       | null
-    > => getSingleAnnotation(ids[0]),
+    > => getSingleAnnotation(ids![0]),
+    enabled: ids !== undefined,
   })
-  const { data: b, isFetching: isFetchingB } = useQuery({
-    queryKey: ["annotation", String(ids[1])],
+  const { data: persistedB, isFetching: isFetchingB } = useQuery({
+    queryKey: ["annotation", String(ids?.[1])],
     queryFn: (): Promise<
       | (Annotation & {
           media?: Pick<Media, "id" | "src" | "exif">
         })
       | null
-    > => getSingleAnnotation(ids[1]),
+    > => getSingleAnnotation(ids![1]),
+    enabled: ids !== undefined,
   })
-  const isFetching = isFetchingA || isFetchingB
+  const { data: artifacts } = useQuery({
+    queryKey: ["review-comparison-artifacts", reviewId],
+    queryFn: () => getReviewComparisonArtifacts(reviewId!),
+    enabled:
+      reviewId !== undefined &&
+      mediaLoaded[0] &&
+      mediaLoaded[1] &&
+      !mediaFailed,
+  })
+  const a = comparison
+    ? { ...comparison.query.annotation, media: comparison.query.media }
+    : persistedA
+  const b = comparison
+    ? {
+        ...comparison.reference.annotation,
+        media: comparison.reference.media,
+      }
+    : persistedB
+  const isFetching = ids !== undefined && (isFetchingA || isFetchingB)
+  const labels: [string, string] = ids ?? [
+    `${comparison.query.annotation.mediaId}/${comparison.query.annotation.detectionId}`,
+    `${comparison.reference.annotation.mediaId}/${comparison.reference.annotation.detectionId}`,
+  ]
+  const comparisonFeaturesA = artifacts?.queryFeatures ?? []
+  const comparisonFeaturesB = artifacts?.referenceFeatures ?? []
+  const comparisonMatches = artifacts?.matches ?? []
 
   if (!a && !b && !isFetching) return <h1>Not Found!</h1>
   //TODO: a loading skeleton would be ideal, but media might shift
@@ -73,9 +137,9 @@ export function Compare({ ids }: { ids: [string, string] }) {
       <>
         <h1 className="text-2xl font-bold tracking-tight">
           <span className="inline">Compare</span>{" "}
-          <span className="inline text-indigo-600">{ids[0]}</span>{" "}
+          <span className="inline text-indigo-600">{labels[0]}</span>{" "}
           <span className="inline">:</span>{" "}
-          <span className="inline text-indigo-600">{ids[1]}</span>
+          <span className="inline text-indigo-600">{labels[1]}</span>
         </h1>
         <div ref={setContainer} className="relative">
           <MediaGroup className="justify-center">
@@ -95,6 +159,8 @@ export function Compare({ ids }: { ids: [string, string] }) {
                 ref={setMediaA}
                 media={a.media}
                 transform={transformMatA}
+                onLoad={handleMediaALoaded}
+                onError={handleMediaError}
               >
                 <PanZoomPanel
                   ref={setPanZoomA}
@@ -118,6 +184,8 @@ export function Compare({ ids }: { ids: [string, string] }) {
                 ref={setMediaB}
                 media={b.media}
                 transform={transformMatB}
+                onLoad={handleMediaBLoaded}
+                onError={handleMediaError}
               >
                 <PanZoomPanel
                   ref={setPanZoomB}
@@ -128,9 +196,9 @@ export function Compare({ ids }: { ids: [string, string] }) {
           </MediaGroup>
           {container && canvasA && canvasB && (
             <FeatureConnector
-              featuresA={featuresA.kpts}
-              featuresB={featuresB.kpts}
-              matches={matches}
+              featuresA={comparisonFeaturesA}
+              featuresB={comparisonFeaturesB}
+              matches={comparisonMatches}
               container={container}
               canvasA={canvasA}
               canvasB={canvasB}
