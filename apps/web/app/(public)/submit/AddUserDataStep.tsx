@@ -87,7 +87,7 @@ function ContactDetails() {
 function OrganizationDetails() {
   const { data: organizations } = useListOrganizations()
 
-  if (!organizations) return
+  if (!organizations || organizations.length == 0) return
 
   return (
     <>
