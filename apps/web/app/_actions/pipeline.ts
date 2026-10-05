@@ -484,9 +484,9 @@ function toReviewAnnotation(detection: DetectionItem): Annotation {
     detectionId: Number(detection.detection_id),
     individualId: null,
     category: detection.category,
-    type: detection.annotation_type ?? null,
+    type: detection.type,
     data: detection.data,
-    source: detection.type,
+    source: detection.source,
     score: detection.score,
     updatedAt: new Date(detection.created_at ?? 0),
   } as Annotation
@@ -559,9 +559,9 @@ export async function getSingleMedia(id: string) {
         detectionId: Number(detection.detection_id),
         individualId: null,
         category: detection.category,
-        type: detection.annotation_type ?? null,
+        type: detection.type,
         data: detection.data,
-        source: detection.type,
+        source: detection.source,
         score: detection.score,
         updatedAt: new Date(detection.created_at ?? 0),
       } as Annotation
@@ -586,11 +586,11 @@ export async function getDetection(key: {
   pk: string
   sk: string
 }): Promise<Partial<DetectionItem>> {
-  const { type, category, data, score } = await getItem<DetectionItem>(
+  const { source, type, category, data, score } = await getItem<DetectionItem>(
     Resource.SubmissionReviewPipeline.table,
     key
   )
-  return { type, category, data, score }
+  return { source, type, category, data, score }
 }
 
 export async function getDetections(key: {
@@ -604,7 +604,7 @@ export async function getDetections(key: {
     }
   )
   return items.map((item) => {
-    const { type, category, data, score } = item
-    return { type, category, data, score }
+    const { source, type, category, data, score } = item
+    return { source, type, category, data, score }
   })
 }

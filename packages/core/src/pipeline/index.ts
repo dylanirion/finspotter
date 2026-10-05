@@ -98,8 +98,8 @@ export type DetectionItem<D extends string = string> = {
   sk: string
   media_id: string
   detection_id: number
-  type: D
-  annotation_type?: keyof AnnotationDataTypes
+  source: D
+  type: keyof AnnotationDataTypes
   category: string
   data: DetectionDataType<D>
   score: number
@@ -123,7 +123,8 @@ export type MediaResponse = {
 }
 
 export type DetectionResponse<D extends string = string> = {
-  type: D
+  source: D
+  type: keyof AnnotationDataTypes
   category: string
   data: DetectionDataType<D>
   score: number

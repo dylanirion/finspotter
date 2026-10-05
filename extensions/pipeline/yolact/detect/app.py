@@ -150,8 +150,8 @@ def detection(event: EventData) -> list[Response]:
         expr_names = {
             "#MEDIAID": "media_id",
             "#DETECTIONID": "detection_id",
+            "#SOURCE": "source",
             "#TYPE": "type",
-            "#ANNOTATIONTYPE": "annotation_type",
             "#CATEGORY": "category",
             "#DATA": "data",
             "#SCORE": "score",
@@ -164,8 +164,8 @@ def detection(event: EventData) -> list[Response]:
         expr_values = {
             ":mediaid": {"S": media_id},
             ":detectionid": {"S": str(i)},
-            ":type": {"S": "yolact"},
-            ":annotationtype": {"S": "segmentation"},
+            ":source": {"S": "yolact"},
+            ":type": {"S": "segmentation"},
             ":category": result["category"],
             ":data": result["data"],
             ":score": result["score"],
@@ -194,8 +194,8 @@ def detection(event: EventData) -> list[Response]:
         update_expr = [
             "#MEDIAID = :mediaid",
             "#DETECTIONID = :detectionid",
+            "#SOURCE = :source",
             "#TYPE = :type",
-            "#ANNOTATIONTYPE = :annotationtype",
             "#CATEGORY = :category",
             "#DATA = :data",
             "#SCORE = :score",
