@@ -26,7 +26,7 @@ export const usersTable = pgTable(
     image: text("image"),
     role: varchar("role", { length: 255 }).default("user"),
     banned: boolean("banned").default(false),
-    bannedReason: varchar("banned_reason", { length: 255 }),
+    banReason: varchar("ban_reason", { length: 255 }),
     banExpires: timestamp("ban_expires", { mode: "date" }),
   },
   (table) => [index().on(table.email)]

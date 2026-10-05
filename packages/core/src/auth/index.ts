@@ -52,7 +52,7 @@ export const auth = betterAuth({
       verification: schema.verificationTokensTable,
       organization: schema.organizationsTable,
       member: schema.membersTable,
-      invitations: schema.invitationsTable,
+      invitation: schema.invitationsTable,
     },
   }),
   user: {
@@ -79,7 +79,7 @@ export const auth = betterAuth({
       schema: {
         organization: {
           additionalFields: {
-            short_name: {
+            shortName: {
               type: "string",
               input: true,
               required: false,
