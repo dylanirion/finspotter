@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server"
+import { can } from "@finspotter/core/auth/permissions"
 import { createMediaRepository } from "@finspotter/core/media"
 import { createStorageRepository } from "@finspotter/core/storage"
+import { getSession } from "lib/auth"
 import { verifyMediaCapability } from "lib/mediaAccess"
 import { Resource } from "sst"
 import { z } from "zod"
@@ -94,6 +96,9 @@ async function canViewMedia(
   access: MediaAccess
 ) {
   if (access.visibility === "public") return true
+
+  const session = await getSession({ headers: request.headers })
+  if (session?.user && can(session.user, "read", "Media")) return true
 
   const token = request.nextUrl.searchParams.get("token")
   return token ? verifyMediaCapability(token, mediaId, access.version) : false
