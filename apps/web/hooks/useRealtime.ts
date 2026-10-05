@@ -2,17 +2,25 @@ import { useCallback, useEffect, useRef } from "react"
 import { Amplify } from "aws-amplify"
 import { events, type EventsChannel, type EventsOptions } from "aws-amplify/api"
 
+const endpoint = process.env.NEXT_PUBLIC_REALTIME_ENDPOINT
+const region = process.env.NEXT_PUBLIC_REALTIME_REGION
+const identityPoolId = process.env.NEXT_PUBLIC_IDENTITY_POOL
+
+if (!endpoint || !region || !identityPoolId) {
+  throw new Error("Realtime client configuration is incomplete")
+}
+
 Amplify.configure({
   API: {
     Events: {
-      endpoint: process.env.NEXT_PUBLIC_REALTIME_ENDPOINT,
-      region: process.env.NEXT_PUBLIC_REALTIME_REGION,
+      endpoint,
+      region,
       defaultAuthMode: "identityPool",
     },
   },
   Auth: {
     Cognito: {
-      identityPoolId: process.env.NEXT_PUBLIC_IDENTITY_POOL,
+      identityPoolId,
       allowGuestAccess: true,
     },
   },

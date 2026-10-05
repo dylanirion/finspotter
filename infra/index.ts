@@ -90,7 +90,7 @@ export function defineInfra({
       //NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: secret.GoogleMapsApiKey.value,
       //NEXT_PUBLIC_GOOGLE_MAPS_API_MAPID: secret.GoogleMapsMapId.value,
       NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY: recaptcha.name,
-      NEXT_PUBLIC_REALTIME_ENDPOINT: $interpolate`https://${submissionReview.realtime.dns.http}/event`,
+      NEXT_PUBLIC_REALTIME_ENDPOINT: $interpolate`https://${submissionReview.realtime.dns.HTTP}/event`,
       NEXT_PUBLIC_REALTIME_REGION: aws.getRegionOutput().name,
       NEXT_PUBLIC_IDENTITY_POOL: submissionReview.identityPool,
       ...($dev && {

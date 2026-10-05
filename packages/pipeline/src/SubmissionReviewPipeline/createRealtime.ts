@@ -143,7 +143,7 @@ function createEventBus(
       name: physicalName(256, `${name}EventsApiDestination`),
       connectionArn: connection.arn,
       httpMethod: "POST",
-      invocationEndpoint: $interpolate`https://${eventsApi.dns.http}/event`,
+      invocationEndpoint: $interpolate`https://${eventsApi.dns.HTTP}/event`,
     }
   )
   const destinationRole = new aws.iam.Role(`${name}ApiDestinationRole`, {
@@ -233,7 +233,7 @@ function createEventBus(
           dynamodb: {
             NewImage: {
               sk: {
-                S: [{ prefix: "detection" }, { prefix: "extraction" }],
+                S: [{ prefix: "detection" }],
               },
               gsi1pk: { S: ["result"] },
             },
@@ -296,7 +296,6 @@ function createEventBus(
                   { prefix: "extraction#" },
                 ],
               },
-              gsi1pk: { S: ["result"] },
               final: { BOOL: [true] },
               review_status: { S: ["ready"] },
               review_ready_at: { S: [{ exists: true }] },
@@ -325,7 +324,6 @@ function createEventBus(
   )
   const pairJobGenerator = new sst.aws.Function(`${name}PairJobGenerator`, {
     handler: "packages/pipeline/src/pairJobs/index.handler",
-    dev: false,
     timeout: "30 seconds",
     environment: {
       TABLE: table.name,
@@ -344,9 +342,15 @@ function createEventBus(
   })
   const resultProjector = new sst.aws.Function(`${name}ResultProjector`, {
     handler: "packages/pipeline/src/resultProjector/index.handler",
-    dev: false,
-    timeout: "30 seconds",
+    timeout: "5 minutes",
     link: [database],
+    environment: { TABLE: table.name },
+    permissions: [
+      {
+        actions: ["dynamodb:BatchGetItem", "dynamodb:Query"],
+        resources: [table.arn, $interpolate`${table.arn}/index/gsi1`],
+      },
+    ],
   })
   const resultProjectorDeadLetterQueue = new aws.sqs.Queue(
     `${name}ResultProjectorDeadLetterQueue`,
@@ -393,6 +397,50 @@ function createEventBus(
           },
         },
       ],
+    },
+  })
+
+  const reconciliationRole = new aws.iam.Role(
+    `${name}ResultReconciliationRole`,
+    {
+      assumeRolePolicy: aws.iam.assumeRolePolicyForPrincipal({
+        Service: "scheduler.amazonaws.com",
+      }),
+    }
+  )
+
+  new aws.iam.RolePolicy(`${name}ResultReconciliationPolicy`, {
+    role: reconciliationRole.name,
+    policy: {
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Action: "lambda:InvokeFunction",
+          Resource: resultProjector.nodes.function.arn,
+        },
+        {
+          Effect: "Allow",
+          Action: "sqs:SendMessage",
+          Resource: resultProjectorDeadLetterQueue.arn,
+        },
+      ],
+    },
+  })
+
+  new aws.scheduler.Schedule(`${name}ResultReconciliation`, {
+    name: physicalName(64, `${name}ResultReconciliation`),
+    flexibleTimeWindow: { mode: "OFF" },
+    scheduleExpression: "rate(1 day)",
+    target: {
+      arn: resultProjector.nodes.function.arn,
+      roleArn: reconciliationRole.arn,
+      input: JSON.stringify({ reconcile: true }),
+      deadLetterConfig: { arn: resultProjectorDeadLetterQueue.arn },
+      retryPolicy: {
+        maximumEventAgeInSeconds: 60 * 60,
+        maximumRetryAttempts: 3,
+      },
     },
   })
 
@@ -519,35 +567,6 @@ function createEventBus(
         key: "$.detail.dynamodb.NewImage.sk.S",
       },
       inputTemplate: `{"channel": "pipeline/<pk>", "events": ["{\\"invalidate\\": \\"<key>\\"}"]}`,
-    },
-    roleArn: destinationRole.arn,
-  })
-
-  new aws.cloudwatch.EventTarget(`${name}ReviewReadyEventsApiTarget`, {
-    targetId: physicalName(256, `${name}ReviewReadyTarget`),
-    eventBusName: bus.name,
-    rule: reviewReadyRule.name,
-    arn: destination.arn,
-    httpTarget: {
-      headerParameters: {
-        "Content-Type": "application/json",
-      },
-    },
-    inputTransformer: {
-      inputPaths: {
-        pk: "$.detail.dynamodb.Keys.pk.S",
-        key: "$.detail.dynamodb.NewImage.sk.S",
-        score: "$.detail.dynamodb.NewImage.review_score.N",
-        queryMediaId:
-          "$.detail.dynamodb.NewImage.query.M.media_id.S",
-        queryDetectionId:
-          "$.detail.dynamodb.NewImage.query.M.detection_id.S",
-        refMediaId: "$.detail.dynamodb.NewImage.ref.M.media_id.S",
-        refDetectionId:
-          "$.detail.dynamodb.NewImage.ref.M.detection_id.S",
-        readyAt: "$.detail.dynamodb.NewImage.review_ready_at.S",
-      },
-      inputTemplate: `{"channel": "pipeline/<pk>", "events": ["{\\"type\\":\\"review-ready\\",\\"key\\":\\"<key>\\",\\"score\\":<score>,\\"query\\":{\\"mediaId\\":\\"<queryMediaId>\\",\\"detectionId\\":\\"<queryDetectionId>\\"},\\"ref\\":{\\"mediaId\\":\\"<refMediaId>\\",\\"detectionId\\":\\"<refDetectionId>\\"},\\"readyAt\\":\\"<readyAt>\\"}"]}`,
     },
     roleArn: destinationRole.arn,
   })
