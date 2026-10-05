@@ -104,7 +104,6 @@ export const indexed = ({
         ALLOWED_TABLES: tables.apply((tables) => JSON.stringify([...tables])),
       },
       timeout: "90 seconds",
-      dev: false,
       link: [db],
     },
     bucket,

@@ -68,7 +68,6 @@ export function createAddFunction(
     memory: "256 MB",
     timeout: "90 seconds",
     role: role.arn,
-    dev: false,
     link: [db],
   })
 }
