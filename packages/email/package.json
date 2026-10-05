@@ -16,7 +16,7 @@
     "react": "^19.2.3"
   },
   "devDependencies": {
-    "prettier-plugin-tailwindcss": "^0.7.1",
-    "react": "^19.2.3"
+    "prettier-plugin-tailwindcss": "^0.8.1",
+    "react": "^19.3.0"
   }
 }
