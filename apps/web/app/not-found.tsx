@@ -15,7 +15,7 @@ export default function NotFound() {
           <Fold className="relative flex w-full flex-row items-center justify-center gap-2">
             <SiteLogoError className="block h-64 w-auto" />
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">404</h2>
+              <h2 className="text-2xl font-bold">404</h2>
               <p>This page could not be found.</p>
             </div>
           </Fold>
