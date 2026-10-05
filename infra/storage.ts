@@ -1,6 +1,6 @@
 import { domain } from "./domain"
 
-//TODO: this doesn't load on first run 
+//TODO: this doesn't load on first run
 new sst.x.DevCommand("RustFS", {
   environment: {
     RUSTFS_ACCESS_KEY: process.env.RUSTFS_ACCESS_KEY,
@@ -26,6 +26,7 @@ new sst.x.DevCommand("RustFS", {
 export const bucket = new sst.aws.Bucket(
   "Uploads",
   {
+    enforceHttps: !$dev,
     cors: {
       allowHeaders: ["*"],
       allowMethods: ["POST", "PUT", "GET", "HEAD", "DELETE"],
@@ -42,19 +43,12 @@ export const bucket = new sst.aws.Bucket(
             },
           ],
         }
-      : {
-          //todo: this doesn't seem to do anything in rustfs
-          access: "public",
-        }),
+      : { access: "public" }),
   },
   $dev
     ? {
         provider: new aws.Provider("rustfs", {
-          endpoints: [
-            {
-              s3: "http://localhost:9000",
-            },
-          ],
+          endpoints: [{ s3: "http://localhost:9000" }],
           accessKey: process.env.RUSTFS_ACCESS_KEY,
           secretKey: process.env.RUSTFS_SECRET_KEY,
           skipCredentialsValidation: true,
