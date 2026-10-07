@@ -7,7 +7,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   PhotoIcon,
-  ScaleIcon,
+  Square2StackIcon,
   SparklesIcon,
 } from "@heroicons/react/24/outline"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -100,7 +100,7 @@ export function Review() {
         <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_2.5rem] border-b border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500 uppercase sm:grid-cols-[minmax(0,1fr)_6rem_7rem_2.5rem] dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
           <span>Result</span>
           <span>Score</span>
-          <span className="hidden sm:block">Ready</span>
+          <span className="hidden sm:block">Date</span>
           <span className="sr-only">Open</span>
         </div>
         <div className="divide-y divide-gray-200 dark:divide-slate-700">
@@ -125,8 +125,8 @@ export function Review() {
                   className="grid min-h-14 grid-cols-[minmax(0,1fr)_4.5rem_2.5rem] items-center gap-2 px-3 text-sm sm:grid-cols-[minmax(0,1fr)_6rem_7rem_2.5rem]"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="grid size-7 shrink-0 place-items-center rounded-sm bg-cyan-50 text-cyan-800 dark:bg-cyan-950 dark:text-cyan-300">
-                      <Icon className="size-4" />
+                    <span className="grid size-7 shrink-0 place-items-center rounded-sm text-gray-950 dark:text-white">
+                      <Icon className="size-6" />
                     </span>
                     <div className="min-w-0">
                       <p className="truncate font-medium text-gray-950 capitalize dark:text-white">
@@ -180,7 +180,7 @@ export function Review() {
 }
 
 function resultIcon(kind: ReviewQueueItem["kind"]) {
-  if (kind === "pair" || kind === "indexed_match") return ScaleIcon
+  if (kind === "pair" || kind === "indexed_match") return Square2StackIcon
   if (kind === "extraction") return SparklesIcon
   return PhotoIcon
 }
