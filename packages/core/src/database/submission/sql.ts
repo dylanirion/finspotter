@@ -1,8 +1,16 @@
-import { index, inet, pgTable, timestamp, uuid } from "drizzle-orm/pg-core"
+import {
+  boolean,
+  index,
+  inet,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from "drizzle-orm/pg-core"
 
+import { mediaTable } from "../media/sql"
 import { organizationsTable } from "../organization/sql"
 import { usersTable } from "../user/sql"
-import { mediaTable } from "../media/sql"
 
 export const submissionsTable = pgTable(
   "submissions",
@@ -24,11 +32,15 @@ export const submissionsTable = pgTable(
       { onDelete: "restrict", onUpdate: "cascade" } // Cannot delete organization if they have submissions
     ),
     submittedAt: timestamp("submitted_at").defaultNow(),
+    submissionId: text("submission_id"),
+    verifiedAt: timestamp("verified_at", { mode: "date" }),
+    updatesEnabled: boolean("updates_enabled").notNull().default(true),
     submittedFrom: inet("submitted_from"),
   },
   (table) => [
     index().on(table.mediaId),
     index().on(table.userId),
+    index().on(table.submissionId),
     index().on(table.organizationId),
   ]
 )

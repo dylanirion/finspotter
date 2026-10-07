@@ -2,8 +2,12 @@ import { Body, Button, Container, Section, Tailwind, Text } from "jsx-email"
 
 export const templateName = "Verify Submission"
 
-export const Template = (props: { title: string; url: string }) => {
-  const { title = "Title", url = "url" } = props
+export const Template = (props: {
+  title: string
+  url: string
+  role?: "submitter" | "subscriber"
+}) => {
+  const { title = "Title", url = "url", role = "submitter" } = props
 
   return (
     <Tailwind production={true}>
@@ -11,12 +15,15 @@ export const Template = (props: { title: string; url: string }) => {
         <Container className="rounded-md bg-gray-200 p-4 font-sans">
           <Section className="text-center">
             <Text className="text-lg font-medium">
-              Someone has used your email address to submit an encounter to{" "}
+              {role === "submitter"
+                ? "Someone has used your email address to submit an encounter to "
+                : "Someone has invited you to receive encounter updates from "}
               <strong>{title}</strong>.
             </Text>
             <Text className="text-lg font-medium">
-              Click below to verify your email and manage your communication
-              preferences.
+              {role === "submitter"
+                ? "Confirm your submission and email address."
+                : "Confirm your email address to receive updates."}
             </Text>
           </Section>
           <Section className="text-center">
@@ -28,7 +35,9 @@ export const Template = (props: { title: string; url: string }) => {
               //borderRadius={6}
               align="center"
             >
-              Verify
+              {role === "submitter"
+                ? "Confirm submission"
+                : "Confirm subscription"}
             </Button>
           </Section>
           <Section className="text-center text-base font-medium">

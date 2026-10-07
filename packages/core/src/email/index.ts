@@ -1,9 +1,11 @@
 import "server-only"
 
 import { type JSXElementConstructor, type ReactElement } from "react"
+import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2"
 import { render } from "jsx-email"
 import { createTransport } from "nodemailer"
-import { SESv2Client, SendEmailCommand } from "@aws-sdk/client-sesv2"
+import { Resource } from "sst"
+
 import { getClient } from "../client"
 
 const sesClient = getClient(SESv2Client, {
@@ -17,6 +19,12 @@ const sesClient = getClient(SESv2Client, {
 const transporter = createTransport({
   SES: { sesClient, SendEmailCommand },
 })
+
+export function getEmailFrom() {
+  //TODO: this should determine sending account and use domain
+  const from = Resource.Email.sender
+  return from
+}
 
 //TODO: put a queue infront of this
 export async function sendMail(

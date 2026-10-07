@@ -1,8 +1,8 @@
+import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2"
 import { site } from "@finspotter/config/site"
 import { Template as ResetPasswordEmail } from "@finspotter/email/templates/ResetPassword"
 import { Template as VerifyEmail } from "@finspotter/email/templates/VerifyEmail"
 import { betterAuth } from "better-auth/minimal"
-import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
 import { nextCookies } from "better-auth/next-js"
 import { admin, organization } from "better-auth/plugins"
 
@@ -19,11 +19,10 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: true,
     sendResetPassword: async ({ user, url }) => {
-      const { sendMail } = await import("../email")
-      sendMail(
+      const { getEmailFrom, sendMail } = await import("../email")
+      await sendMail(
         user.email,
-        //`${Resource.Email.from} <${Resource.Email.noreply}>`,
-        "",
+        getEmailFrom(),
         `Reset Password Request for ${site.title}`,
         ResetPasswordEmail({ title: site.title, url: url })
       )
@@ -32,11 +31,10 @@ export const auth = betterAuth({
   emailVerification: {
     autoSignInAfterVerification: false,
     sendVerificationEmail: async ({ user, url }) => {
-      const { sendMail } = await import("../email")
-      sendMail(
+      const { getEmailFrom, sendMail } = await import("../email")
+      await sendMail(
         user.email,
-        //`${Resource.Email.from} <${Resource.Email.noreply}>`,
-        "",
+        getEmailFrom(),
         `Verfiy your Email Address for ${site.title}`,
         VerifyEmail({ title: site.title, url: url })
       )
@@ -59,9 +57,11 @@ export const auth = betterAuth({
     additionalFields: {
       firstName: {
         type: "string",
+        required: false,
       },
       lastName: {
         type: "string",
+        required: false,
       },
     },
   },

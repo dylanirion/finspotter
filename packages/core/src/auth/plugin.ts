@@ -1,13 +1,21 @@
 import { type BetterAuthPlugin, type User } from "better-auth"
 import { APIError, createAuthEndpoint } from "better-auth/api"
+import { setSessionCookie } from "better-auth/cookies"
 import { parseUserInput } from "better-auth/db"
 import { z } from "zod"
 
-const nodeENV =
+import { db } from "../database/_drizzle"
+import { createSubmissionVerificationRepository } from "./submissionClaims"
+
+export const submissionVerification = () =>
+  createSubmissionVerificationRepository({
+    database: db,
+  })
+
+const nodeENV: string =
   (typeof process !== "undefined" && process.env && process.env.NODE_ENV) || ""
 const isDevelopment = nodeENV === "dev" || nodeENV === "development"
 
-//TODO: re-evaluate this flow in better-auth 1.7
 export const authPlugin = () => {
   return {
     id: "auth-plugin",
@@ -58,12 +66,106 @@ export const authPlugin = () => {
       }
     },
     endpoints: {
-      // An endpoint "create/user" for creating a user (but no credential account)
-      createUserOnly: createAuthEndpoint(
-        "/create/user",
+      issueSubmissionVerification: createAuthEndpoint.serverOnly(
         {
           method: "POST",
-          body: z.record(z.string(), z.any()),
+          body: z.object({
+            submissionId: z.string().min(1),
+            userId: z.string().min(1),
+            mediaIds: z.array(z.uuid()).min(1),
+            role: z.enum(["submitter", "subscriber"]),
+          }),
+        },
+        async (ctx) => {
+          const user = await ctx.context.internalAdapter.findUserById(
+            ctx.body.userId
+          )
+          if (!user)
+            throw new APIError("BAD_REQUEST", { message: "User not found" })
+          const token = await submissionVerification().issue({
+            ...ctx.body,
+            email: user.email,
+          })
+          return ctx.json({ token })
+        }
+      ),
+      confirmSubmission: createAuthEndpoint.serverOnly(
+        {
+          method: "POST",
+          body: z.object({
+            submissionId: z.string().min(1),
+            token: z.string().regex(/^[a-f0-9]{64}$/),
+          }),
+        },
+        async (ctx) => {
+          const repository = submissionVerification()
+          let claim
+          try {
+            claim = await repository.inspect(
+              ctx.body.submissionId,
+              ctx.body.token
+            )
+          } catch {
+            throw new APIError("BAD_REQUEST", {
+              message: "Invalid, expired, or already used verification link",
+            })
+          }
+          const user = await ctx.context.internalAdapter.findUserById(
+            claim.userId
+          )
+          if (
+            !user ||
+            user.email.toLowerCase() !== claim.email ||
+            ("banned" in user && user.banned)
+          ) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Verification link is no longer valid",
+            })
+          }
+          if (!user.emailVerified) {
+            await ctx.context.options.emailVerification?.beforeEmailVerification?.(
+              user,
+              ctx.request
+            )
+          }
+          await repository.confirm(claim, ctx.body.token)
+          const verifiedUser = await ctx.context.internalAdapter.findUserById(
+            user.id
+          )
+          if (
+            !verifiedUser?.emailVerified ||
+            verifiedUser.email.toLowerCase() !== claim.email
+          ) {
+            throw new APIError("BAD_REQUEST", {
+              message: "Verification link is no longer valid",
+            })
+          }
+          if (!user.emailVerified) {
+            await ctx.context.options.emailVerification?.afterEmailVerification?.(
+              verifiedUser,
+              ctx.request
+            )
+          }
+          const session = await ctx.context.internalAdapter.createSession(
+            user.id,
+            true
+          )
+          if (!session)
+            throw new APIError("INTERNAL_SERVER_ERROR", {
+              message: "Unable to start session",
+            })
+          await setSessionCookie(ctx, { session, user: verifiedUser }, true)
+          return ctx.json({ role: claim.role, mediaIds: claim.mediaIds })
+        }
+      ),
+      createUserOnly: createAuthEndpoint.serverOnly(
+        {
+          method: "POST",
+          body: z.object({
+            email: z.email().trim().toLowerCase(),
+            firstName: z.string().trim().max(100).optional(),
+            lastName: z.string().trim().max(100).optional(),
+          }),
           metadata: {
             $Infer: {
               body: {} as {
@@ -173,29 +275,7 @@ export const authPlugin = () => {
           },
         },
         async (ctx) => {
-          if (
-            !ctx.context.options.emailAndPassword?.enabled ||
-            ctx.context.options.emailAndPassword?.disableSignUp
-          ) {
-            throw new APIError("BAD_REQUEST", {
-              message: "Email and password sign up is not enabled",
-            })
-          }
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const body = ctx.body as any as User & {
-            password: string
-          } & {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            [key: string]: any
-          }
-          const { email, ...additionalFields } = body
-          const isValidEmail = z.email().safeParse(email)
-
-          if (!isValidEmail.success) {
-            throw new APIError("BAD_REQUEST", {
-              message: "Invalid email",
-            })
-          }
+          const { email, ...additionalFields } = ctx.body
           const dbUser =
             await ctx.context.internalAdapter.findUserByEmail(email)
           if (dbUser?.user) {
@@ -217,8 +297,7 @@ export const authPlugin = () => {
 
           const additionalData = parseUserInput(
             ctx.context.options,
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            additionalFields as any,
+            additionalFields,
             "create"
           )
 
@@ -245,6 +324,9 @@ export const authPlugin = () => {
               })
             }
           } catch (e) {
+            const existing =
+              await ctx.context.internalAdapter.findUserByEmail(email)
+            if (existing?.user) return ctx.json({ user: existing.user })
             if (isDevelopment) {
               ctx.context.logger.error("Failed to create user", e)
             }

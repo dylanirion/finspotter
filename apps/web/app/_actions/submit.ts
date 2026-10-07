@@ -4,7 +4,7 @@ import { randomUUID } from "crypto"
 import { parse } from "path"
 import { headers } from "next/headers"
 import { ALLOWEDCONTENTTYPES, site } from "@finspotter/config/site"
-import { sendMail } from "@finspotter/core/email"
+import { getEmailFrom, sendMail } from "@finspotter/core/email"
 import { createMediaRepository } from "@finspotter/core/media"
 import { createPipelineLifecycleRepository } from "@finspotter/core/pipeline"
 import { validateReCaptcha } from "@finspotter/core/recaptcha"
@@ -13,12 +13,13 @@ import { Template as VerifySubmission } from "@finspotter/email/templates/Verify
 import { invoke, invokeMediaProcessing } from "@finspotter/pipeline/invoke"
 import { type EncounterSubmissionData } from "app/(public)/submit/EncounterSubmissionReducer"
 import {
-  createEmailVerificationToken,
   createUserOnly,
   getSession,
+  issueSubmissionVerification,
 } from "lib/auth"
 import { extension } from "mime-types"
 import { Resource } from "sst"
+import { z } from "zod"
 
 interface UserData {
   firstName?: string
@@ -27,8 +28,7 @@ interface UserData {
   emailOthers?: string[] | string
 }
 
-const { getPresignedPostUrl, putItem, copyObject } =
-  createStorageRepository()
+const { getPresignedPostUrl, putItem, copyObject } = createStorageRepository()
 const mediaRepository = createMediaRepository()
 const lifecycle = createPipelineLifecycleRepository({
   table: Resource.SubmissionReviewPipeline.table,
@@ -50,6 +50,18 @@ export async function doSubmission({
     ? (Object.fromEntries(formData) as UserData)
     : {}
 
+  const submitterEmail = z
+    .email()
+    .parse((session?.user.email ?? email ?? "").trim().toLowerCase())
+  const subscribers = [
+    ...new Set(
+      (Array.isArray(emailOthers) ? emailOthers : [emailOthers])
+        .flatMap((value) => value?.split(/[,;\s]+/) ?? [])
+        .filter(Boolean)
+        .map((value) => z.email().parse(value.trim().toLowerCase()))
+    ),
+  ].filter((value) => value !== submitterEmail)
+
   //TODO: make step function fail more gracefully - skip if can't find image or error
   //TODO: add dynamo entry for submssion meta
   //TODO: add dynamo entry for submitter/subscriber info
@@ -59,7 +71,7 @@ export async function doSubmission({
 
   console.debug(encounters, formData)
 
-  await lifecycle.closeSubmission(
+  const closed = await lifecycle.closeSubmission(
     submissionId,
     encounters.map(({ id }) => id)
   )
@@ -67,23 +79,22 @@ export async function doSubmission({
 
   //TODO: process videos (HLS, DASH?)
 
-  // unauthenticated submission
-  if (!session && email) {
-    await createUserAndVerify({
-      submissionId,
-      email,
-      firstName,
-      lastName,
-      subject: `Verify Your Submission to ${site.title}`,
-    })
-  }
+  await createUserAndVerify({
+    submissionId,
+    email: submitterEmail,
+    firstName,
+    lastName,
+    role: "submitter",
+    mediaIds: closed.media.map((media) => media.media_id),
+    subject: `Verify Your Submission to ${site.title}`,
+  })
 
-  for (const email of Array.isArray(emailOthers)
-    ? emailOthers
-    : [emailOthers]) {
+  for (const email of subscribers) {
     await createUserAndVerify({
       submissionId,
       email,
+      role: "subscriber",
+      mediaIds: closed.media.map((media) => media.media_id),
       subject: `Verify Your Email Address for ${site.title}`,
     })
   }
@@ -105,11 +116,13 @@ export async function doSubmission({
     },
     refine: [
       {
-        functionName: Resource.SimilaritySearchPipeline.refineFunctions["ratio"],
+        functionName:
+          Resource.SimilaritySearchPipeline.refineFunctions["ratio"],
         config: { threshold: 0.625 },
       },
       {
-        functionName: Resource.SimilaritySearchPipeline.refineFunctions["homog"],
+        functionName:
+          Resource.SimilaritySearchPipeline.refineFunctions["homog"],
         config: { ransacReprojThreshold: 50 },
       },
       {
@@ -279,8 +292,11 @@ async function createUserAndVerify(opts: {
   firstName?: string
   lastName?: string
   subject: string
+  role: "submitter" | "subscriber"
+  mediaIds: string[]
 }) {
-  const { submissionId, email, firstName, lastName, subject } = opts
+  const { submissionId, email, firstName, lastName, subject, role, mediaIds } =
+    opts
   if (!email) return
   return createUserOnly({
     body: {
@@ -291,15 +307,18 @@ async function createUserAndVerify(opts: {
   })
     .then(async ({ user }) => ({
       user,
-      token: await createEmailVerificationToken(user.email),
+      ...(await issueSubmissionVerification({
+        body: { submissionId, userId: user.id, role, mediaIds },
+      })),
     }))
     .then(({ user, token }) =>
       sendMail(
         user.email,
-        `${Resource.Email.from} <${Resource.Email.noreply}>`,
+        getEmailFrom(),
         subject,
         VerifySubmission({
           title: site.title,
+          role,
           url: `${process.env.BASE_URL}/submit/${submissionId}?token=${token}`,
         })
       )
