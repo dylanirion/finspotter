@@ -15,6 +15,7 @@ import {
   db,
   jsonbBuildObject,
   omitWhereColumn,
+  type DatabaseClient,
   type Where,
 } from "../_drizzle"
 import { detectionsSubQuery } from "../detection"
@@ -46,164 +47,247 @@ type WithMedia<T> = T & { media: Pick<Media, "id" | "src" | "exif"> }
 
 export type AnnotationWithMedia = WithMedia<Annotation>
 
-type AnnotationRepository = Repository<
-  AnnotationWithMedia,
-  {
-    insert: Omit<Annotation, "id" | "individualId"> & {
-      individualId?: string | null
-    }
-    update: Annotation
-  }
+export type AnnotationInsert = Omit<Annotation, "id" | "individualId"> & {
+  individualId?: string | null
+}
+
+type AnnotationUpdate =
+  Annotation | Pick<Annotation, "id" | "individualId" | "updatedAt">
+type AnnotationWriteResult = Pick<
+  typeof annotationsTable.$inferSelect,
+  "id" | "individualId"
+>
+type AnnotationInsertResult = Pick<
+  typeof annotationsTable.$inferSelect,
+  "id" | "mediaId" | "detectionId" | "individualId" | "updatedAt"
 >
 
-const drizzleAnnotationRepository: AnnotationRepository = {
-  async findOne(where: Where<"id">) {
-    return selectFromAnnotationsWithDetectionAndMedia()
-      .where(buildWhereClause(annotationsTable, where))
-      .then((result) => (result[0] as AnnotationWithMedia) ?? null)
-  },
+type AnnotationRepository = Omit<
+  Repository<
+    AnnotationWithMedia,
+    {
+      insert: AnnotationInsert
+      update: Annotation
+    }
+  >,
+  "insert" | "update" | "remove"
+> & {
+  insert: (annotations: AnnotationInsert[]) => Promise<AnnotationInsertResult[]>
+  update: (annotation: AnnotationUpdate) => Promise<AnnotationWriteResult[]>
+  remove: (where: Where<keyof Annotation>) => Promise<AnnotationWriteResult[]>
+}
 
-  async findMany(where: Where<"id">) {
-    return selectFromAnnotationsWithDetectionAndMedia()
-      .where(buildWhereClause(annotationsTable, where))
-      .then((result) => result as AnnotationWithMedia[])
-  },
+export function createAnnotationRepository(client: DatabaseClient = db) {
+  const drizzleAnnotationRepository: AnnotationRepository = {
+    async findOne(where: Where<"id">) {
+      return selectFromAnnotationsWithDetectionAndMedia(client)
+        .where(buildWhereClause(annotationsTable, where))
+        .then((result) => (result[0] as AnnotationWithMedia) ?? null)
+    },
 
-  async findAll({ limit, offset, where, sort }) {
-    const annotations = db
-      .$with("annotations")
-      .as(
-        selectFromAnnotationsWithDetectionAndMedia().where(
-          buildWhereClause(annotationsTable, {})
-        )
-      ) //permissions filter, probably needs media?
-    const searchSpace = db.$with("search_space").as(
-      db
-        .select({
-          id: annotations.id,
-          mediaId: annotations.mediaId,
-          category: annotations.category,
-          type: annotations.type,
-          source: annotations.source,
-        })
-        .from(annotations)
-    )
-    const filteredAnnotations = db.$with("filtered_annotations").as(
-      db
-        .select({
-          id: searchSpace.id,
-          mediaId: searchSpace.mediaId,
-          category: searchSpace.category,
-          type: searchSpace.type,
-          source: searchSpace.source,
-          sortOrder:
-            sql`row_number() over (order by ${buildOrderClause(searchSpace, sort)})`.as(
-              "sort_order"
-            ),
-        })
-        .from(searchSpace)
-        .where(buildWhereClause(searchSpace, where)) // search filter
-    )
-    const categoryFacetSource = db.$with("category_facet_source").as(
-      db
-        .select({ id: searchSpace.id, category: searchSpace.category })
-        .from(searchSpace)
-        .where(
-          buildWhereClause(searchSpace, omitWhereColumn(where, "category"))
-        )
-    )
-    const typeFacetSource = db.$with("type_facet_source").as(
-      db
-        .select({ id: searchSpace.id, type: searchSpace.type })
-        .from(searchSpace)
-        .where(buildWhereClause(searchSpace, omitWhereColumn(where, "type")))
-    )
-    const categoryFacets = buildFacetCTE(
-      "category_facets",
-      categoryFacetSource,
-      categoryFacetSource.category,
-      categoryFacetSource.id
-    )
-    const typeFacets = buildFacetCTE(
-      "type_facets",
-      typeFacetSource,
-      typeFacetSource.type,
-      typeFacetSource.id
-    )
-    const pagedAnnotations = db.$with("paged_annotations").as(
-      db
-        .select({
-          id: filteredAnnotations.id,
-          mediaId: filteredAnnotations.mediaId,
-          category: filteredAnnotations.category,
-          type: filteredAnnotations.type,
-          source: filteredAnnotations.source,
-        })
-        .from(filteredAnnotations)
-        .limit(limit)
-        .offset(offset)
-    )
-    return db
-      .with(
-        annotations,
-        searchSpace,
-        filteredAnnotations,
-        categoryFacetSource,
-        typeFacetSource,
-        categoryFacets,
-        typeFacets,
-        pagedAnnotations
+    async findMany(where: Where<"id">) {
+      return selectFromAnnotationsWithDetectionAndMedia(client)
+        .where(buildWhereClause(annotationsTable, where))
+        .then((result) => result as AnnotationWithMedia[])
+    },
+
+    async findAll({ limit, offset, where, sort }) {
+      const annotations = db
+        .$with("annotations")
+        .as(
+          selectFromAnnotationsWithDetectionAndMedia().where(
+            buildWhereClause(annotationsTable, {})
+          )
+        ) //permissions filter, probably needs media?
+      const searchSpace = db.$with("search_space").as(
+        db
+          .select({
+            id: annotations.id,
+            mediaId: annotations.mediaId,
+            category: annotations.category,
+            type: annotations.type,
+            source: annotations.source,
+          })
+          .from(annotations)
       )
-      .select({
-        total:
-          sql<number>`(select count(distinct ${filteredAnnotations.id}) from ${filteredAnnotations})`
-            .mapWith(Number)
-            .as("total"),
-        items: sql<
-          AnnotationWithMedia[]
-        >`coalesce(jsonb_agg(${jsonbBuildObject<AnnotationWithMedia>(pagedAnnotations._.selectedFields)}), '[]'::jsonb)`.as(
-          "items"
-        ),
-        facetCounts: buildFacetCounts([
-          { name: "category", table: categoryFacets },
-          { name: "type", table: typeFacets },
-        ]),
-      })
-      .from(pagedAnnotations)
-      .then((result) => result[0] ?? null)
-  },
+      const filteredAnnotations = db.$with("filtered_annotations").as(
+        db
+          .select({
+            id: searchSpace.id,
+            mediaId: searchSpace.mediaId,
+            category: searchSpace.category,
+            type: searchSpace.type,
+            source: searchSpace.source,
+            sortOrder:
+              sql`row_number() over (order by ${buildOrderClause(searchSpace, sort)})`.as(
+                "sort_order"
+              ),
+          })
+          .from(searchSpace)
+          .where(buildWhereClause(searchSpace, where)) // search filter
+      )
+      const categoryFacetSource = db.$with("category_facet_source").as(
+        db
+          .select({ id: searchSpace.id, category: searchSpace.category })
+          .from(searchSpace)
+          .where(
+            buildWhereClause(searchSpace, omitWhereColumn(where, "category"))
+          )
+      )
+      const typeFacetSource = db.$with("type_facet_source").as(
+        db
+          .select({ id: searchSpace.id, type: searchSpace.type })
+          .from(searchSpace)
+          .where(buildWhereClause(searchSpace, omitWhereColumn(where, "type")))
+      )
+      const categoryFacets = buildFacetCTE(
+        "category_facets",
+        categoryFacetSource,
+        categoryFacetSource.category,
+        categoryFacetSource.id
+      )
+      const typeFacets = buildFacetCTE(
+        "type_facets",
+        typeFacetSource,
+        typeFacetSource.type,
+        typeFacetSource.id
+      )
+      const pagedAnnotations = db.$with("paged_annotations").as(
+        db
+          .select({
+            id: filteredAnnotations.id,
+            mediaId: filteredAnnotations.mediaId,
+            category: filteredAnnotations.category,
+            type: filteredAnnotations.type,
+            source: filteredAnnotations.source,
+          })
+          .from(filteredAnnotations)
+          .limit(limit)
+          .offset(offset)
+      )
+      return db
+        .with(
+          annotations,
+          searchSpace,
+          filteredAnnotations,
+          categoryFacetSource,
+          typeFacetSource,
+          categoryFacets,
+          typeFacets,
+          pagedAnnotations
+        )
+        .select({
+          total:
+            sql<number>`(select count(distinct ${filteredAnnotations.id}) from ${filteredAnnotations})`
+              .mapWith(Number)
+              .as("total"),
+          items: sql<
+            AnnotationWithMedia[]
+          >`coalesce(jsonb_agg(${jsonbBuildObject<AnnotationWithMedia>(pagedAnnotations._.selectedFields)}), '[]'::jsonb)`.as(
+            "items"
+          ),
+          facetCounts: buildFacetCounts([
+            { name: "category", table: categoryFacets },
+            { name: "type", table: typeFacets },
+          ]),
+        })
+        .from(pagedAnnotations)
+        .then((result) => result[0] ?? null)
+    },
 
-  async insert(annotations) {
-    const now = new Date()
-    const results = await Promise.all(
-      annotations.map(async (annotation) => {
-        const {
-          mediaId,
-          individualId,
-          source,
-          category,
-          type,
-          score,
-          data,
-          createdBy,
-        } = annotation
-        return db.transaction(async (tx) => {
-          const [counter] = await tx
-            .insert(annotationsIncrementerTable)
-            .values({ mediaId, lastId: 1 })
-            .onConflictDoUpdate({
-              target: annotationsIncrementerTable.mediaId,
-              set: {
-                lastId: sql`${annotationsIncrementerTable.lastId} + 1`,
-              },
+    async insert(annotations) {
+      const now = new Date()
+      const results = await Promise.all(
+        annotations.map(async (annotation) => {
+          const {
+            mediaId,
+            individualId,
+            source,
+            category,
+            type,
+            score,
+            data,
+            createdBy,
+          } = annotation
+          return client.transaction(async (tx) => {
+            const [counter] = await tx
+              .insert(annotationsIncrementerTable)
+              .values({ mediaId, lastId: 1 })
+              .onConflictDoUpdate({
+                target: annotationsIncrementerTable.mediaId,
+                set: {
+                  lastId: sql`${annotationsIncrementerTable.lastId} + 1`,
+                },
+              })
+              .returning({ detectionId: annotationsIncrementerTable.lastId })
+
+            if (!counter) throw new Error("Failed to allocate detection ID")
+
+            await tx.insert(detectionsTable).values({
+              mediaId,
+              detectionId: counter.detectionId,
+              source,
+              category,
+              type,
+              score,
+              data,
+              createdAt: now,
+              createdBy,
             })
-            .returning({ detectionId: annotationsIncrementerTable.lastId })
+            const inserted = await tx
+              .insert(annotationsTable)
+              .values({
+                mediaId,
+                detectionId: counter.detectionId,
+                individualId,
+                updatedAt: now,
+              })
+              .returning({
+                id: annotationsTable.id,
+                mediaId: annotationsTable.mediaId,
+                detectionId: annotationsTable.detectionId,
+                individualId: annotationsTable.individualId,
+                updatedAt: annotationsTable.updatedAt,
+              })
 
-          if (!counter) throw new Error("Failed to allocate detection ID")
+            if (individualId)
+              await createIndividualSummaryRepository().refresh(
+                [individualId],
+                tx
+              )
+            return inserted
+          })
+        })
+      )
+      return results.flat()
+    },
 
+    async update(annotation) {
+      const { id, individualId, updatedAt } = annotation
+      const now = new Date()
+      return client.transaction(async (tx) => {
+        const [current] = await tx
+          .select({ individualId: annotationsTable.individualId })
+          .from(annotationsTable)
+          .where(eq(annotationsTable.id, id))
+          .for("update")
+
+        if (!current) throw new Error(`Annotation ${id} not found`)
+
+        if ("mediaId" in annotation) {
+          const {
+            mediaId,
+            detectionId,
+            source,
+            category,
+            type,
+            score,
+            data,
+            createdBy,
+          } = annotation
           await tx.insert(detectionsTable).values({
             mediaId,
-            detectionId: counter.detectionId,
+            detectionId,
             source,
             category,
             type,
@@ -212,115 +296,66 @@ const drizzleAnnotationRepository: AnnotationRepository = {
             createdAt: now,
             createdBy,
           })
-          const inserted = await tx
-            .insert(annotationsTable)
-            .values({
-              mediaId,
-              detectionId: counter.detectionId,
-              individualId,
-              updatedAt: now,
-            })
-            .returning({
-              id: annotationsTable.id,
-              mediaId: annotationsTable.mediaId,
-              detectionId: annotationsTable.detectionId,
-              individualId: annotationsTable.individualId,
-              updatedAt: annotationsTable.updatedAt,
-            })
-
-          if (individualId)
-            await createIndividualSummaryRepository().refresh(
-              [individualId],
-              tx
+        }
+        const updated = await tx
+          .update(annotationsTable)
+          .set({
+            individualId,
+            ...("mediaId" in annotation ? { updatedAt: now } : {}),
+          })
+          .where(
+            and(
+              eq(annotationsTable.id, id),
+              updatedAt ? eq(annotationsTable.updatedAt, updatedAt) : undefined
             )
-          return inserted
-        })
-      })
-    )
-    return results.flat()
-  },
-
-  async update(annotation: Annotation) {
-    const {
-      id,
-      mediaId,
-      detectionId,
-      source,
-      category,
-      type,
-      score,
-      data,
-      updatedAt,
-      createdBy,
-      individualId,
-    } = annotation
-    const now = new Date()
-    return db.transaction(async (tx) => {
-      const [current] = await tx
-        .select({ individualId: annotationsTable.individualId })
-        .from(annotationsTable)
-        .where(eq(annotationsTable.id, id))
-        .for("update")
-
-      if (!current) throw new Error(`Annotation ${id} not found`)
-
-      await tx.insert(detectionsTable).values({
-        mediaId,
-        detectionId,
-        source,
-        category,
-        type,
-        score,
-        data,
-        createdAt: now,
-        createdBy,
-      })
-      const updated = await tx
-        .update(annotationsTable)
-        .set({ individualId, updatedAt: now })
-        .where(
-          and(
-            eq(annotationsTable.id, id),
-            updatedAt ? eq(annotationsTable.updatedAt, updatedAt) : undefined
           )
+          .returning({
+            id: annotationsTable.id,
+            individualId: annotationsTable.individualId,
+          })
+
+        if (updated.length === 0)
+          throw new Error(`Annotation ${id} was modified`)
+
+        await createIndividualSummaryRepository().refresh(
+          [
+            ...new Set(
+              [current.individualId, individualId].filter(
+                (affectedId): affectedId is string => affectedId !== null
+              )
+            ),
+          ],
+          tx
         )
-        .returning({ individualId: annotationsTable.individualId })
+        return updated
+      })
+    },
 
-      if (updated.length === 0) throw new Error(`Annotation ${id} was modified`)
+    async remove(where) {
+      return client.transaction(async (tx) => {
+        const removed = await tx
+          .delete(annotationsTable)
+          .where(buildWhereClause(annotationsTable, where))
+          .returning({
+            id: annotationsTable.id,
+            individualId: annotationsTable.individualId,
+          })
+        await createIndividualSummaryRepository().refresh(
+          [
+            ...new Set(
+              removed.flatMap(({ individualId }) =>
+                individualId === null ? [] : [individualId]
+              )
+            ),
+          ],
+          tx
+        )
+        return removed
+      })
+    },
+  }
 
-      await createIndividualSummaryRepository().refresh(
-        [
-          ...new Set(
-            [current.individualId, individualId].filter(
-              (affectedId): affectedId is string => affectedId !== null
-            )
-          ),
-        ],
-        tx
-      )
-      return updated
-    })
-  },
-
-  async remove(where) {
-    return db.transaction(async (tx) => {
-      const removed = await tx
-        .delete(annotationsTable)
-        .where(buildWhereClause(annotationsTable, where))
-        .returning({ individualId: annotationsTable.individualId })
-      await createIndividualSummaryRepository().refresh(
-        [
-          ...new Set(
-            removed.flatMap(({ individualId }) =>
-              individualId === null ? [] : [individualId]
-            )
-          ),
-        ],
-        tx
-      )
-      return removed
-    })
-  },
+  return drizzleAnnotationRepository
 }
 
 const selectFromAnnotationsWithDetection = () => {
@@ -335,12 +370,14 @@ const selectFromAnnotationsWithDetection = () => {
     .$dynamic()
 }
 
-const selectFromAnnotationsWithDetectionAndMedia = () => {
+const selectFromAnnotationsWithDetectionAndMedia = (
+  client: DatabaseClient = db
+) => {
   const media = selectFromMediaWithExif()
     .where(eq(mediaTable.id, annotationsTable.mediaId))
     .as("media")
   const detections = detectionsSubQuery()
-  return db
+  return client
     .select({
       ...getColumns(detectionsTable),
       ...getColumns(annotationsTable),
@@ -390,8 +427,4 @@ export const annotationCTEs = () => {
       .groupBy(annotations.mediaId)
   )
   return { annotations, jsonAnnotations: jsonAnnotationsCTE }
-}
-
-export function createAnnotationRepository() {
-  return drizzleAnnotationRepository
 }

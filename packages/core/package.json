@@ -11,6 +11,7 @@
     "./pipeline/pairs": "./src/pipeline/pairs.ts",
     "./storage": "./src/storage/index.ts",
     "./pipeline": "./src/pipeline/index.ts",
+    "./identification": "./src/identification/index.ts",
     "./*": [
       "./src/database/*/index.ts",
       "./src/*/index.ts",
@@ -39,6 +40,7 @@
     "nodemailer": "^9.0.5",
     "server-only": "^0.0.1",
     "wkx": "^0.5.0",
+    "ws": "^8.22.0",
     "zod": "^4.1.12"
   },
   "peerDependencies": {
@@ -49,6 +51,7 @@
     "@types/geojson": "^7946.0.16",
     "@types/nodemailer": "^7.0.3",
     "@types/react": "^19.2.7",
+    "@types/ws": "^8.18.2",
     "drizzle-kit": "1.0.0-rc.4",
     "eslint-config-prettier": "^10.1.8",
     "react": "^19.3.0"

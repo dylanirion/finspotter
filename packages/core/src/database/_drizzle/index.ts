@@ -1,20 +1,21 @@
-import { neon } from "@neondatabase/serverless"
+import { neonConfig, Pool } from "@neondatabase/serverless"
 import {
   and,
   countDistinct,
   eq,
   inArray,
+  is,
   isNotNull,
-  like,
   or,
   sql,
   Subquery,
   type AnyColumn,
   type SQL,
 } from "drizzle-orm"
-import { drizzle, type NeonHttpDatabase } from "drizzle-orm/neon-http"
-import { type PgColumn, type PgTable } from "drizzle-orm/pg-core"
+import { drizzle, type NeonDatabase } from "drizzle-orm/neon-serverless"
+import { PgColumn, type PgTable } from "drizzle-orm/pg-core"
 import { Resource } from "sst"
+import ws from "ws"
 
 import { Sort as _Sort, type Where as _Where, type Operation } from "../"
 import { relations } from "./schema"
@@ -29,13 +30,18 @@ export type MaybeAliased<T> = {
 // Connect only once to the database
 // https://github.com/vercel/next.js/discussions/26427#discussioncomment-898067
 declare const globalThis: {
-  drizzleGlobal: NeonHttpDatabase<typeof relations> | undefined
+  drizzleGlobal: NeonDatabase<typeof relations> | undefined
 } & typeof global
 
 function connectOnceToDatabase() {
   if (!globalThis.drizzleGlobal) {
+    neonConfig.webSocketConstructor = ws
     globalThis.drizzleGlobal = drizzle({
-      client: neon(Resource.Database.host),
+      client: new Pool({
+        connectionString: Resource.Database.host,
+        max: 5,
+        idleTimeoutMillis: 10000,
+      }),
       relations,
       logger: process.env.NODE_ENV === "development" ? true : false,
     })
@@ -44,6 +50,11 @@ function connectOnceToDatabase() {
 }
 
 export const db = connectOnceToDatabase()
+
+export type DatabaseTransaction = Parameters<
+  Parameters<typeof db.transaction>[0]
+>[0]
+export type DatabaseClient = typeof db | DatabaseTransaction
 
 export function jsonbBuildObject<T>(
   fields: Record<string, AnyColumn | SQL | SQL.Aliased>
@@ -83,6 +94,18 @@ export function buildOrderClause<TSource extends PgTable | Subquery>(
   )
 }
 
+function buildTextCondition(
+  column: AnyColumn | SQL.Aliased | SQL,
+  pattern: string,
+  insensitive: boolean
+) {
+  const operator = insensitive ? sql`ilike` : sql`like`
+  if (is(column, PgColumn) && column.dimensions > 0) {
+    return sql`exists (select 1 from unnest(${column}) as search_value(value) where search_value.value ${operator} ${pattern})`
+  }
+  return sql`${column} ${operator} ${pattern}`
+}
+
 function buildCondition(
   column: AnyColumn | SQL.Aliased | SQL,
   operation: Operation | AnyColumn | string | number | boolean | Date
@@ -104,18 +127,16 @@ function buildCondition(
     case "eq":
       return eq(column as SQL.Aliased, operation.value)
     case "like":
-      return like(column, `%${operation.value}%`)
+      return buildTextCondition(column, `%${operation.value}%`, false)
     case "ilike": {
-      const pattern = `%${(operation.value as string).toLowerCase()}%`
-      return sql`lower(${column}) like ${pattern}`
+      return buildTextCondition(column, `%${operation.value}%`, true)
     }
     case "in":
       return inArray(column as SQL.Aliased, operation.value)
     case "fuzzyIn":
       return and(
         ...(operation.value as string[]).map((v) => {
-          const pattern = `%${v.toLowerCase()}%`
-          return sql`lower(${column}) like ${pattern}`
+          return buildTextCondition(column, `%${v}%`, true)
         })
       )
     default:

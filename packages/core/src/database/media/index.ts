@@ -1,6 +1,6 @@
 import "server-only"
 
-import { eq, sql } from "drizzle-orm"
+import { eq, inArray, sql } from "drizzle-orm"
 
 import { type Repository } from "../"
 import {
@@ -10,6 +10,7 @@ import {
   buildWhereClause,
   db,
   omitWhereColumn,
+  type DatabaseTransaction,
   type Where,
 } from "../_drizzle"
 import {
@@ -17,7 +18,9 @@ import {
   jsonAnnotationsSubQuery,
   type Annotation,
 } from "../annotation"
+import { annotationsTable } from "../annotation/sql"
 import { exifCTEs, jsonExifSubQuery, type ExifData } from "../exif"
+import { createIndividualSummaryRepository } from "../individualSummary"
 import { mediaTable } from "./sql"
 
 export interface Media {
@@ -200,11 +203,46 @@ const drizzleMediaRepository: MediaRepository = {
   },
 
   async update(media) {
-    return db.update(mediaTable).set(media)
+    return db.transaction(async (tx) => {
+      const updated = await tx
+        .update(mediaTable)
+        .set({ src: media.src, state: media.state })
+        .where(eq(mediaTable.id, media.id))
+        .returning()
+      await refreshMediaSummaries(tx, [media.id])
+      return updated
+    })
   },
 
   async remove(where) {
-    return db.delete(mediaTable).where(buildWhereClause(mediaTable, where))
+    return db.transaction(async (tx) => {
+      const media = await tx
+        .select({ id: mediaTable.id })
+        .from(mediaTable)
+        .where(buildWhereClause(mediaTable, where))
+        .for("update")
+      if (media.length === 0) return []
+      const mediaIds = media.map(({ id }) => id)
+      const annotations = await tx
+        .select({ individualId: annotationsTable.individualId })
+        .from(annotationsTable)
+        .where(inArray(annotationsTable.mediaId, mediaIds))
+      const removed = await tx
+        .delete(mediaTable)
+        .where(inArray(mediaTable.id, mediaIds))
+        .returning({ id: mediaTable.id })
+      await createIndividualSummaryRepository().refresh(
+        [
+          ...new Set(
+            annotations.flatMap(({ individualId }) =>
+              individualId ? [individualId] : []
+            )
+          ),
+        ],
+        tx
+      )
+      return removed
+    })
   },
 
   async register(media) {
@@ -226,9 +264,31 @@ const drizzleMediaRepository: MediaRepository = {
   },
 
   async setSource(id, src) {
-    await db.update(mediaTable).set({ src }).where(eq(mediaTable.id, id))
+    await db.transaction(async (tx) => {
+      await tx.update(mediaTable).set({ src }).where(eq(mediaTable.id, id))
+      await refreshMediaSummaries(tx, [id])
+    })
   },
+}
 
+async function refreshMediaSummaries(
+  tx: DatabaseTransaction,
+  mediaIds: string[]
+) {
+  const annotations = await tx
+    .select({ individualId: annotationsTable.individualId })
+    .from(annotationsTable)
+    .where(inArray(annotationsTable.mediaId, mediaIds))
+  await createIndividualSummaryRepository().refresh(
+    [
+      ...new Set(
+        annotations.flatMap(({ individualId }) =>
+          individualId ? [individualId] : []
+        )
+      ),
+    ],
+    tx
+  )
 }
 
 export const selectFromMedia = () => db.select().from(mediaTable).$dynamic()

@@ -1,7 +1,12 @@
 import { eq, sql, type AnyColumn } from "drizzle-orm"
 
 import { type Repository } from ".."
-import { buildWhereClause, db, type Where } from "../_drizzle"
+import {
+  buildWhereClause,
+  db as defaultDb,
+  type DatabaseClient,
+  type Where,
+} from "../_drizzle"
 import { createIndividualSummaryRepository } from "../individualSummary"
 import { namesTable } from "./sql"
 
@@ -21,59 +26,78 @@ type NameRepository = Omit<Pick<Repository<Names>, "findOne">, "findOne"> & {
 
 export type IndividualName = typeof namesTable.$inferInsert
 
-const drizzleNamesRepository: NameRepository = {
-  async findOne(where) {
-    const arrayNames = selectFromNamesAsArray()
-      .where(buildWhereClause(namesTable, where))
-      .as("array_names")
-    return db
-      .select({
-        json: sql<
-          Partial<Names>
-        >`coalesce(jsonb_object_agg(${arrayNames.type}, ${arrayNames.value}), '{}'::jsonb)`.as(
-          "json_names"
-        ),
-      })
-      .from(arrayNames)
-      .then((result) => (result[0]?.json as Names) ?? null)
-  },
-
-  async insert(names) {
-    if (names.length === 0) return []
-
-    return db.transaction(async (tx) => {
-      const stored = await tx
-        .insert(namesTable)
-        .values(names)
-        .onConflictDoNothing()
-        .returning()
-
-      await createIndividualSummaryRepository().refresh(
-        [...new Set(names.map(({ individualId }) => individualId))],
-        tx
-      )
-      return stored.map(() => ({}))
-    })
-  },
-
-  async remove(where) {
-    return db.transaction(async (tx) => {
-      const removed = await tx
-        .delete(namesTable)
+export function createNamesRepository(db: DatabaseClient = defaultDb) {
+  const drizzleNamesRepository: NameRepository = {
+    async findOne(where) {
+      const arrayNames = db
+        .select({
+          type: namesTable.type,
+          value: sql<
+            string[]
+          >`array_agg(distinct ${namesTable.value} order by ${namesTable.value})`.as(
+            "value"
+          ),
+        })
+        .from(namesTable)
         .where(buildWhereClause(namesTable, where))
-        .returning({ individualId: namesTable.individualId })
+        .groupBy(namesTable.type)
+        .as("array_names")
+      return db
+        .select({
+          json: sql<
+            Partial<Names>
+          >`coalesce(jsonb_object_agg(${arrayNames.type}, ${arrayNames.value}), '{}'::jsonb)`.as(
+            "json_names"
+          ),
+        })
+        .from(arrayNames)
+        .then((result) => ({
+          canonical: [],
+          nickname: [],
+          adoption: [],
+          ...result[0]?.json,
+        }))
+    },
 
-      await createIndividualSummaryRepository().refresh(
-        removed.map(({ individualId }) => individualId),
-        tx
-      )
-      return removed
-    })
-  },
+    async insert(names) {
+      if (names.length === 0) return []
+
+      return db.transaction(async (tx) => {
+        const stored = await tx
+          .insert(namesTable)
+          .values(names)
+          .onConflictDoNothing()
+          .returning()
+
+        await createIndividualSummaryRepository().refresh(
+          [...new Set(names.map(({ individualId }) => individualId))],
+          tx
+        )
+        return stored.map(() => ({}))
+      })
+    },
+
+    async remove(where) {
+      return db.transaction(async (tx) => {
+        const removed = await tx
+          .delete(namesTable)
+          .where(buildWhereClause(namesTable, where))
+          .returning({ individualId: namesTable.individualId })
+
+        await createIndividualSummaryRepository().refresh(
+          removed.map(({ individualId }) => individualId),
+          tx
+        )
+        return removed
+      })
+    },
+  }
+
+  return drizzleNamesRepository
 }
 
 const selectFromNamesAsArray = () =>
-  db
+  defaultDb
     .select({
       individualId: namesTable.individualId,
       type: namesTable.type,
@@ -94,7 +118,7 @@ export const namesAsArraySubQuery = (individualId: AnyColumn) =>
 
 export const jsonNamesSubQuery = (individualId: AnyColumn) => {
   const names = namesAsArraySubQuery(individualId)
-  return db
+  return defaultDb
     .select({
       json: sql<
         Partial<Names>
@@ -104,8 +128,4 @@ export const jsonNamesSubQuery = (individualId: AnyColumn) => {
     })
     .from(names)
     .as("json_names")
-}
-
-export function createNamesRepository() {
-  return drizzleNamesRepository
 }

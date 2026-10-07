@@ -59,12 +59,11 @@ export async function updateAnnotation(annotation: Annotation) {
   }
   annotation.createdBy = session.user.id
 
-  const [result] = await update({
+  await update({
     //TODO: QC annotation, ensure order, etc
     ...annotation,
     createdBy: session.user.id,
   })
-  if (!result.affectedRows) throw new Error("No rows affected")
 }
 
 export async function insertAnnotations(
@@ -112,7 +111,7 @@ async function startAutoReviewedExtractions(
       value: [...new Set(inserted.map(({ mediaId }) => mediaId))],
     },
   })
-  const mediaById = new Map(media.map((item) => [item.id, item]))
+  const mediaById = new Map((media ?? []).map((item) => [item.id, item]))
 
   await Promise.all(
     inserted.map(async (created, index) => {
@@ -186,13 +185,13 @@ async function startAutoReviewedExtractions(
   )
 }
 
-export async function deleteAnnotation(id: string | number) {
+export async function deleteAnnotation(id: string) {
   const session = await getSession({ headers: await headers() })
 
   //TODO: check if user can delete THIS annotation
   if (!session?.user || !can(session?.user, "delete", "Annotation"))
     throw new Error("Unauthorized access.")
 
-  const [result] = await remove({ id: id })
-  if (!result.affectedRows) throw new Error("No rows affected")
+  const removed = await remove({ id })
+  if (removed.length === 0) throw new Error("No rows affected")
 }

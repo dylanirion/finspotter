@@ -78,7 +78,8 @@ const drizzleIndividualSummaryRepository: SummaryRepository = {
         .select()
         .from(filteredIndividuals)
         .orderBy(
-          buildOrderClause(filteredIndividuals, sort) ?? filteredIndividuals.id
+          buildOrderClause(filteredIndividuals, sort) ?? filteredIndividuals.id,
+          filteredIndividuals.id
         )
         .limit(limit)
         .offset(offset)
@@ -97,7 +98,7 @@ const drizzleIndividualSummaryRepository: SummaryRepository = {
           .as("total"),
         items: sql<
           IndividualSummary[]
-        >`coalesce(jsonb_agg(${jsonbBuildObject<IndividualSummary>(pagedIndividuals._.selectedFields)}), '[]'::jsonb)`.as(
+        >`coalesce(jsonb_agg(${jsonbBuildObject<IndividualSummary>(pagedIndividuals._.selectedFields)} order by ${buildOrderClause(pagedIndividuals, sort) ?? pagedIndividuals.id}, ${pagedIndividuals.id}), '[]'::jsonb)`.as(
           "items"
         ),
         facetCounts: buildFacetCounts([
@@ -110,12 +111,25 @@ const drizzleIndividualSummaryRepository: SummaryRepository = {
 
   async refresh(individualIds, executor = db) {
     if (individualIds.length === 0) return
+    if (executor === db) {
+      return db.transaction((tx) =>
+        drizzleIndividualSummaryRepository.refresh(individualIds, tx)
+      )
+    }
+    const ids = sql.param([...new Set(individualIds)])
+
+    await executor.execute(sql`
+      select id from individuals
+      where id = any(${ids}::uuid[])
+      order by id
+      for no key update
+    `)
 
     return executor.execute(sql`
       with requested_individuals as (
         select id
         from individuals
-        where id = any(${individualIds}::uuid[])
+        where id = any(${ids}::uuid[])
       ),
       name_summary as (
         select
@@ -123,11 +137,12 @@ const drizzleIndividualSummaryRepository: SummaryRepository = {
           coalesce(array_agg(distinct value order by value) filter (where type = 'canonical'), array[]::text[]) as canonical_names,
           coalesce(array_agg(distinct value order by value) filter (where type in ('nickname', 'adoption')), array[]::text[]) as nick_names
         from names
-        where individual_id = any(${individualIds}::uuid[])
+        where individual_id = any(${ids}::uuid[])
         group by individual_id
       ),
       encounter_source as (
         select
+          annotations.id,
           annotations.individual_id,
           annotations.media_id,
           media.src,
@@ -140,8 +155,8 @@ const drizzleIndividualSummaryRepository: SummaryRepository = {
           and detections.detection_id = annotations.detection_id
           and detections.created_at = annotations.updated_at
         left join exif on exif.media_id = media.id
-        where annotations.individual_id = any(${individualIds}::uuid[])
-        group by annotations.individual_id, annotations.media_id, media.src, detections.category
+        where annotations.individual_id = any(${ids}::uuid[])
+        group by annotations.id, annotations.individual_id, annotations.media_id, media.src, detections.category
       ),
       species_votes as (
         select
@@ -158,7 +173,7 @@ const drizzleIndividualSummaryRepository: SummaryRepository = {
       encounter_summary as (
         select
           individual_id,
-          count(distinct media_id)::integer as total_encounters,
+          count(*)::integer as total_encounters,
           max(seen_at) as last_seen,
           (array_agg(src order by seen_at desc nulls last, media_id))[1] as src
         from encounter_source
@@ -204,7 +219,9 @@ const drizzleIndividualSummaryRepository: SummaryRepository = {
     const individuals = await db
       .select({ id: individualsTable.id })
       .from(individualsTable)
-    return this.refresh(individuals.map(({ id }) => id))
+    return drizzleIndividualSummaryRepository.refresh(
+      individuals.map(({ id }) => id)
+    )
   },
 }
 

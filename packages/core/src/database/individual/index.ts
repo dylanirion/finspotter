@@ -3,7 +3,13 @@ import "server-only"
 import { eq, sql } from "drizzle-orm"
 
 import { Repository } from "../"
-import { buildWhereClause, db, jsonbBuildObject, type Where } from "../_drizzle"
+import {
+  buildWhereClause,
+  db as defaultDb,
+  jsonbBuildObject,
+  type DatabaseClient,
+  type Where,
+} from "../_drizzle"
 import { type AnnotationWithMedia } from "../annotation"
 import { annotationsTable } from "../annotation/sql"
 import { detectionsSubQuery } from "../detection"
@@ -25,65 +31,80 @@ export interface Individual {
 }
 
 type IndividualRepository = Pick<
-  Repository<Individual, { all: IndividualSummary }>,
-  "findOne" | "findAll"
+  Repository<
+    Individual,
+    { all: IndividualSummary; insert: typeof individualsTable.$inferInsert }
+  >,
+  "findOne" | "findAll" | "insert"
 >
 
-const drizzleIndividualRepository: IndividualRepository = {
-  async findOne(where: Where<"id">) {
-    const names = jsonNamesSubQuery(individualsTable.id)
-    const detections = detectionsSubQuery()
-    const jsonExif = jsonExifSubQuery()
-    const encounters = db
-      .select({
-        ...detections._.selectedFields,
-        id: annotationsTable.id,
-        mediaId: annotationsTable.mediaId,
-        detectionId: annotationsTable.detectionId,
-        individualId: annotationsTable.individualId,
-        updatedAt: annotationsTable.updatedAt,
-        media: jsonbBuildObject({
-          id: mediaTable.id,
-          src: mediaTable.src,
-          exif: jsonExif.json,
-        }).as("media"),
+export function createIndividualRepository(db: DatabaseClient = defaultDb) {
+  const drizzleIndividualRepository: IndividualRepository = {
+    async findOne(where: Where<"id">) {
+      const names = jsonNamesSubQuery(individualsTable.id)
+      const detections = detectionsSubQuery()
+      const jsonExif = jsonExifSubQuery()
+      const encounters = db
+        .select({
+          ...detections._.selectedFields,
+          id: annotationsTable.id,
+          mediaId: annotationsTable.mediaId,
+          detectionId: annotationsTable.detectionId,
+          individualId: annotationsTable.individualId,
+          updatedAt: annotationsTable.updatedAt,
+          media: jsonbBuildObject({
+            id: mediaTable.id,
+            src: mediaTable.src,
+            exif: jsonExif.json,
+          }).as("media"),
+        })
+        .from(annotationsTable)
+        .leftJoinLateral(detections, sql`true`)
+        .innerJoin(mediaTable, eq(mediaTable.id, annotationsTable.mediaId))
+        .leftJoinLateral(jsonExif, sql`true`)
+        .where(eq(annotationsTable.individualId, individualsTable.id))
+        .as("encounters")
+      const jsonEncounters = db
+        .select({
+          json: sql<
+            AnnotationWithMedia[]
+          >`coalesce(jsonb_agg(${jsonbBuildObject<AnnotationWithMedia>(encounters._.selectedFields)}), '[]'::jsonb)`.as(
+            "json_encounters"
+          ),
+        })
+        .from(encounters)
+        .as("json_encounters")
+
+      return db
+        .select({
+          id: individualsTable.id,
+          names: names.json,
+          encounters: jsonEncounters.json,
+        })
+        .from(individualsTable)
+        .leftJoinLateral(names, sql`true`)
+        .leftJoinLateral(jsonEncounters, sql`true`)
+        .where(buildWhereClause(individualsTable, where))
+        .then((result) => (result[0] as Individual) ?? null)
+    },
+
+    findAll: createIndividualSummaryRepository().findAll,
+
+    async insert(individuals) {
+      if (individuals.length === 0) return []
+      return db.transaction(async (tx) => {
+        const inserted = await tx
+          .insert(individualsTable)
+          .values(individuals)
+          .returning({ id: individualsTable.id })
+        await createIndividualSummaryRepository().refresh(
+          inserted.map(({ id }) => id),
+          tx
+        )
+        return inserted
       })
-      .from(annotationsTable)
-      .leftJoinLateral(detections, sql`true`)
-      .innerJoin(mediaTable, eq(mediaTable.id, annotationsTable.mediaId))
-      .leftJoinLateral(jsonExif, sql`true`)
-      .where(eq(annotationsTable.individualId, individualsTable.id))
-      .as("encounters")
-    const jsonEncounters = db
-      .select({
-        json: sql<
-          AnnotationWithMedia[]
-        >`coalesce(jsonb_agg(${jsonbBuildObject<AnnotationWithMedia>(encounters._.selectedFields)}), '[]'::jsonb)`.as(
-          "json_encounters"
-        ),
-      })
-      .from(encounters)
-      .as("json_encounters")
+    },
+  }
 
-    return db
-      .select({
-        id: individualsTable.id,
-        names: names.json,
-        encounters: jsonEncounters.json,
-      })
-      .from(individualsTable)
-      .leftJoinLateral(names, sql`true`)
-      .leftJoinLateral(jsonEncounters, sql`true`)
-      .where(buildWhereClause(individualsTable, where))
-      .then((result) => (result[0] as Individual) ?? null)
-  },
-
-  findAll: createIndividualSummaryRepository().findAll,
-}
-
-const selectFromIndividuals = () =>
-  db.select().from(individualsTable).$dynamic()
-
-export function createIndividualRepository() {
   return drizzleIndividualRepository
 }
