@@ -235,7 +235,7 @@ type Facet = {
 export function buildFacetCounts(specs: Facet[]) {
   const entries = specs.map(
     (s) =>
-      sql`${s.name}, ${sql`(select coalesce(jsonb_object_agg(${s.table.value}, ${s.table.count}), '{}'::jsonb) from ${s.table})`}`
+      sql`${s.name}::text, ${sql`(select coalesce(jsonb_object_agg(${s.table.value}, ${s.table.count}), '{}'::jsonb) from ${s.table})`}`
   )
 
   const expr = sql<

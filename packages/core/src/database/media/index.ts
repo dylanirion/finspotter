@@ -9,6 +9,7 @@ import {
   buildOrderClause,
   buildWhereClause,
   db,
+  jsonbBuildObject,
   omitWhereColumn,
   type DatabaseTransaction,
   type Where,
@@ -108,7 +109,7 @@ const drizzleMediaRepository: MediaRepository = {
           category: searchSpace.category,
           type: searchSpace.type,
           sortOrder:
-            sql`row_number() over (order by ${buildOrderClause(searchSpace, sort)})`.as(
+            sql`row_number() over (order by ${buildOrderClause(searchSpace, sort) ?? searchSpace.id}, ${searchSpace.id})`.as(
               "sort_order"
             ),
         })
@@ -141,28 +142,39 @@ const drizzleMediaRepository: MediaRepository = {
       typeFacetSource.type,
       typeFacetSource.id
     )
-    const pagedMedia = db.$with("paged_media").as(
+    const uniqueMedia = db.$with("unique_media").as(
       db
-        .selectDistinct({
+        .select({
           id: filteredMedia.id,
           src: filteredMedia.src,
           state: filteredMedia.state,
-          exif: jsonExif.json,
-          annotations: jsonAnnotations.json,
+          sortOrder: sql`min(${filteredMedia.sortOrder})`.as("sort_order"),
         })
         .from(filteredMedia)
-        .leftJoin(jsonExif, eq(filteredMedia.id, jsonExif.mediaId))
-        .leftJoin(
-          jsonAnnotations,
-          eq(filteredMedia.id, jsonAnnotations.mediaId)
-        )
-        .orderBy(filteredMedia.sortOrder)
+        .groupBy(filteredMedia.id, filteredMedia.src, filteredMedia.state)
+    )
+    const pagedMedia = db.$with("paged_media").as(
+      db
+        .select({
+          id: uniqueMedia.id,
+          src: uniqueMedia.src,
+          state: uniqueMedia.state,
+          sortOrder: uniqueMedia.sortOrder,
+          exif: sql<ExifData>`coalesce(${jsonExif.json}, '{}'::jsonb)`.as(
+            "exif"
+          ),
+          annotations: sql<
+            Annotation[]
+          >`coalesce(${jsonAnnotations.json}, '[]'::jsonb)`.as("annotations"),
+        })
+        .from(uniqueMedia)
+        .leftJoin(jsonExif, eq(uniqueMedia.id, jsonExif.mediaId))
+        .leftJoin(jsonAnnotations, eq(uniqueMedia.id, jsonAnnotations.mediaId))
+        .orderBy(uniqueMedia.sortOrder, uniqueMedia.id)
         .limit(limit)
         .offset(offset)
     )
-    const pagedEntries = Object.entries(pagedMedia._.selectedFields)
-      .map(([key, value]) => [sql`'${sql.raw(key)}'`, value])
-      .flat()
+    const { sortOrder, ...pagedFields } = pagedMedia._.selectedFields
     return db
       .with(
         media,
@@ -177,6 +189,7 @@ const drizzleMediaRepository: MediaRepository = {
         typeFacetSource,
         categoryFacets,
         typeFacets,
+        uniqueMedia,
         pagedMedia
       )
       .select({
@@ -186,7 +199,7 @@ const drizzleMediaRepository: MediaRepository = {
             .as("total"),
         items: sql<
           Media[]
-        >`json_arrayagg(coalesce(json_object(${sql.join(pagedEntries, sql`, `)}), json_object()))`.as(
+        >`coalesce(jsonb_agg(${jsonbBuildObject<Media>(pagedFields)} order by ${sortOrder}, ${pagedMedia.id}), '[]'::jsonb)`.as(
           "items"
         ),
         facetCounts: buildFacetCounts([
