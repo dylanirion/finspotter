@@ -19,9 +19,10 @@ import { useCanvas, useCanvasRenderingContext } from "./"
 const MAXIMUMPIXELS = 16777216
 
 interface MediaLayerProps {
-  ref?: Ref<{ matrix: DOMMatrix }>
+  ref?: Ref<{ matrix: DOMMatrix; derivedMatrix: DOMMatrix }>
   media: { src: string } & { srcSet?: string; sizes?: string }
   transform?: Transform
+  derivedTransform?: Transform
   onLoad?: () => void
   onError?: () => void
 }
@@ -35,6 +36,7 @@ export function MediaLayer({
   ref,
   media,
   transform,
+  derivedTransform,
   onLoad,
   onError,
   children,
@@ -73,8 +75,30 @@ export function MediaLayer({
         scale * (transform?.e ?? 0),
         scale * (transform?.f ?? 0),
       ]),
+      derivedMatrix: new DOMMatrix([
+        scale * (derivedTransform?.a ?? 1),
+        scale * (derivedTransform?.b ?? 0),
+        scale * (derivedTransform?.c ?? 0),
+        scale * (derivedTransform?.d ?? 1),
+        scale * (derivedTransform?.e ?? 0),
+        scale * (derivedTransform?.f ?? 0),
+      ]),
     }),
-    [scale]
+    [
+      scale,
+      transform?.a,
+      transform?.b,
+      transform?.c,
+      transform?.d,
+      transform?.e,
+      transform?.f,
+      derivedTransform?.a,
+      derivedTransform?.b,
+      derivedTransform?.c,
+      derivedTransform?.d,
+      derivedTransform?.e,
+      derivedTransform?.f,
+    ]
   )
 
   // TODO: how to remove need for useEffect? (need it for browser's Image() class)

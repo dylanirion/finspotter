@@ -1,18 +1,21 @@
 "use client"
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react"
+import { composeAffine } from "@finspotter/annotations/materialization"
 import { getAnnotationComponents } from "@finspotter/annotations/react"
-import { Canvas } from "@finspotter/canvas"
+import { Canvas, type Transform } from "@finspotter/canvas"
 import { MediaLayer } from "@finspotter/canvas/media"
 import { PanZoomPanel, type PanZoomService } from "@finspotter/canvas/pan-zoom"
 import { type Annotation } from "@finspotter/core/annotation"
 import { type Media } from "@finspotter/core/media"
+import { ArrowPathIcon } from "@heroicons/react/24/outline"
 import { useQuery } from "@tanstack/react-query"
 import { getSingleAnnotation } from "app/_actions/annotations"
 import {
   getReviewComparisonArtifacts,
   type ReviewComparisonData,
 } from "app/_actions/pipeline"
+import { Button } from "components/ui/inputs/Button"
 import { cn } from "lib/utils"
 
 import { MediaGroup } from "./MediaGroup"
@@ -30,6 +33,8 @@ type CompareProps =
   | { ids: [string, string]; comparison?: never }
   | { ids?: never; comparison: ReviewComparisonData; reviewId: string }
 
+type QuarterTurn = 0 | 1 | 2 | 3
+
 export function ReviewCompare({
   comparison,
   reviewId,
@@ -44,10 +49,18 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
   const [container, setContainer] = useState<HTMLDivElement | null>()
   const [canvasA, setCanvasA] = useState<HTMLCanvasElement | null>()
   const [canvasB, setCanvasB] = useState<HTMLCanvasElement | null>()
-  const [mediaA, setMediaA] = useState<{ matrix: DOMMatrix } | null>()
-  const [mediaB, setMediaB] = useState<{ matrix: DOMMatrix } | null>()
+  const [mediaA, setMediaA] = useState<{
+    matrix: DOMMatrix
+    derivedMatrix: DOMMatrix
+  } | null>()
+  const [mediaB, setMediaB] = useState<{
+    matrix: DOMMatrix
+    derivedMatrix: DOMMatrix
+  } | null>()
   const [panZoomA, setPanZoomA] = useState<{ service: PanZoomService } | null>()
   const [panZoomB, setPanZoomB] = useState<{ service: PanZoomService } | null>()
+  const [rotationA, setRotationA] = useState<QuarterTurn>(0)
+  const [rotationB, setRotationB] = useState<QuarterTurn>(0)
   const [mediaLoaded, setMediaLoaded] = useState<[boolean, boolean]>([
     false,
     false,
@@ -130,6 +143,20 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
 
   const transformMatA = transformA(a?.data ?? null)
   const transformMatB = transformB(b?.data ?? null)
+  const viewportA = rotateViewport(transformMatA, a?.media, rotationA)
+  const viewportB = rotateViewport(transformMatB, b?.media, rotationB)
+  const layout =
+    isLandscape(viewportA.transform) || isLandscape(viewportB.transform)
+      ? "vertical"
+      : "horizontal"
+  const rotateAClockwise = useCallback(
+    () => setRotationA((turn) => ((turn + 1) % 4) as QuarterTurn),
+    []
+  )
+  const rotateBClockwise = useCallback(
+    () => setRotationB((turn) => ((turn + 1) % 4) as QuarterTurn),
+    []
+  )
 
   return (
     a?.media &&
@@ -142,23 +169,22 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
           <span className="inline text-indigo-600">{labels[1]}</span>
         </h1>
         <div ref={setContainer} className="relative">
-          <MediaGroup className="justify-center">
+          <MediaGroup className="justify-center" layout={layout}>
             <Canvas
               id={a.media.id}
               ref={setCanvasA}
               className={cn("rounded-md shadow-md", {
                 "h-[calc(100dvh_-_10rem)]":
-                  transformMatA.width &&
-                  transformMatA.height &&
-                  transformMatA.height > transformMatA.width,
+                  viewportA.transform.height > viewportA.transform.width,
               })}
-              width={a.media.exif?.width}
-              height={a.media.exif?.height}
+              width={viewportA.transform.width}
+              height={viewportA.transform.height}
             >
               <MediaLayer
                 ref={setMediaA}
                 media={a.media}
-                transform={transformMatA}
+                transform={viewportA.transform}
+                derivedTransform={viewportA.derivedTransform}
                 onLoad={handleMediaALoaded}
                 onError={handleMediaError}
               >
@@ -167,31 +193,50 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
                   className="absolute top-1 left-1"
                 />
               </MediaLayer>
+              <Button
+                intent="none"
+                size="icon"
+                className="absolute top-1 right-1 z-[60] grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
+                onClick={rotateAClockwise}
+                title="Rotate query image clockwise"
+                aria-label="Rotate query image clockwise"
+              >
+                <ArrowPathIcon className="size-4" />
+              </Button>
             </Canvas>
             <Canvas
               id={b.media.id}
               ref={setCanvasB}
               className={cn("rounded-md shadow-md", {
                 "h-[calc(100dvh_-_10rem)]":
-                  transformMatB.width &&
-                  transformMatB.height &&
-                  transformMatB.height > transformMatB.width,
+                  viewportB.transform.height > viewportB.transform.width,
               })}
-              width={transformMatB.width ?? b.media.exif?.width}
-              height={transformMatB.height ?? b.media.exif?.height}
+              width={viewportB.transform.width}
+              height={viewportB.transform.height}
             >
               <MediaLayer
                 ref={setMediaB}
                 media={b.media}
-                transform={transformMatB}
+                transform={viewportB.transform}
+                derivedTransform={viewportB.derivedTransform}
                 onLoad={handleMediaBLoaded}
                 onError={handleMediaError}
               >
                 <PanZoomPanel
                   ref={setPanZoomB}
-                  className="absolute top-1 right-1"
+                  className="absolute top-1 left-1"
                 />
               </MediaLayer>
+              <Button
+                intent="none"
+                size="icon"
+                className="absolute top-1 right-1 z-[60] grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
+                onClick={rotateBClockwise}
+                title="Rotate reference image clockwise"
+                aria-label="Rotate reference image clockwise"
+              >
+                <ArrowPathIcon className="size-4" />
+              </Button>
             </Canvas>
           </MediaGroup>
           {container && canvasA && canvasB && (
@@ -202,8 +247,8 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
               container={container}
               canvasA={canvasA}
               canvasB={canvasB}
-              transformA={mediaA?.matrix}
-              transformB={mediaB?.matrix}
+              transformA={mediaA?.derivedMatrix}
+              transformB={mediaB?.derivedMatrix}
               panZoomA={panZoomA?.service}
               panZoomB={panZoomB?.service}
             />
@@ -274,16 +319,22 @@ export function FeatureConnector({
       const featureB = featuresB[to]
       if (featureA === undefined || featureB === undefined) continue
 
+      const viewportA = transformPoint(featureA, finalTransformA)
+      const viewportB = transformPoint(featureB, finalTransformB)
+      if (
+        !isWithinViewport(viewportA, canvasA) ||
+        !isWithinViewport(viewportB, canvasB)
+      )
+        continue
+
       const screenA = toOverlay(
-        featureA,
-        finalTransformA,
+        viewportA,
         canvasA,
         canvasRectA,
         containerRect
       )
       const screenB = toOverlay(
-        featureB,
-        finalTransformB,
+        viewportB,
         canvasB,
         canvasRectB,
         containerRect
@@ -321,21 +372,79 @@ export function FeatureConnector({
   )
 }
 
+function rotateViewport(
+  transform: Transform,
+  media: Pick<Media, "exif"> | undefined,
+  turn: QuarterTurn
+) {
+  const width = positiveDimension(transform.width ?? media?.exif?.width, 4_000)
+  const height = positiveDimension(
+    transform.height ?? media?.exif?.height,
+    3_000
+  )
+  const derivedTransform = quarterTurnTransform(width, height, turn)
+  return {
+    transform: {
+      ...composeAffine(transform, derivedTransform),
+      width: derivedTransform.width!,
+      height: derivedTransform.height!,
+    },
+    derivedTransform,
+  }
+}
+
+function quarterTurnTransform(
+  width: number,
+  height: number,
+  turn: QuarterTurn
+): Transform {
+  switch (turn) {
+    case 1:
+      return { a: 0, b: 1, c: -1, d: 0, e: height, f: 0, width: height, height: width }
+    case 2:
+      return { a: -1, b: 0, c: 0, d: -1, e: width, f: height, width, height }
+    case 3:
+      return { a: 0, b: -1, c: 1, d: 0, e: 0, f: width, width: height, height: width }
+    default:
+      return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, width, height }
+  }
+}
+
+function positiveDimension(value: string | number | undefined, fallback: number) {
+  const dimension = Number(value)
+  return Number.isFinite(dimension) && dimension > 0 ? dimension : fallback
+}
+
+function isLandscape({ width, height }: Transform) {
+  return (width ?? 0) >= (height ?? 0)
+}
+
 function toOverlay(
   [x, y]: [number, number],
-  transform: DOMMatrix | undefined,
   canvas: HTMLCanvasElement,
   canvasRect: DOMRect,
   containerRect: DOMRect
 ): [number, number] {
-  if (!transform) return [0, 0]
-  const pt = new DOMPoint(x, y).matrixTransform(transform)
-
   const scaleX = canvasRect.width / canvas.width
   const scaleY = canvasRect.height / canvas.height
 
   const offsetX = canvasRect.left - containerRect.left
   const offsetY = canvasRect.top - containerRect.top
 
-  return [offsetX + pt.x * scaleX, offsetY + pt.y * scaleY]
+  return [offsetX + x * scaleX, offsetY + y * scaleY]
+}
+
+function transformPoint(
+  [x, y]: [number, number],
+  transform: DOMMatrix
+): [number, number] {
+  const point = new DOMPoint(x, y).matrixTransform(transform)
+  return [point.x, point.y]
+}
+
+function isWithinViewport(
+  [x, y]: [number, number],
+  { width, height }: Pick<HTMLCanvasElement, "width" | "height">
+) {
+  return x >= 0 && x <= width && y >= 0 && y <= height
 }

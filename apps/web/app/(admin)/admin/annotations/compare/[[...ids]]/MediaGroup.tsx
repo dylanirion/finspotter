@@ -13,12 +13,14 @@ export function MediaGroup({
   children,
 }: MediaGroupProps) {
   const direction = layout === "horizontal" ? "flex-row" : "flex-col"
-  const spacing = layout === "horizontal" ? "space-x-1" : "space-y-1"
   const arrayChildren = Children.toArray(children)
   return (
-    <div className={cn("flex", className, direction, spacing)}>
+    <div className={cn("flex w-full gap-2", className, direction)}>
       {arrayChildren.map((child, i) => (
-        <div key={i} className={layout === "horizontal" ? "w-2/5" : "h-2/5"}>
+        <div
+          key={i}
+          className={layout === "horizontal" ? "min-w-0 flex-1" : "w-full"}
+        >
           {child}
         </div>
       ))}
