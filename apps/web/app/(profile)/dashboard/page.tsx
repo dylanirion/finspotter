@@ -4,8 +4,8 @@ import { can } from "@finspotter/core/auth/permissions"
 import { getSession } from "lib/auth"
 import { Toaster } from "react-hot-toast"
 
+import { MyEncounters } from "./MyEncounters"
 import { MyOrganization } from "./MyOrganization"
-import { MySubmissions } from "./MySubmissions"
 import { PipelineActivity } from "./PipelineActivity"
 import { Review } from "./Review"
 
@@ -13,8 +13,7 @@ export const metadata: Metadata = {
   title: "Dashboard",
 }
 
-//TODO: show most recent encounter submissions with link to view all (should this include submissions pending review?)
-//if admin, show all
+//TODO: link recent encounters to their detail page and add a view-all page
 //TODO: same for organization?
 //TODO: if org admin, manage org
 //TODO: pipeline pending list if allowed to review, anly admins and org admins can delete.
@@ -28,7 +27,7 @@ export default async function DashboardPage() {
         Welcome back, {user.firstName}!
       </h2>
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-4">
-        <MySubmissions />
+        <MyEncounters userId={user.id} />
         <MyOrganization />
         <PipelineActivity />
         {can(user, "review", "Annotation") && <Review />}

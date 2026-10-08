@@ -1,9 +1,11 @@
 "use server"
 
 import { randomUUID } from "crypto"
+import { isIP } from "node:net"
 import { parse } from "path"
 import { headers } from "next/headers"
 import { ALLOWEDCONTENTTYPES, site } from "@finspotter/config/site"
+import { submissionVerification } from "@finspotter/core/auth/plugin"
 import { getEmailFrom, sendMail } from "@finspotter/core/email"
 import { createMediaRepository } from "@finspotter/core/media"
 import { createPipelineLifecycleRepository } from "@finspotter/core/pipeline"
@@ -12,11 +14,7 @@ import { createStorageRepository } from "@finspotter/core/storage"
 import { Template as VerifySubmission } from "@finspotter/email/templates/VerifySubmission"
 import { invoke, invokeMediaProcessing } from "@finspotter/pipeline/invoke"
 import { type EncounterSubmissionData } from "app/(public)/submit/EncounterSubmissionReducer"
-import {
-  createUserOnly,
-  getSession,
-  issueSubmissionVerification,
-} from "lib/auth"
+import { createUserOnly, getSession } from "lib/auth"
 import { extension } from "mime-types"
 import { Resource } from "sst"
 import { z } from "zod"
@@ -43,7 +41,15 @@ export async function doSubmission({
   encounters: Omit<EncounterSubmissionData, "presignedUrl" | "file" | "xhr">[]
   formData?: FormData
 }) {
-  const session = await getSession({ headers: await headers() })
+  const requestHeaders = await headers()
+  const session = await getSession({
+    headers: requestHeaders,
+    query: { disableCookieCache: true },
+  })
+  const address =
+    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    requestHeaders.get("x-real-ip")?.trim()
+  const submittedFrom = address && isIP(address) ? address : undefined
   //TODO check permissions? technically want anyone to be able to submit
 
   const { firstName, lastName, email, emailOthers } = formData
@@ -79,15 +85,30 @@ export async function doSubmission({
 
   //TODO: process videos (HLS, DASH?)
 
-  await createUserAndVerify({
-    submissionId,
-    email: submitterEmail,
-    firstName,
-    lastName,
-    role: "submitter",
-    mediaIds: closed.media.map((media) => media.media_id),
-    subject: `Verify Your Submission to ${site.title}`,
-  })
+  const mediaIds = closed.media.map((media) => media.media_id)
+  if (session?.user.emailVerified) {
+    await submissionVerification().submitAuthenticated(
+      {
+        submissionId,
+        userId: session.user.id,
+        email: submitterEmail,
+        role: "submitter",
+        mediaIds,
+      },
+      submittedFrom
+    )
+  } else {
+    await createUserAndVerify({
+      submissionId,
+      email: submitterEmail,
+      firstName,
+      lastName,
+      role: "submitter",
+      mediaIds,
+      submittedFrom,
+      subject: `Verify Your Submission to ${site.title}`,
+    })
+  }
 
   for (const email of subscribers) {
     await createUserAndVerify({
@@ -294,9 +315,18 @@ async function createUserAndVerify(opts: {
   subject: string
   role: "submitter" | "subscriber"
   mediaIds: string[]
+  submittedFrom?: string
 }) {
-  const { submissionId, email, firstName, lastName, subject, role, mediaIds } =
-    opts
+  const {
+    submissionId,
+    email,
+    firstName,
+    lastName,
+    subject,
+    role,
+    mediaIds,
+    submittedFrom,
+  } = opts
   if (!email) return
   return createUserOnly({
     body: {
@@ -307,9 +337,10 @@ async function createUserAndVerify(opts: {
   })
     .then(async ({ user }) => ({
       user,
-      ...(await issueSubmissionVerification({
-        body: { submissionId, userId: user.id, role, mediaIds },
-      })),
+      token: await submissionVerification().issue(
+        { submissionId, userId: user.id, email: user.email, role, mediaIds },
+        submittedFrom
+      ),
     }))
     .then(({ user, token }) =>
       sendMail(
