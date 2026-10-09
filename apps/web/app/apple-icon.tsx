@@ -9,11 +9,9 @@ export const contentType = "image/png"
 
 export default function Icon() {
   return new ImageResponse(
-    (
-      <div tw="flex w-full h-full items-center justify-center">
-        <SiteLogo style={{ height: "512px", width: "512px" }} />
-      </div>
-    ),
+    <div tw="flex w-full h-full items-center justify-center">
+      <SiteLogo style={{ height: "512px", width: "512px" }} />
+    </div>,
     {
       ...size,
     }

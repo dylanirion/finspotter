@@ -327,18 +327,8 @@ export function FeatureConnector({
       )
         continue
 
-      const screenA = toOverlay(
-        viewportA,
-        canvasA,
-        canvasRectA,
-        containerRect
-      )
-      const screenB = toOverlay(
-        viewportB,
-        canvasB,
-        canvasRectB,
-        containerRect
-      )
+      const screenA = toOverlay(viewportA, canvasA, canvasRectA, containerRect)
+      const screenB = toOverlay(viewportB, canvasB, canvasRectB, containerRect)
       ctx.beginPath()
       ctx.lineWidth = 5
       ctx.strokeStyle = "blue"
@@ -400,17 +390,38 @@ function quarterTurnTransform(
 ): Transform {
   switch (turn) {
     case 1:
-      return { a: 0, b: 1, c: -1, d: 0, e: height, f: 0, width: height, height: width }
+      return {
+        a: 0,
+        b: 1,
+        c: -1,
+        d: 0,
+        e: height,
+        f: 0,
+        width: height,
+        height: width,
+      }
     case 2:
       return { a: -1, b: 0, c: 0, d: -1, e: width, f: height, width, height }
     case 3:
-      return { a: 0, b: -1, c: 1, d: 0, e: 0, f: width, width: height, height: width }
+      return {
+        a: 0,
+        b: -1,
+        c: 1,
+        d: 0,
+        e: 0,
+        f: width,
+        width: height,
+        height: width,
+      }
     default:
       return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0, width, height }
   }
 }
 
-function positiveDimension(value: string | number | undefined, fallback: number) {
+function positiveDimension(
+  value: string | number | undefined,
+  fallback: number
+) {
   const dimension = Number(value)
   return Number.isFinite(dimension) && dimension > 0 ? dimension : fallback
 }

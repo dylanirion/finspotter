@@ -161,7 +161,7 @@ export const Canvas = forwardRef<
         <div className={filteredClassName}>
           <div className="relative flex justify-center">
             {isProcessing && (
-              <GridSpinner className="absolute left-1/2 top-1/2 z-10 size-1/3 -translate-x-1/2 -translate-y-1/2 text-gray-100" />
+              <GridSpinner className="absolute top-1/2 left-1/2 z-10 size-1/3 -translate-x-1/2 -translate-y-1/2 text-gray-100" />
             )}
             <div
               ref={containerRef}
@@ -180,7 +180,7 @@ export const Canvas = forwardRef<
             >
               {status === "loading" && (
                 <div className="size-full items-center justify-center overflow-hidden">
-                  <PhotoIcon className="absolute left-1/2 top-1/2 z-10 size-2/3 -translate-x-1/2 -translate-y-1/2 text-gray-100" />
+                  <PhotoIcon className="absolute top-1/2 left-1/2 z-10 size-2/3 -translate-x-1/2 -translate-y-1/2 text-gray-100" />
                   <div
                     style={{
                       width: dimensions.width,
@@ -191,7 +191,7 @@ export const Canvas = forwardRef<
               )}
               {status === "error" && (
                 <div className="size-full items-center justify-center overflow-hidden">
-                  <ExclamationTriangleIcon className="absolute left-1/2 top-1/2 z-10 size-2/3 -translate-x-1/2 -translate-y-1/2 text-gray-100" />
+                  <ExclamationTriangleIcon className="absolute top-1/2 left-1/2 z-10 size-2/3 -translate-x-1/2 -translate-y-1/2 text-gray-100" />
                   <div
                     style={{
                       width: dimensions.width,

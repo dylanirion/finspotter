@@ -27,21 +27,17 @@ export type ImageCoordinateMapping = {
 export type MaterializationStrategy<T> = (data: T) => MaterializationPlan
 
 export function invertAffine(transform: AffineTransform): AffineTransform {
-  const determinant =
-    transform.a * transform.d - transform.b * transform.c
-  if (determinant === 0) throw new Error("Materialization transform is singular")
+  const determinant = transform.a * transform.d - transform.b * transform.c
+  if (determinant === 0)
+    throw new Error("Materialization transform is singular")
 
   return {
     a: transform.d / determinant,
     b: -transform.b / determinant,
     c: -transform.c / determinant,
     d: transform.a / determinant,
-    e:
-      (transform.c * transform.f - transform.d * transform.e) /
-      determinant,
-    f:
-      (transform.b * transform.e - transform.a * transform.f) /
-      determinant,
+    e: (transform.c * transform.f - transform.d * transform.e) / determinant,
+    f: (transform.b * transform.e - transform.a * transform.f) / determinant,
   }
 }
 

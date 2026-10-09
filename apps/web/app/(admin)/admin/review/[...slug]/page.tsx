@@ -40,7 +40,10 @@ export default async function SingleMediaReviewPage({
   if (!mediaId) notFound()
   const selectedDetectionId =
     detectionId === undefined ? undefined : Number(detectionId)
-  if (selectedDetectionId !== undefined && !Number.isInteger(selectedDetectionId))
+  if (
+    selectedDetectionId !== undefined &&
+    !Number.isInteger(selectedDetectionId)
+  )
     notFound()
   const claim = reviewId ? await getReviewClaim(reviewId) : null
   if (reviewId && !claim) redirect("/dashboard")

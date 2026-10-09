@@ -104,8 +104,7 @@ export const badgeStyles = cva(
 )
 
 export interface BadgeProps
-  extends HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeStyles> {}
+  extends HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeStyles> {}
 
 export function Badge({ className, variant, ...props }: BadgeProps) {
   return <div className={cn(badgeStyles({ variant }), className)} {...props} />

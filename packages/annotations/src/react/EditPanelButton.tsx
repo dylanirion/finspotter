@@ -18,7 +18,6 @@ import {
   toAbbreviated,
   type Species,
 } from "@finspotter/config/species"
-import { type Annotation } from "../annotation"
 import { Spinner } from "@finspotter/web/components/ui/spinners/Spinner"
 import {
   Listbox,
@@ -43,6 +42,7 @@ import toast, { CheckmarkIcon, ErrorIcon } from "react-hot-toast"
 import { type StateFrom } from "xstate"
 
 import { type MachineType } from "../"
+import { type Annotation } from "../annotation"
 import { useAnnotation, type ConvertTo } from "./BaseAnnotationLayer"
 
 type IconSVGProps = PropsWithoutRef<SVGProps<SVGSVGElement>> &

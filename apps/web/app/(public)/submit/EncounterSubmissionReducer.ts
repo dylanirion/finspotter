@@ -60,10 +60,7 @@ interface ReorderAction {
 }
 
 export type PayloadTypes =
-  | AddAction
-  | RemoveAction
-  | UpdateAction
-  | ReorderAction
+  AddAction | RemoveAction | UpdateAction | ReorderAction
 
 export function reducer(
   state: EncounterSubmissionData[],

@@ -227,52 +227,52 @@ export function MediaEditor({
                 annotation.detectionId === detectionId
             )
             .map((annotation, i) => {
-            //TODO: use this as an actual hook and make it return a Map or something?
-            //TODO: catch and toast unknown annotation type error
-            const {
-              AnnotationLayer,
-              EditPanel,
-              EditPopover,
-              EditPanelButtons,
-              convertTo,
-            } = getAnnotationComponents(annotation.type ?? "null")
-            const { Category, Save, Delete, Convert, ...buttons } =
-              EditPanelButtons
-            return (
-              <AnnotationLayer
-                key={annotation.id}
-                index={i}
-                active={
-                  variant === "review" ||
-                  active.includes(String(annotation.id))
-                }
-                annotation={annotation}
-                style={{ color: twCols[i % twCols.length].hex }}
-                editable={true}
-              >
-                <EditPopover>
-                  <EditPanel setActive={setActive}>
-                    <div className="flex flex-row items-center justify-between">
-                      {Object.values(buttons).map((Button, i) => (
-                        <Button key={i} />
-                      ))}
-                      <Save
-                        updateAction={handleUpdate}
-                        insertAction={handleInsert}
-                      />
-                      <Delete deleteAction={handleDelete} />
-                      {convertTo && (
-                        <Convert
-                          convertActions={convertTo}
-                          convertType={convertType}
+              //TODO: use this as an actual hook and make it return a Map or something?
+              //TODO: catch and toast unknown annotation type error
+              const {
+                AnnotationLayer,
+                EditPanel,
+                EditPopover,
+                EditPanelButtons,
+                convertTo,
+              } = getAnnotationComponents(annotation.type ?? "null")
+              const { Category, Save, Delete, Convert, ...buttons } =
+                EditPanelButtons
+              return (
+                <AnnotationLayer
+                  key={annotation.id}
+                  index={i}
+                  active={
+                    variant === "review" ||
+                    active.includes(String(annotation.id))
+                  }
+                  annotation={annotation}
+                  style={{ color: twCols[i % twCols.length].hex }}
+                  editable={true}
+                >
+                  <EditPopover>
+                    <EditPanel setActive={setActive}>
+                      <div className="flex flex-row items-center justify-between">
+                        {Object.values(buttons).map((Button, i) => (
+                          <Button key={i} />
+                        ))}
+                        <Save
+                          updateAction={handleUpdate}
+                          insertAction={handleInsert}
                         />
-                      )}
-                    </div>
-                    <Category setCategory={setCategory} />
-                  </EditPanel>
-                </EditPopover>
-              </AnnotationLayer>
-            )
+                        <Delete deleteAction={handleDelete} />
+                        {convertTo && (
+                          <Convert
+                            convertActions={convertTo}
+                            convertType={convertType}
+                          />
+                        )}
+                      </div>
+                      <Category setCategory={setCategory} />
+                    </EditPanel>
+                  </EditPopover>
+                </AnnotationLayer>
+              )
             })}
         </MediaLayer>
       </Canvas>

@@ -8,9 +8,9 @@ import {
   type PropsWithChildren,
 } from "react"
 import * as bbox_xywh from "@finspotter/annotation-bbox_xywh/react"
+import * as bbox_xywha$segmentation from "@finspotter/annotation-bbox_xywha_segmentation/react"
 import * as bbox_xywha from "@finspotter/annotation-bbox_xywha/react"
 import * as segmentation from "@finspotter/annotation-segmentation/react"
-import * as bbox_xywha$segmentation from "@finspotter/annotation-bbox_xywha_segmentation/react"
 import {
   type AnnotationDataTypes,
   type AnnotationType,

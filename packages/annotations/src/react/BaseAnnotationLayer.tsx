@@ -12,7 +12,6 @@ import {
   type Transform,
 } from "@finspotter/canvas"
 import { useImage } from "@finspotter/canvas/media"
-import { type Annotation } from "../annotation"
 import { useActorRef } from "@xstate/react"
 import { flushSync } from "react-dom"
 import { type Actor, type SnapshotFrom } from "xstate"
@@ -23,6 +22,7 @@ import {
   type AnnotationType,
   type MachineType,
 } from "../"
+import { type Annotation } from "../annotation"
 import { createSimpleMachine } from "../machine"
 
 const DEFAULTANNOTATIONSTYLE: Required<AnnotationStyle> = {
@@ -65,8 +65,7 @@ export interface AnnotationStrategy<T extends AnnotationType | "null"> {
   createInitialState(annotation: RawAnnotation<T>): DisplayAnnotation<T>
   getBoundingClientRect(
     shape:
-      | (T extends AnnotationType ? AnnotationDisplayTypes[T] : null)
-      | undefined,
+      (T extends AnnotationType ? AnnotationDisplayTypes[T] : null) | undefined,
     canvas: HTMLCanvasElement | null,
     scale: number
   ): DOMRect

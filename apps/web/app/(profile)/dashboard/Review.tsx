@@ -7,8 +7,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   PhotoIcon,
-  Square2StackIcon,
   SparklesIcon,
+  Square2StackIcon,
 } from "@heroicons/react/24/outline"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
@@ -118,7 +118,8 @@ export function Review() {
           ) : data?.items.length ? (
             data.items.map((item) => {
               const Icon = resultIcon(item.kind)
-              const isClaiming = claim.isPending && claim.variables.id === item.id
+              const isClaiming =
+                claim.isPending && claim.variables.id === item.id
               return (
                 <div
                   key={item.id}

@@ -65,8 +65,7 @@ function generateAnnotationIndex(mods: AnnotationPackage[]) {
   const materializers = [
     `const _materializers = {`,
     ...mods.map(
-      (mod) =>
-        `  "${mod.name}": materialize_${mod.name.replaceAll("$", "_")},`
+      (mod) => `  "${mod.name}": materialize_${mod.name.replaceAll("$", "_")},`
     ),
     `} as const`,
     ``,

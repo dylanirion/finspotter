@@ -48,7 +48,8 @@ type StatusEvent = {
   created_at: string
 }
 
-const { getItem, getObjectText, putItems, queryItems } = createStorageRepository()
+const { getItem, getObjectText, putItems, queryItems } =
+  createStorageRepository()
 const { findMany } = createMediaRepository()
 const pipelineResults = createPipelineResultRepository()
 
@@ -302,9 +303,7 @@ export async function getItemsForReview(
 
   const page = await pipelineResults.findReviewReady(
     limit,
-    cursor
-      ? { ...cursor, readyAt: new Date(cursor.readyAt) }
-      : undefined
+    cursor ? { ...cursor, readyAt: new Date(cursor.readyAt) } : undefined
   )
 
   return {
@@ -369,7 +368,8 @@ export async function getReviewComparison(
     ])
   if (!queryMedia || !referenceMedia)
     throw new Error("Pair review media not found.")
-  if (!claimed.claimExpiresAt) throw new Error("Pair review claim has no expiry.")
+  if (!claimed.claimExpiresAt)
+    throw new Error("Pair review claim has no expiry.")
 
   return {
     query: {
@@ -445,8 +445,12 @@ export async function approveDetectionReview(
   annotation: Annotation
 ) {
   const reviewerId = await requireReviewer()
-  const { id: _id, detectionId: _detectionId, updatedAt: _updatedAt, ...input } =
-    annotation
+  const {
+    id: _id,
+    detectionId: _detectionId,
+    updatedAt: _updatedAt,
+    ...input
+  } = annotation
   const approved = await pipelineResults.approveDetection(
     reviewId,
     reviewerId,
@@ -544,33 +548,36 @@ export async function getSingleMedia(id: string) {
     undefined,
     ["media_id"]
   )
-  return items.reduce((acc, cur) => {
-    if (cur.sk.startsWith("media")) {
-      const media = cur as MediaItem
-      acc.id = id
-      acc.src = media.uri.key
-    }
-    if (cur.sk.startsWith("detection")) {
-      const detection = cur as DetectionItem
+  return items.reduce(
+    (acc, cur) => {
+      if (cur.sk.startsWith("media")) {
+        const media = cur as MediaItem
+        acc.id = id
+        acc.src = media.uri.key
+      }
+      if (cur.sk.startsWith("detection")) {
+        const detection = cur as DetectionItem
 
-      const newAnnotation = {
-        id: `$${randomBytes(10).toString("hex")}`,
-        mediaId: detection.media_id,
-        detectionId: Number(detection.detection_id),
-        individualId: null,
-        category: detection.category,
-        type: detection.type,
-        data: detection.data,
-        source: detection.source,
-        score: detection.score,
-        updatedAt: new Date(detection.created_at ?? 0),
-      } as Annotation
-      acc.annotations = acc.annotations
-        ? [...acc.annotations, newAnnotation]
-        : [newAnnotation]
-    }
-    return acc
-  }, { state: "pending" } as Media)
+        const newAnnotation = {
+          id: `$${randomBytes(10).toString("hex")}`,
+          mediaId: detection.media_id,
+          detectionId: Number(detection.detection_id),
+          individualId: null,
+          category: detection.category,
+          type: detection.type,
+          data: detection.data,
+          source: detection.source,
+          score: detection.score,
+          updatedAt: new Date(detection.created_at ?? 0),
+        } as Annotation
+        acc.annotations = acc.annotations
+          ? [...acc.annotations, newAnnotation]
+          : [newAnnotation]
+      }
+      return acc
+    },
+    { state: "pending" } as Media
+  )
 }
 
 /*
