@@ -31,9 +31,18 @@ export const sessionsTable = pgTable(
     ipAddress: inet("ip_address"),
     userAgent: text("user_agent"),
     token: varchar("token", { length: 255 }).notNull().unique(),
-    createdAt: timestamp("created_at", { precision: 6, withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { precision: 6, withTimezone: true }).notNull(),
-    expiresAt: timestamp("expires_at", { precision: 6, withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 6,
+      withTimezone: true,
+    }).notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 6,
+      withTimezone: true,
+    }).notNull(),
+    expiresAt: timestamp("expires_at", {
+      precision: 6,
+      withTimezone: true,
+    }).notNull(),
     impersonatedBy: uuid("impersonated_by").references(() => usersTable.id, {
       onDelete: "cascade",
       onUpdate: "cascade",

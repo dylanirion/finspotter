@@ -35,21 +35,12 @@ export type PipelineStatus =
   | "failed"
 
 export type SubmissionLifecycleState =
-  | "draft"
-  | "closing"
-  | "processing"
-  | "reviewable"
-  | "completed"
-  | "failed"
+  "draft" | "closing" | "processing" | "reviewable" | "completed" | "failed"
 
 export type MediaUploadState = "registered" | "uploaded" | "failed" | "removed"
 
 export type MediaProcessingState =
-  | "pending"
-  | "running"
-  | "succeeded"
-  | "partially_succeeded"
-  | "failed"
+  "pending" | "running" | "succeeded" | "partially_succeeded" | "failed"
 
 export type SubmissionLifecycleItem = {
   pk: string

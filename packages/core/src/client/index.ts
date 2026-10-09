@@ -1,13 +1,15 @@
 import { S3Client } from "@aws-sdk/client-s3"
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-const clients = new WeakMap<object, any>()
+type ClientConstructor<Client, Config extends object> = new (
+  config: Config
+) => Client
 
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-constraint
-export function getClient<C extends any>(
-  c: new (config: any) => C,
-  opts?: any
-): C {
+const clients = new WeakMap<object, object>()
+
+export function getClient<Client extends object, Config extends object>(
+  c: ClientConstructor<Client, Config>,
+  opts?: Config
+): Client {
   if (isLocalDevelopment()) {
     if (c === S3Client) {
       return new c({
@@ -18,15 +20,15 @@ export function getClient<C extends any>(
           accessKeyId: process.env.RUSTFS_ACCESS_KEY,
           secretAccessKey: process.env.RUSTFS_SECRET_KEY,
         },
-      })
+      } as Config)
     }
-    return new c({ ...opts })
+    return new c((opts ?? {}) as Config)
   }
 
   const existing = clients.get(c)
-  if (existing) return existing
+  if (existing) return existing as Client
 
-  const client = new c({ ...opts })
+  const client = new c((opts ?? {}) as Config)
   clients.set(c, client)
   return client
 }

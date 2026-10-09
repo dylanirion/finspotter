@@ -14,12 +14,24 @@ export const accountsTable = pgTable(
       }),
     accountId: uuid("account_id").notNull(),
     providerId: text("provider_id").notNull(),
-    createdAt: timestamp("created_at", { precision: 6, withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { precision: 6, withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", {
+      precision: 6,
+      withTimezone: true,
+    }).notNull(),
+    updatedAt: timestamp("updated_at", {
+      precision: 6,
+      withTimezone: true,
+    }).notNull(),
     accessToken: text("access_token"),
-    accessTokenExpiresAt: timestamp("access_token_expires_at", { precision: 6, withTimezone: true }),
+    accessTokenExpiresAt: timestamp("access_token_expires_at", {
+      precision: 6,
+      withTimezone: true,
+    }),
     refreshToken: text("refresh_token"),
-    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { precision: 6, withTimezone: true }),
+    refreshTokenExpiresAt: timestamp("refresh_token_expires_at", {
+      precision: 6,
+      withTimezone: true,
+    }),
     scope: text("scope"),
     password: text("password"),
     idToken: text("id_token"),

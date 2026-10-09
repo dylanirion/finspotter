@@ -17,8 +17,7 @@ export interface ExifData {
   time_zone?: string
 }
 
-const selectFromExif = () =>
-  db.select().from(exifTable).$dynamic()
+const selectFromExif = () => db.select().from(exifTable).$dynamic()
 
 export const jsonExifSubQuery = () =>
   db
@@ -54,22 +53,26 @@ export function exifCTEs() {
     db
       .select({
         mediaId: exif.mediaId,
-        contentType:
-          sql<string | null>`max(${exif.value}) filter (where ${exif.key} = 'content_type')`.as(
-            "content_type"
-          ),
-        length:
-          sql<number | null>`max(case when ${exif.key} = 'length' then cast(${exif.value} as integer) end)`.as(
-            "length"
-          ),
-        width:
-          sql<number | null>`max(case when ${exif.key} = 'width' then cast(${exif.value} as integer) end)`.as(
-            "width"
-          ),
-        height:
-          sql<number | null>`max(case when ${exif.key} = 'height' then cast(${exif.value} as integer) end)`.as(
-            "height"
-          ),
+        contentType: sql<
+          string | null
+        >`max(${exif.value}) filter (where ${exif.key} = 'content_type')`.as(
+          "content_type"
+        ),
+        length: sql<
+          number | null
+        >`max(case when ${exif.key} = 'length' then cast(${exif.value} as integer) end)`.as(
+          "length"
+        ),
+        width: sql<
+          number | null
+        >`max(case when ${exif.key} = 'width' then cast(${exif.value} as integer) end)`.as(
+          "width"
+        ),
+        height: sql<
+          number | null
+        >`max(case when ${exif.key} = 'height' then cast(${exif.value} as integer) end)`.as(
+          "height"
+        ),
         dateTime:
           sql<Date | null>`max(case when ${exif.key} = 'date_time' then to_timestamp(${exif.value}, 'YYYY:MM:DD HH24:MI:SS')::timestamp end)`.as(
             "date_time"

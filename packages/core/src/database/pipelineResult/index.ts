@@ -4,26 +4,23 @@ import {
   eq,
   gt,
   inArray,
-  isNull,
   isNotNull,
+  isNull,
   lt,
   or,
   sql,
 } from "drizzle-orm"
 
+import { db } from "../_drizzle"
 import { type Annotation } from "../annotation"
 import {
   annotationsIncrementerTable,
   annotationsTable,
 } from "../annotation/sql"
-import { db } from "../_drizzle"
 import { detectionsTable } from "../detection/sql"
 import { createIndividualSummaryRepository } from "../individualSummary"
 import { mediaTable } from "../media/sql"
-import {
-  pipelineResultLinksTable,
-  pipelineResultsTable,
-} from "./sql"
+import { pipelineResultLinksTable, pipelineResultsTable } from "./sql"
 
 export type PipelineResult = typeof pipelineResultsTable.$inferSelect
 export type PipelineResultKind = PipelineResult["kind"]

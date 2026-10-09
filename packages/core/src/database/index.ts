@@ -114,8 +114,7 @@ export type Direction<Key extends string = string> = Record<
 
 export type Sort<Key extends string = string> = Direction<Key>[]
 export type Where<Key extends string = string, TColumn = never> =
-  | Condition<Key, TColumn>
-  | LogicalCondition<Key, TColumn>
+  Condition<Key, TColumn> | LogicalCondition<Key, TColumn>
 
 type StringKeys<T> = Extract<keyof T, string>
 type AugmentKeys<Base, Extra> = StringKeys<Base> | StringKeys<Extra>
@@ -179,9 +178,7 @@ export interface Repository<T, O extends Partial<RepositoryTypes> = {}> {
     facetCounts?: Record<string, Map<string, number>>
     total: number
   }>
-  insert: (
-    items: ResolveTypes<T, O>["insert"][]
-  ) => Promise<{ id?: string }[]>
+  insert: (items: ResolveTypes<T, O>["insert"][]) => Promise<{ id?: string }[]>
   update: (item: ResolveTypes<T, O>["update"]) => Promise<unknown>
   remove: <
     W extends Where<

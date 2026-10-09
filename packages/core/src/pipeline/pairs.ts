@@ -1,16 +1,8 @@
 export type PairJobState =
-  | "pending"
-  | "running"
-  | "succeeded"
-  | "failed"
-  | "cancelled"
+  "pending" | "running" | "succeeded" | "failed" | "cancelled"
 
 export type PairReviewStatus =
-  | "ready"
-  | "claimed"
-  | "approved"
-  | "rejected"
-  | "inferred"
+  "ready" | "claimed" | "approved" | "rejected" | "inferred"
 
 export type ExtractionReference = {
   pk: string

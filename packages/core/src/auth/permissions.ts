@@ -36,12 +36,11 @@ type ActionPermissions<T> = Partial<
     Record<
       OrgAction,
       T extends Organization[]
-        ?
-            | boolean
-            | ((
-                user: PermissionUser | undefined,
-                data: Organization[]
-              ) => boolean)
+        ? | boolean
+          | ((
+              user: PermissionUser | undefined,
+              data: Organization[]
+            ) => boolean)
         : never
     >
   >

@@ -14,6 +14,7 @@ import {
   PutCommand,
   QueryCommand,
   UpdateCommand,
+  type NativeAttributeValue,
   type UpdateCommandInput,
   type UpdateCommandOutput,
 } from "@aws-sdk/lib-dynamodb"
@@ -36,6 +37,8 @@ interface PresignedUrlResult {
   url: string
   fields: Record<string, string>
 }
+
+type DynamoItem = Record<string, NativeAttributeValue>
 
 const s3 = getClient(S3Client, {
   logger: {
@@ -69,18 +72,8 @@ const ddb = DynamoDBDocumentClient.from(
 
 export interface StorageRepository {
   getItem: <T>(table: string, key: Record<string, string>) => Promise<T>
-  putItem: (
-    table: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    item: Record<string, any>
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ) => Promise<Record<string, any>>
-  putItems: (
-    table: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    items: Record<string, any>[]
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ) => Promise<Record<string, any>>
+  putItem: (table: string, item: DynamoItem) => Promise<void>
+  putItems: (table: string, items: DynamoItem[]) => Promise<void>
   updateItem: (
     table: string,
     input: Omit<UpdateCommandInput, "TableName">
@@ -90,12 +83,10 @@ export interface StorageRepository {
     where: Condition,
     limit?: number,
     index?: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    cursor?: Record<string, any>,
+    cursor?: DynamoItem,
     keyFields?: string[],
     asc?: boolean
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ) => Promise<{ items: T[]; cursor?: Record<string, any> }>
+  ) => Promise<{ items: T[]; cursor?: DynamoItem }>
   getObject: (
     bucket: string,
     key: string
@@ -109,21 +100,10 @@ export interface StorageRepository {
     bucket: string,
     key: string,
     body:
-      | string
-      | Readable
-      | ReadableStream<unknown>
-      | Blob
-      | Uint8Array
-      | Buffer,
+      string | Readable | ReadableStream<unknown> | Blob | Uint8Array | Buffer,
     contentType?: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ) => Promise<Record<string, any>>
-  copyObject: (
-    source: string,
-    bucket: string,
-    key: string
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ) => Promise<Record<string, any>>
+  ) => Promise<void>
+  copyObject: (source: string, bucket: string, key: string) => Promise<void>
   getPresignedPostUrl: ({
     bucket,
     prefix,
@@ -159,14 +139,16 @@ class AwsStorageRepository implements StorageRepository {
       })
     )
 
-    if (!response.Item) throw new Error("Dynamo item returned no results.", key)
+    if (!response.Item)
+      throw new Error(
+        `Dynamo item returned no results for key ${JSON.stringify(key)}.`
+      )
 
     return response.Item as T
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  putItem = async (table: string, item: Record<string, any>) => {
-    return this.docClient.send(
+  putItem = async (table: string, item: DynamoItem) => {
+    await this.docClient.send(
       new PutCommand({
         TableName: table,
         Item: item,
@@ -174,12 +156,11 @@ class AwsStorageRepository implements StorageRepository {
     )
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  putItems = async (table: string, items: Record<string, any>[]) => {
+  putItems = async (table: string, items: DynamoItem[]) => {
     const itemChunks = chunkArray(items, 25)
 
-    return Promise.all(
-      itemChunks.map((chunk) => {
+    await Promise.all(
+      [...itemChunks].map((chunk) => {
         const putRequests = chunk.map((item) => ({
           PutRequest: {
             Item: item,
@@ -214,8 +195,7 @@ class AwsStorageRepository implements StorageRepository {
     where: Condition,
     limit?: number,
     index?: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    cursor?: Record<string, any>,
+    cursor?: DynamoItem,
     keyFields = ["pk", "sk"],
     asc = true
   ) => {
@@ -384,15 +364,10 @@ class AwsStorageRepository implements StorageRepository {
     bucket: string,
     key: string,
     body:
-      | string
-      | Readable
-      | ReadableStream<unknown>
-      | Blob
-      | Uint8Array
-      | Buffer,
+      string | Readable | ReadableStream<unknown> | Blob | Uint8Array | Buffer,
     contentType?: string
   ) => {
-    return this.s3Client.send(
+    await this.s3Client.send(
       new PutObjectCommand({
         Bucket: bucket,
         Key: key,
@@ -403,7 +378,7 @@ class AwsStorageRepository implements StorageRepository {
   }
 
   copyObject = async (source: string, bucket: string, key: string) => {
-    return this.s3Client.send(
+    await this.s3Client.send(
       new CopyObjectCommand({
         CopySource: source,
         Bucket: bucket,
@@ -448,15 +423,7 @@ export function createStorageRepository(): StorageRepository {
   return new AwsStorageRepository(s3, ddb)
 }
 
-// Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-// SPDX-License-Identifier: Apache-2.0
-/**
- *
- * @param {Array} arr
- * @param {number} stride
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function* chunkArray(arr: Array<any>, stride: number = 1) {
+export function* chunkArray<T>(arr: T[], stride = 1) {
   for (let i = 0; i < arr.length; i += stride) {
     yield arr.slice(i, Math.min(i + stride, arr.length))
   }

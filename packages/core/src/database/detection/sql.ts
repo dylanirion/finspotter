@@ -17,8 +17,8 @@ import {
 } from "drizzle-orm/pg-core"
 import { Resource } from "sst"
 
-import { usersTable } from "../user/sql"
 import { mediaTable } from "../media/sql"
+import { usersTable } from "../user/sql"
 
 export const detectionSourceEnum = pgEnum("source", [
   "manual",

@@ -1,7 +1,7 @@
 import { date, index, pgTable, uuid } from "drizzle-orm/pg-core"
 
-import { usersTable } from "../user/sql"
 import { individualsTable } from "../individual/sql"
+import { usersTable } from "../user/sql"
 
 //TODO: organization (non-user) adoptions?
 export const adoptionsTable = pgTable(
