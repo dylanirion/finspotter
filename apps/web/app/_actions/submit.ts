@@ -357,10 +357,13 @@ async function createUserAndVerify(opts: {
 }
 
 function setStatusSubmitted(submissionId: string) {
+  const now = new Date().toISOString()
   return putItem(Resource.SubmissionReviewPipeline.table, {
     pk: submissionId,
     sk: "status",
+    gsi1pk: "status",
     status: "submitted",
-    created_at: new Date().toISOString(),
+    created_at: now,
+    updated_at: now,
   })
 }

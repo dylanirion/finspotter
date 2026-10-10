@@ -164,8 +164,10 @@ export async function createDemoJob({
     {
       pk: submissionId,
       sk: "status",
+      gsi1pk: "status",
       status: "submitted",
-      created_at: new Date().toISOString(),
+      created_at: createdAt,
+      updated_at: createdAt,
       expires,
     },
   ])
@@ -247,8 +249,10 @@ export async function createDetectionJob(mediaId: string[]) {
     {
       pk: submissionId,
       sk: "status",
+      gsi1pk: "status",
       status: "submitted",
-      created_at: new Date().toISOString(),
+      created_at: createdAt,
+      updated_at: createdAt,
     },
   ])
 

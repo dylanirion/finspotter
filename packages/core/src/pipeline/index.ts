@@ -57,6 +57,7 @@ export type StatusItem = {
   sk: string
   gsi1pk: string
   created_at: string
+  updated_at?: string
   status: PipelineStatus
 }
 

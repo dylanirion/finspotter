@@ -1,17 +1,14 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useState } from "react"
+import { type StatusItem } from "@finspotter/core/pipeline"
 import {
   CheckCircleIcon,
   EllipsisHorizontalCircleIcon,
   ExclamationCircleIcon,
 } from "@heroicons/react/24/outline"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import {
-  getPipelineActivity,
-  type Event,
-  type StatusItem,
-} from "app/_actions/pipeline"
+import { getPipelineActivity, type Event } from "app/_actions/pipeline"
 import { Skeleton } from "components/ui/skeleton/Skeleton"
 import {
   Table,
@@ -25,12 +22,17 @@ import { useRealtime } from "hooks/useRealtime"
 import { cn } from "lib/utils"
 
 export function PipelineActivity() {
-  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([])
+  const [realtimeUnavailable, setRealtimeUnavailable] = useState(false)
   const queryClient = useQueryClient()
   const { connect, subscribe } = useRealtime()
-  const { data: active, isLoading } = useQuery({
+  const {
+    data: active,
+    isLoading,
+    isError,
+  } = useQuery({
     queryKey: ["activity"],
     queryFn: () => getPipelineActivity(3),
+    refetchInterval: 15_000,
     select: (data) =>
       data.items.map((item) => ({
         id: item.pk,
@@ -41,66 +43,105 @@ export function PipelineActivity() {
 
   useEffect(() => {
     const timeouts: ReturnType<typeof setTimeout>[] = []
-    timeoutRefs.current = timeouts
+    let cancelled = false
+    let unsubscribe: (() => void) | undefined
+
     const realtime = async () => {
-      await connect(`pipeline/*`)
+      try {
+        await connect(`pipeline/*`)
+        if (cancelled) return
 
-      subscribe({
-        next: (data: Event) => {
-          if ("pk" in data.event) {
-            const newData = data.event
-            console.debug("Pipeline: ", newData)
-            queryClient.setQueryData(
-              ["activity"],
-              (oldData: { items: StatusItem[] }) => {
-                // Replace if existing, prepend if new
-                const updatedItems = oldData.items.some(
-                  (item) => item.pk === newData.pk
-                )
-                  ? oldData.items.map((item) =>
-                      item.pk === newData.pk ? newData : item
-                    )
-                  : [newData, ...oldData.items]
-
-                // Remove duplicates, limit to 3
-                const uniqueItems = Array.from(
-                  new Map(updatedItems.map((item) => [item.pk, item])).values()
-                ).slice(0, 3)
-
-                return { items: uniqueItems }
+        const subscription = subscribe({
+          next: (data: Event) => {
+            if ("pk" in data.event) {
+              const event = data.event
+              const newData: StatusItem = {
+                pk: event.pk,
+                sk: "status",
+                gsi1pk: "status",
+                status: event.status,
+                created_at: event.created_at,
               }
-            )
-            if (["succeeded", "failed"].includes(newData.status)) {
-              const timeoutId = setTimeout(() => {
-                queryClient.invalidateQueries({
-                  queryKey: ["review"],
-                })
-                queryClient.setQueryData(
-                  ["activity"],
-                  (oldData: { items: StatusItem[] }) => ({
-                    items: oldData.items.filter(
-                      (item) => item.pk !== newData.pk
-                    ),
-                  })
-                )
-              }, 1500) //remove after 1.5 seconds
+              console.debug("Pipeline: ", newData)
+              queryClient.setQueryData(
+                ["activity"],
+                (oldData: { items: StatusItem[] } | undefined) => {
+                  const items = oldData?.items ?? []
+                  // Replace if existing, prepend if new
+                  const updatedItems = items.some(
+                    (item) => item.pk === newData.pk
+                  )
+                    ? items.map((item) =>
+                        item.pk === newData.pk ? newData : item
+                      )
+                    : [newData, ...items]
 
-              timeouts.push(timeoutId)
+                  // Remove duplicates, limit to 3
+                  const uniqueItems = Array.from(
+                    new Map(
+                      updatedItems.map((item) => [item.pk, item])
+                    ).values()
+                  ).slice(0, 3)
+
+                  return { items: uniqueItems }
+                }
+              )
+              if (["succeeded", "failed"].includes(newData.status)) {
+                const timeoutId = setTimeout(() => {
+                  queryClient.invalidateQueries({
+                    queryKey: ["review"],
+                  })
+                  queryClient.setQueryData(
+                    ["activity"],
+                    (oldData: { items: StatusItem[] } | undefined) => ({
+                      items: (oldData?.items ?? []).filter(
+                        (item) => item.pk !== newData.pk
+                      ),
+                    })
+                  )
+                }, 1500)
+
+                timeouts.push(timeoutId)
+              }
             }
-          }
-        },
-        error: () => {},
-      })
+          },
+          error: (error) => {
+            console.error(
+              "Pipeline activity realtime subscription failed",
+              error
+            )
+            setRealtimeUnavailable(true)
+          },
+        })
+        unsubscribe = () => subscription.unsubscribe()
+        setRealtimeUnavailable(false)
+      } catch (error) {
+        console.error("Pipeline activity realtime connection failed", error)
+        if (!cancelled) setRealtimeUnavailable(true)
+      }
     }
-    realtime()
+    void realtime()
+
     return () => {
+      cancelled = true
+      unsubscribe?.()
       timeouts.forEach(clearTimeout)
     }
   }, [connect, subscribe, queryClient])
 
   return (
     <div className="col-span-1 flex flex-col gap-2">
-      Activity
+      <div className="flex h-7 items-center justify-between">
+        <h3 className="font-medium text-gray-950 dark:text-white">Activity</h3>
+        {realtimeUnavailable && (
+          <span
+            className="text-xs text-amber-700 dark:text-amber-300"
+            title="Live updates are unavailable; activity refreshes every 15 seconds."
+          >
+            Refreshing periodically
+          </span>
+        )}
+      </div>
       <div className="overflow-hidden rounded-md border border-gray-300 bg-white dark:border-slate-500 dark:bg-slate-700">
         <Table className="table-fixed">
           <TableHeader className="bg-gray-50 dark:bg-slate-700">
@@ -119,16 +160,22 @@ export function PipelineActivity() {
           </TableHeader>
           <TableBody className="h-24 bg-white dark:bg-slate-900">
             {!isLoading ? (
-              active?.length ? (
+              isError ? (
+                <TableRow className="border-0">
+                  <TableCell
+                    colSpan={2}
+                    className="text-center text-red-700 dark:text-red-300"
+                  >
+                    Unable to load pipeline activity.
+                  </TableCell>
+                </TableRow>
+              ) : active?.length ? (
                 <>
                   {active.map((item) => (
                     <TableRow key={item.id} className="h-1/3 border-0">
                       <TableCell className="w-2/3 p-1">
                         <div className="flex space-x-2 text-base whitespace-nowrap">
-                          {
-                            /*new Date(Date.parse(item.created_at)).toLocaleString("en-ZA")*/
-                            item.created_at
-                          }
+                          {formatStartTime(item.created_at)}
                         </div>
                       </TableCell>
                       <TableCell className="w-1/3 p-1">
@@ -148,7 +195,10 @@ export function PipelineActivity() {
                           ) : (
                             <EllipsisHorizontalCircleIcon className="size-5 shrink-0" />
                           )}
-                          <span className="flex-1 truncate first-letter:uppercase">
+                          <span
+                            className="flex-1 truncate first-letter:uppercase"
+                            title={item.status}
+                          >
                             {item.status}
                           </span>
                         </span>
@@ -188,4 +238,15 @@ export function PipelineActivity() {
       </div>
     </div>
   )
+}
+
+function formatStartTime(value: string) {
+  const started = new Date(value)
+  if (Number.isNaN(started.getTime())) return value
+  return new Intl.DateTimeFormat("en-ZA", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(started)
 }
