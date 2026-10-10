@@ -1,8 +1,11 @@
-//TODO: https://orm.drizzle.team/docs/guides/postgis-geometry-point
-//https://neon.com/docs/extensions/postgis
-//pulumi?
-import { sql } from "drizzle-orm"
-import { customType, double, mysqlTable, varchar } from "drizzle-orm/mysql-core"
+import {
+  customType,
+  doublePrecision,
+  index,
+  pgTable,
+  uuid,
+  varchar,
+} from "drizzle-orm/pg-core"
 import { Geometry } from "wkx"
 
 import { mediaTable } from "../media/sql"
@@ -10,51 +13,48 @@ import { mediaTable } from "../media/sql"
 /** @desc Spatial Reference System ID for WGS84 */
 const SRID = 4326
 
-/**
- * @desc Defines a `geometry` column type for the ORM, built on MySQL GEOMETRY
- * @see https://dev.mysql.com/doc/refman/8.4/en/gis-point-property-functions.html
- * @see https://github.com/drizzle-team/drizzle-orm/issues/337#issuecomment-2799858963
- */
-export const geometry = customType<{
-  config: never
-  configRequired: false
+const postgisGeometry = customType<{
   data: GeoJSON.Geometry
-  driverData: Geometry
+  driverData: string
+  driverOutput: string | Buffer
 }>({
   dataType() {
-    return `geometry`
+    return `geometry(Geometry,${SRID})`
   },
+  fromDriver(value) {
+    if (Buffer.isBuffer(value)) {
+      return Geometry.parse(value).toGeoJSON() as GeoJSON.Geometry
+    }
 
-  /** @desc Between driver/db and Typescript */
-  fromDriver(value: Geometry) {
-    // Convert wkx Geometry to GeoJSON
-    return value.toGeoJSON() as GeoJSON.Geometry
+    const hex = value.startsWith("\\x") ? value.slice(2) : value
+    const geometry =
+      hex.length % 2 === 0 && /^[0-9a-f]+$/i.test(hex)
+        ? Geometry.parse(Buffer.from(hex, "hex"))
+        : Geometry.parse(value)
+
+    return geometry.toGeoJSON() as GeoJSON.Geometry
   },
-
-  /** @desc Between Typescript and driver/db */
-  toDriver(value: GeoJSON.Geometry) {
-    const geo = Geometry.parseGeoJSON(value)
-
-    // Build buffer including SRID value
-    const srid_buffer = Buffer.alloc(4)
-    srid_buffer.writeUInt32LE(SRID, 0)
-
-    // Data buffer is SRID buffer + geometry WKB
-    const data_buffer = Buffer.concat([srid_buffer, geo.toWkb()])
-
-    return sql`UNHEX(${data_buffer.toString("hex")})`
+  toDriver(value) {
+    const geometry = Geometry.parseGeoJSON(value)
+    geometry.srid = SRID
+    return geometry.toEwkt()
   },
 })
 
-export const locationsTable = mysqlTable("locations", {
-  mediaId: varchar("media_id", { length: 36 })
-    .references(() => mediaTable.id, {
-      onDelete: "cascade",
-      onUpdate: "cascade",
-    })
-    .notNull(),
-  geometry: geometry("geometry"),
-  elevation: double("elevation"),
-  description: varchar("description", { length: 255 }),
-  //NB: need to manually create spatial index via migration (not supported in Drizzle yet)
-})
+export const locationsTable = pgTable(
+  "locations",
+  {
+    mediaId: uuid("media_id")
+      .primaryKey()
+      .references(() => mediaTable.id, {
+        onDelete: "cascade",
+        onUpdate: "cascade",
+      }),
+    geometry: postgisGeometry("geometry"),
+    elevation: doublePrecision("elevation"),
+    description: varchar("description", { length: 255 }),
+  },
+  (table) => [
+    index("locations_geometry_gist_idx").using("gist", table.geometry),
+  ]
+)

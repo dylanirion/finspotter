@@ -15,7 +15,10 @@ export default $config({
         gcp: {
           version: "latest",
           project: "finspotter",
+          region: "africa-south1",
+          billingProject: "finspotter",
         },
+        command: "latest",
         neon: "latest",
       },
     }
@@ -24,9 +27,8 @@ export default $config({
     const bbox_xywh = await import("@finspotter/annotation-bbox_xywh")
     const bbox_xywha = await import("@finspotter/annotation-bbox_xywha")
     const segmentation = await import("@finspotter/annotation-segmentation")
-    const bbox_xywha_segmentation = await import(
-      "@finspotter/annotation-bbox_xywha_segmentation"
-    )
+    const bbox_xywha_segmentation =
+      await import("@finspotter/annotation-bbox_xywha_segmentation")
     const annotations = [
       bbox_xywh,
       bbox_xywha,
@@ -55,7 +57,7 @@ export default $config({
         ratio,
         homog,
         sum,
-      /*
+        /*
         pgvector.vector({ hesaff: 128 }),
         */
       ],

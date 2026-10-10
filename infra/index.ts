@@ -10,7 +10,7 @@ import { SubmissionReviewPipeline } from "@finspotter/pipeline/SubmissionReviewP
 import { db } from "./database"
 import { domain } from "./domain"
 import { email } from "./email"
-import { gcpIdentityProvider, recaptcha } from "./gcp"
+import { gcpIdentityProvider, googleMapsApiKey, recaptcha } from "./gcp"
 import { secret } from "./secret"
 import { bucket } from "./storage"
 
@@ -86,9 +86,8 @@ export function defineInfra({
       BASE_URL: $dev ? `http://${domain}` : `https://${domain}`,
       BETTER_AUTH_SECRET: secret.BetterAuthSecret.value,
       BETTER_AUTH_URL: $dev ? `http://${domain}` : `https://${domain}`,
-      // https://www.pulumi.com/registry/packages/gcp/api-docs/projects/apikey/
-      //NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: secret.GoogleMapsApiKey.value,
-      //NEXT_PUBLIC_GOOGLE_MAPS_API_MAPID: secret.GoogleMapsMapId.value,
+      NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: googleMapsApiKey,
+      NEXT_PUBLIC_GOOGLE_MAPS_API_MAPID: secret.MapId.value,
       NEXT_PUBLIC_GOOGLE_RECAPTCHA_SITE_KEY: recaptcha.name,
       NEXT_PUBLIC_REALTIME_ENDPOINT: $interpolate`https://${submissionReview.realtime.dns.HTTP}/event`,
       NEXT_PUBLIC_REALTIME_REGION: aws.getRegionOutput().name,

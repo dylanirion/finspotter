@@ -52,7 +52,7 @@ export {
   mediaTable,
   mediaMetaTable,
   mediaStateEnum,
-  //locationsTable,
+  locationsTable,
   nameTypeEnum,
   namesTable,
   organizationsTable,
@@ -94,6 +94,7 @@ export const relations = defineRelations(
     adoptionsTable,
     pipelineResultsTable,
     pipelineResultLinksTable,
+    locationsTable,
   },
   (r) => ({
     annotationsTable: {
@@ -161,12 +162,10 @@ export const relations = defineRelations(
       }),
     },
     mediaTable: {
-      /*
-    location: r.one.locationsTable({
-      from: r.mediaTable.id,
-      to: r.locationsTable.mediaId
-    }),
-    */
+      location: r.one.locationsTable({
+        from: r.mediaTable.id,
+        to: r.locationsTable.mediaId,
+      }),
       annotations: r.many.annotationsTable(),
       exif: r.many.exifTable(),
       meta: r.many.mediaMetaTable(),
@@ -293,7 +292,7 @@ export default {
   exifTable,
   mediaTable,
   mediaMetaTable,
-  //locationsTable,
+  locationsTable,
   nameTypeEnum,
   namesTable,
   organizationsTable,

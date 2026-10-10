@@ -36,6 +36,10 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Function"
     }
+    "MapId": {
+      "type": "sst.sst.Secret"
+      "value": string
+    }
     "MediaProcessingPipeline": {
       "detectionFunctions": {
         "yolact": string

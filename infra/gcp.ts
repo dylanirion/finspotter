@@ -7,7 +7,7 @@ export const gcpIdentityPool = new gcp.iam.WorkloadIdentityPool(
   {
     workloadIdentityPoolId: "aws-pool",
     disabled: false,
-  },
+  }
   //{ import: "aws-pool" }
 )
 
@@ -25,7 +25,7 @@ export const gcpIdentityProvider = new gcp.iam.WorkloadIdentityPoolProvider(
     aws: {
       accountId: aws.getCallerIdentityOutput({}).accountId,
     },
-  },
+  }
   //{ import: `${gcp.organizations.getProject({}).then(proj => proj.id)}/locations/global/workloadIdentityPools/{gcpIdentityPool.workloadIdentityPoolId}/providers/aws-pool-provider" }
   //{ import: "projects/finspotter/locations/global/workloadIdentityPools/aws-pool/providers/aws-pool-provider" }
 )
@@ -51,33 +51,60 @@ export const recaptcha = new gcp.recaptcha.EnterpriseKey("Recaptcha", {
   }),
 })
 
-/*
-import * as gcp from "@pulumi/gcp";
+const mapsApi = new gcp.projects.Service("MapsJavaScriptApi", {
+  project: gcp.config.project,
+  service: "maps-backend.googleapis.com",
+  disableOnDestroy: false,
+})
 
-// Enable the Maps JavaScript API
-const mapsApi = new gcp.projects.Service("maps-js-api", {
-    service: "maps-backend.googleapis.com", // Official service name
-});
+const placesApi = new gcp.projects.Service("PlacesApi", {
+  project: gcp.config.project,
+  service: "places-backend.googleapis.com",
+  disableOnDestroy: false,
+})
 
-// Enable the Places API
-const placesApi = new gcp.projects.Service("places-api", {
-    service: "places-backend.googleapis.com",
-});
+const apiKeysApi = new gcp.projects.Service("ApiKeysApi", {
+  project: gcp.config.project,
+  service: "apikeys.googleapis.com",
+  disableOnDestroy: false,
+})
 
-const googleMapsKey = new gcp.projects.ApiKey("google-maps-key", {
-    displayName: "Maps Production Key",
+const googleMapsProvider = new gcp.Provider("GoogleMapsProvider", {
+  project: gcp.config.project,
+  billingProject: gcp.config.project,
+  userProjectOverride: true,
+})
+
+const googleMapsKeyName = `finspotter-maps-${$app.stage}`
+  .toLowerCase()
+  .replace(/[^a-z0-9-]/g, "-")
+  .slice(0, 63)
+  .replace(/-+$/, "")
+
+const googleMapsKey = new gcp.projects.ApiKey(
+  "GoogleMapsApiKey",
+  {
+    name: googleMapsKeyName,
+    project: gcp.config.project,
+    displayName: $dev
+      ? "Finspotter Maps Development"
+      : "Finspotter Maps Production",
     restrictions: {
-        // Restrict this key to only work with Maps APIs
-        apiTargets: [
-            { service: "maps-backend.googleapis.com" },
-            { service: "places-backend.googleapis.com" },
-        ],
-        // Restrict to your specific website domain for security
-        browserKeyRestrictions: {
-            allowedReferrers: ["https://yourdomain.com*"],
-        },
+      apiTargets: [
+        { service: "maps-backend.googleapis.com" },
+        { service: "places-backend.googleapis.com" },
+      ],
+      browserKeyRestrictions: {
+        allowedReferrers: $dev
+          ? ["http://localhost:3000/*"]
+          : [`https://${$app.stage}.fin.caperadd.com/*`],
+      },
     },
-}, { dependsOn: [mapsApi, placesApi] }); // Ensure APIs are enabled first
+  },
+  {
+    dependsOn: [apiKeysApi, mapsApi, placesApi],
+    provider: googleMapsProvider,
+  }
+)
 
-export const apiKey = googleMapsKey.keyString;
-*/
+export const googleMapsApiKey = googleMapsKey.keyString
