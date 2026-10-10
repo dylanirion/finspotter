@@ -6,9 +6,8 @@ import {
   QueryClient,
 } from "@tanstack/react-query"
 import { getSingleAnnotation } from "app/_actions/annotations"
+import { Compare } from "components/ui/compare/Compare"
 import { Toaster } from "react-hot-toast"
-
-import { Compare } from "./Compare"
 
 export const generateMetadata = async ({
   params,

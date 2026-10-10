@@ -5,6 +5,7 @@ import {
   forwardRef,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -17,18 +18,9 @@ import {
 import { ExclamationTriangleIcon, PhotoIcon } from "@heroicons/react/24/solid"
 
 import { GridSpinner } from "./spinners/GridSpinner"
-import { cn, dimensionsToAspectString } from "./utils"
+import { cn } from "./utils"
 
 export { eventBus } from "./machines/EventBus"
-
-const aspectVariants = {
-  "4/3": "aspect-[4/3]",
-  "3/4": "aspect-[3/4]",
-  "7/8": "aspect-[7/8]",
-  "8/7": "aspect-[8/7]",
-  "16/9": "aspect-[16/9]",
-  "9/16": "aspect-[9/16]",
-}
 
 interface CanvasProps {
   id: string | number
@@ -71,8 +63,20 @@ export const Canvas = forwardRef<
   const [status, setStatus] = useState<"loading" | "loaded" | "error">(
     "loading"
   )
-  const aspect =
-    dimensionsToAspectString(dimensions.width, dimensions.height) ?? "4/3"
+  // Keep the reserved box in step with the requested dimensions, so a changed
+  // viewport (e.g. a rotated crop) does not render at a stale aspect ratio
+  // until the media layer reports its scaled dimensions.
+  useEffect(() => {
+    setDimensions((current) =>
+      current.width === Number(width) && current.height === Number(height)
+        ? current
+        : { width: Number(width), height: Number(height) }
+    )
+  }, [width, height])
+  const aspectRatio =
+    dimensions.width > 0 && dimensions.height > 0
+      ? `${dimensions.width} / ${dimensions.height}`
+      : undefined
   const roundedRegex = /\b([\w:]*rounded(?:-[trblse]+)?(?:-(?:\[\w+\]|\w+))?)/
   const shadowRegex = /\b([\w*:]*shadow[-\w*]*)/
   const sizeRegex = /\b((?:(?:min|max)-)?[wh]-(?:\[\S+\]|\w+(?:-\w+)*))/
@@ -165,9 +169,9 @@ export const Canvas = forwardRef<
             )}
             <div
               ref={containerRef}
+              style={{ aspectRatio }}
               className={cn(
                 size,
-                aspectVariants[aspect as keyof typeof aspectVariants],
                 "overflow-hidden object-contain",
                 ...rounded,
                 ...shadow,
@@ -181,23 +185,11 @@ export const Canvas = forwardRef<
               {status === "loading" && (
                 <div className="size-full items-center justify-center overflow-hidden">
                   <PhotoIcon className="absolute top-1/2 left-1/2 z-10 size-2/3 -translate-x-1/2 -translate-y-1/2 text-gray-100" />
-                  <div
-                    style={{
-                      width: dimensions.width,
-                      height: dimensions.height,
-                    }}
-                  ></div>
                 </div>
               )}
               {status === "error" && (
                 <div className="size-full items-center justify-center overflow-hidden">
                   <ExclamationTriangleIcon className="absolute top-1/2 left-1/2 z-10 size-2/3 -translate-x-1/2 -translate-y-1/2 text-gray-100" />
-                  <div
-                    style={{
-                      width: dimensions.width,
-                      height: dimensions.height,
-                    }}
-                  ></div>
                 </div>
               )}
               {status === "loaded" && (

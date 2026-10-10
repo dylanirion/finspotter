@@ -16,6 +16,7 @@ import {
   type ReviewComparisonData,
 } from "app/_actions/pipeline"
 import { Button } from "components/ui/inputs/Button"
+import { Skeleton } from "components/ui/skeleton/Skeleton"
 import { cn } from "lib/utils"
 
 import { MediaGroup } from "./MediaGroup"
@@ -30,20 +31,10 @@ import { MediaGroup } from "./MediaGroup"
 //TODO: rotate canvas, pick side by side top or bottom
 
 type CompareProps =
-  | { ids: [string, string]; comparison?: never }
+  | { ids: [string, string]; comparison?: never; reviewId?: never }
   | { ids?: never; comparison: ReviewComparisonData; reviewId: string }
 
 type QuarterTurn = 0 | 1 | 2 | 3
-
-export function ReviewCompare({
-  comparison,
-  reviewId,
-}: {
-  comparison: ReviewComparisonData
-  reviewId: string
-}) {
-  return <Compare comparison={comparison} reviewId={reviewId} />
-}
 
 export function Compare({ ids, comparison, reviewId }: CompareProps) {
   const [container, setContainer] = useState<HTMLDivElement | null>()
@@ -83,6 +74,14 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
     [handleMediaLoaded]
   )
   const handleMediaError = useCallback(() => setMediaFailed(true), [])
+  const rotateAClockwise = useCallback(
+    () => setRotationA((turn) => ((turn + 1) % 4) as QuarterTurn),
+    []
+  )
+  const rotateBClockwise = useCallback(
+    () => setRotationB((turn) => ((turn + 1) % 4) as QuarterTurn),
+    []
+  )
 
   const { data: persistedA, isFetching: isFetchingA } = useQuery({
     queryKey: ["annotation", String(ids?.[0])],
@@ -131,8 +130,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
   const comparisonFeaturesB = artifacts?.referenceFeatures ?? []
   const comparisonMatches = artifacts?.matches ?? []
 
-  if (!a && !b && !isFetching) return <h1>Not Found!</h1>
-  //TODO: a loading skeleton would be ideal, but media might shift
+  if (!isFetching && (!a?.media || !b?.media)) return <h1>Not Found!</h1>
 
   const { getTransformMatrix: transformA } = getAnnotationComponents(
     a?.type ?? "null"
@@ -149,113 +147,150 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
     isLandscape(viewportA.transform) || isLandscape(viewportB.transform)
       ? "vertical"
       : "horizontal"
-  const rotateAClockwise = useCallback(
-    () => setRotationA((turn) => ((turn + 1) % 4) as QuarterTurn),
-    []
-  )
-  const rotateBClockwise = useCallback(
-    () => setRotationB((turn) => ((turn + 1) % 4) as QuarterTurn),
-    []
-  )
+
+  if (!a?.media || !b?.media)
+    return (
+      <CompareSkeleton
+        labels={labels}
+        layout={layout}
+        viewports={[viewportA.transform, viewportB.transform]}
+      />
+    )
 
   return (
-    a?.media &&
-    b?.media && (
-      <>
-        <h1 className="text-2xl font-bold tracking-tight">
-          <span className="inline">Compare</span>{" "}
-          <span className="inline text-indigo-600">{labels[0]}</span>{" "}
-          <span className="inline">:</span>{" "}
-          <span className="inline text-indigo-600">{labels[1]}</span>
-        </h1>
-        <div ref={setContainer} className="relative">
-          <MediaGroup className="justify-center" layout={layout}>
-            <Canvas
-              id={a.media.id}
-              ref={setCanvasA}
-              className={cn("rounded-md shadow-md", {
-                "h-[calc(100dvh_-_10rem)]":
-                  viewportA.transform.height > viewportA.transform.width,
-              })}
-              width={viewportA.transform.width}
-              height={viewportA.transform.height}
+    <>
+      <h1 className="text-2xl font-bold tracking-tight">
+        <span className="inline">Compare</span>{" "}
+        <span className="inline text-indigo-600">{labels[0]}</span>{" "}
+        <span className="inline">:</span>{" "}
+        <span className="inline text-indigo-600">{labels[1]}</span>
+      </h1>
+      <div ref={setContainer} className="relative">
+        <MediaGroup className="justify-center" layout={layout}>
+          <Canvas
+            id={a.media.id}
+            ref={setCanvasA}
+            className={cn("rounded-md shadow-md", {
+              "h-[calc(100dvh_-_10rem)]":
+                viewportA.transform.height > viewportA.transform.width,
+            })}
+            width={viewportA.transform.width}
+            height={viewportA.transform.height}
+          >
+            <MediaLayer
+              ref={setMediaA}
+              media={a.media}
+              transform={viewportA.transform}
+              derivedTransform={viewportA.derivedTransform}
+              onLoad={handleMediaALoaded}
+              onError={handleMediaError}
             >
-              <MediaLayer
-                ref={setMediaA}
-                media={a.media}
-                transform={viewportA.transform}
-                derivedTransform={viewportA.derivedTransform}
-                onLoad={handleMediaALoaded}
-                onError={handleMediaError}
-              >
-                <PanZoomPanel
-                  ref={setPanZoomA}
-                  className="absolute top-1 left-1"
-                />
-              </MediaLayer>
-              <Button
-                intent="none"
-                size="icon"
-                className="absolute top-1 right-1 z-[60] grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
-                onClick={rotateAClockwise}
-                title="Rotate query image clockwise"
-                aria-label="Rotate query image clockwise"
-              >
-                <ArrowPathIcon className="size-4" />
-              </Button>
-            </Canvas>
-            <Canvas
-              id={b.media.id}
-              ref={setCanvasB}
-              className={cn("rounded-md shadow-md", {
-                "h-[calc(100dvh_-_10rem)]":
-                  viewportB.transform.height > viewportB.transform.width,
-              })}
-              width={viewportB.transform.width}
-              height={viewportB.transform.height}
+              <PanZoomPanel
+                ref={setPanZoomA}
+                className="absolute top-1 left-1"
+              />
+            </MediaLayer>
+            <Button
+              intent="none"
+              size="icon"
+              className="absolute top-1 right-1 z-[60] grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
+              onClick={rotateAClockwise}
+              title="Rotate query image clockwise"
+              aria-label="Rotate query image clockwise"
             >
-              <MediaLayer
-                ref={setMediaB}
-                media={b.media}
-                transform={viewportB.transform}
-                derivedTransform={viewportB.derivedTransform}
-                onLoad={handleMediaBLoaded}
-                onError={handleMediaError}
-              >
-                <PanZoomPanel
-                  ref={setPanZoomB}
-                  className="absolute top-1 left-1"
-                />
-              </MediaLayer>
-              <Button
-                intent="none"
-                size="icon"
-                className="absolute top-1 right-1 z-[60] grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
-                onClick={rotateBClockwise}
-                title="Rotate reference image clockwise"
-                aria-label="Rotate reference image clockwise"
-              >
-                <ArrowPathIcon className="size-4" />
-              </Button>
-            </Canvas>
-          </MediaGroup>
-          {container && canvasA && canvasB && (
-            <FeatureConnector
-              featuresA={comparisonFeaturesA}
-              featuresB={comparisonFeaturesB}
-              matches={comparisonMatches}
-              container={container}
-              canvasA={canvasA}
-              canvasB={canvasB}
-              transformA={mediaA?.derivedMatrix}
-              transformB={mediaB?.derivedMatrix}
-              panZoomA={panZoomA?.service}
-              panZoomB={panZoomB?.service}
+              <ArrowPathIcon className="size-4" />
+            </Button>
+          </Canvas>
+          <Canvas
+            id={b.media.id}
+            ref={setCanvasB}
+            className={cn("rounded-md shadow-md", {
+              "h-[calc(100dvh_-_10rem)]":
+                viewportB.transform.height > viewportB.transform.width,
+            })}
+            width={viewportB.transform.width}
+            height={viewportB.transform.height}
+          >
+            <MediaLayer
+              ref={setMediaB}
+              media={b.media}
+              transform={viewportB.transform}
+              derivedTransform={viewportB.derivedTransform}
+              onLoad={handleMediaBLoaded}
+              onError={handleMediaError}
+            >
+              <PanZoomPanel
+                ref={setPanZoomB}
+                className="absolute top-1 left-1"
+              />
+            </MediaLayer>
+            <Button
+              intent="none"
+              size="icon"
+              className="absolute top-1 right-1 z-[60] grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
+              onClick={rotateBClockwise}
+              title="Rotate reference image clockwise"
+              aria-label="Rotate reference image clockwise"
+            >
+              <ArrowPathIcon className="size-4" />
+            </Button>
+          </Canvas>
+        </MediaGroup>
+        {container && canvasA && canvasB && (
+          <FeatureConnector
+            featuresA={comparisonFeaturesA}
+            featuresB={comparisonFeaturesB}
+            matches={comparisonMatches}
+            container={container}
+            canvasA={canvasA}
+            canvasB={canvasB}
+            transformA={mediaA?.derivedMatrix}
+            transformB={mediaB?.derivedMatrix}
+            panZoomA={panZoomA?.service}
+            panZoomB={panZoomB?.service}
+          />
+        )}
+      </div>
+    </>
+  )
+}
+
+function CompareSkeleton({
+  labels,
+  layout,
+  viewports,
+}: {
+  labels: [string, string]
+  layout: "horizontal" | "vertical"
+  viewports: [Transform, Transform]
+}) {
+  return (
+    <>
+      <h1 className="text-2xl font-bold tracking-tight">
+        <span className="inline">Compare</span>{" "}
+        <span className="inline text-indigo-600">{labels[0]}</span>{" "}
+        <span className="inline">:</span>{" "}
+        <span className="inline text-indigo-600">{labels[1]}</span>
+      </h1>
+      <div className="relative">
+        <MediaGroup className="justify-center" layout={layout}>
+          {viewports.map((viewport, index) => (
+            <Skeleton
+              key={index}
+              // Reserve the same box the loaded viewport will occupy, so the
+              // cropped and rotated aspect does not shift on load.
+              style={{
+                aspectRatio: `${viewport.width ?? 4} / ${viewport.height ?? 3}`,
+              }}
+              className={cn("w-full rounded-md shadow-md dark:bg-slate-700", {
+                "h-[calc(100dvh_-_10rem)] w-auto":
+                  (viewport.height ?? 0) > (viewport.width ?? 0),
+              })}
             />
-          )}
-        </div>
-      </>
-    )
+          ))}
+        </MediaGroup>
+      </div>
+    </>
   )
 }
 

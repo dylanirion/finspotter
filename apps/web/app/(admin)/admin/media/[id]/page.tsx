@@ -7,9 +7,8 @@ import {
   QueryClient,
 } from "@tanstack/react-query"
 import { getSingleMedia } from "app/_actions/media"
+import { MediaEditor } from "components/ui/media/MediaEditor"
 import { Toaster } from "react-hot-toast"
-
-import { MediaEditor } from "./MediaEditor"
 
 export const generateMetadata = async ({
   params,

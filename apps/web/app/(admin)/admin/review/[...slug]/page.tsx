@@ -11,10 +11,10 @@ import {
   getReviewComparison,
   getSingleMedia,
 } from "app/_actions/pipeline"
+import { Compare } from "components/ui/compare/Compare"
+import { MediaEditor } from "components/ui/media/MediaEditor"
 import { Toaster } from "react-hot-toast"
 
-import { ReviewCompare } from "../../annotations/compare/[[...ids]]/Compare"
-import { MediaEditor } from "../../media/[id]/MediaEditor"
 import { ReviewLease } from "./ReviewLease"
 
 export const generateMetadata = async ({
@@ -53,7 +53,7 @@ export default async function SingleMediaReviewPage({
     return (
       <>
         <ReviewLease claim={claim} />
-        <ReviewCompare comparison={comparison} reviewId={claim.id} />
+        <Compare comparison={comparison} reviewId={claim.id} />
         <Toaster position="bottom-right" reverseOrder={false} />
       </>
     )
