@@ -83,6 +83,7 @@ export const Canvas = forwardRef<
   const rounded = className?.match(new RegExp(roundedRegex, "g")) ?? []
   const shadow = className?.match(new RegExp(shadowRegex, "g")) ?? []
   const size = className?.match(new RegExp(sizeRegex, "g")) ?? []
+  const hasWidth = size.some((value) => /(?:^|:)w-/.test(value))
   const filteredClassName = className
     ?.split(" ")
     .filter((str) => (str.match(roundedRegex) ?? []).length === 0)
@@ -173,6 +174,9 @@ export const Canvas = forwardRef<
               className={cn(
                 size,
                 "overflow-hidden object-contain",
+                {
+                  "w-full": !hasWidth,
+                },
                 ...rounded,
                 ...shadow,
                 {

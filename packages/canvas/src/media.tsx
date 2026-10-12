@@ -104,12 +104,13 @@ export function MediaLayer({
   // TODO: how to remove need for useEffect? (need it for browser's Image() class)
   // use node-canvas?
   useEffect(() => {
+    setStatus("loading")
     const img = new Image()
     img.onload = () => {
       setStatus("loaded")
       const {
         width: containerWidth = transform?.width ?? img.width,
-        height: containerHeight = transform?.height ?? img.width,
+        height: containerHeight = transform?.height ?? img.height,
       } = containerRef.current?.getBoundingClientRect() ?? {}
       const { width: limitedWidth, height: limitedHeight } = limitImageSize(
         transform?.width && transform?.height
@@ -138,6 +139,10 @@ export function MediaLayer({
     img.sizes = media.sizes ?? ""
     img.fetchPriority = "high"
     imageRef.current = img
+    return () => {
+      img.onload = null
+      img.onerror = null
+    }
   }, [
     media.src,
     media.srcSet,

@@ -39,7 +39,9 @@ export async function GET(
     const headers = new Headers()
     headers.set(
       "Content-Type",
-      response.metadata.contentType || "application/octet-stream"
+      response.metadata.contentType ||
+        media.exif.content_type ||
+        "application/octet-stream"
     )
     headers.set(
       "Cache-Control",

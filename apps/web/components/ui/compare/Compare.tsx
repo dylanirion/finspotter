@@ -83,7 +83,11 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
     []
   )
 
-  const { data: persistedA, isFetching: isFetchingA } = useQuery({
+  const {
+    data: persistedA,
+    isPending: isPendingA,
+    isError: isErrorA,
+  } = useQuery({
     queryKey: ["annotation", String(ids?.[0])],
     queryFn: (): Promise<
       | (Annotation & {
@@ -93,7 +97,11 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
     > => getSingleAnnotation(ids![0]),
     enabled: ids !== undefined,
   })
-  const { data: persistedB, isFetching: isFetchingB } = useQuery({
+  const {
+    data: persistedB,
+    isPending: isPendingB,
+    isError: isErrorB,
+  } = useQuery({
     queryKey: ["annotation", String(ids?.[1])],
     queryFn: (): Promise<
       | (Annotation & {
@@ -114,14 +122,14 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
   })
   const a = comparison
     ? { ...comparison.query.annotation, media: comparison.query.media }
-    : persistedA
+    : withMediaRoute(persistedA)
   const b = comparison
     ? {
         ...comparison.reference.annotation,
         media: comparison.reference.media,
       }
-    : persistedB
-  const isFetching = ids !== undefined && (isFetchingA || isFetchingB)
+    : withMediaRoute(persistedB)
+  const isPending = ids !== undefined && (isPendingA || isPendingB)
   const labels: [string, string] = ids ?? [
     `${comparison.query.annotation.mediaId}/${comparison.query.annotation.detectionId}`,
     `${comparison.reference.annotation.mediaId}/${comparison.reference.annotation.detectionId}`,
@@ -129,8 +137,6 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
   const comparisonFeaturesA = artifacts?.queryFeatures ?? []
   const comparisonFeaturesB = artifacts?.referenceFeatures ?? []
   const comparisonMatches = artifacts?.matches ?? []
-
-  if (!isFetching && (!a?.media || !b?.media)) return <h1>Not Found!</h1>
 
   const { getTransformMatrix: transformA } = getAnnotationComponents(
     a?.type ?? "null"
@@ -148,7 +154,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
       ? "vertical"
       : "horizontal"
 
-  if (!a?.media || !b?.media)
+  if (isPending)
     return (
       <CompareSkeleton
         labels={labels}
@@ -156,6 +162,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
         viewports={[viewportA.transform, viewportB.transform]}
       />
     )
+  if (isErrorA || isErrorB || !a?.media || !b?.media) return <h1>Not Found!</h1>
 
   return (
     <>
@@ -171,7 +178,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
             id={a.media.id}
             ref={setCanvasA}
             className={cn("rounded-md shadow-md", {
-              "h-[calc(100dvh_-_10rem)]":
+              "h-[calc(100dvh_-_10rem)] w-auto":
                 viewportA.transform.height > viewportA.transform.width,
             })}
             width={viewportA.transform.width}
@@ -205,7 +212,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
             id={b.media.id}
             ref={setCanvasB}
             className={cn("rounded-md shadow-md", {
-              "h-[calc(100dvh_-_10rem)]":
+              "h-[calc(100dvh_-_10rem)] w-auto":
                 viewportB.transform.height > viewportB.transform.width,
             })}
             width={viewportB.transform.width}
@@ -253,6 +260,22 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
       </div>
     </>
   )
+}
+
+function withMediaRoute<
+  T extends
+    | (Annotation & { media?: Pick<Media, "id" | "src" | "exif"> })
+    | null
+    | undefined,
+>(annotation: T) {
+  if (!annotation?.media) return annotation
+  return {
+    ...annotation,
+    media: {
+      ...annotation.media,
+      src: `/api/media/${annotation.media.id}`,
+    },
+  }
 }
 
 function CompareSkeleton({

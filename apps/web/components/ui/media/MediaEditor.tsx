@@ -9,7 +9,6 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react"
-import { getImageProps } from "next/image"
 import {
   AnnotationTypes,
   type AnnotationDataTypes,
@@ -50,6 +49,7 @@ import {
   approveDetectionReview,
   getSingleMedia as getPipelineMedia,
 } from "app/_actions/pipeline"
+import { Skeleton } from "components/ui/skeleton/Skeleton"
 import {
   humanReadableBytes,
   parseDate,
@@ -70,9 +70,7 @@ export function MediaEditor({
   variant?: "media" | "review"
 }) {
   //TODO: this needs to cache annotation infinitely, otherwise it refires on tab refocus
-  const {
-    data: { annotations = [], ...media },
-  } = useQuery({
+  const { data, isPending, isError } = useQuery({
     queryKey: ["media", id],
     queryFn: async (): Promise<Media> => {
       const media =
@@ -82,7 +80,6 @@ export function MediaEditor({
       if (!media) throw new Error("Media not found!")
       return media
     },
-    initialData: {} as Media,
   })
   const [active, setActive] = useState<string[]>([])
   const queryClient = useQueryClient()
@@ -190,17 +187,13 @@ export function MediaEditor({
     },
   })
 
-  const { props: imgProps } = getImageProps({
-    src: `/api/media/${media.id}`,
-    width: Number(media.exif?.width ?? 4000),
-    height: Number(media.exif?.height ?? 3000),
-    alt: "",
-    quality: 100,
-  })
+  if (isPending) return <MediaEditorSkeleton />
+  if (isError || !data) return <h1>Media not found.</h1>
 
-  const optimizedMedia = {
+  const { annotations = [], ...media } = data
+  const renderableMedia = {
     ...media,
-    ...imgProps,
+    src: `/api/media/${media.id}`,
   }
 
   //TODO add instructions to user, circle icon?
@@ -214,7 +207,7 @@ export function MediaEditor({
         width={media.exif?.width}
         height={media.exif?.height}
       >
-        <MediaLayer media={optimizedMedia}>
+        <MediaLayer media={renderableMedia}>
           {/* TODO: save filter state to database with image? */}
           <FiltersPopover className="absolute top-1 left-1 size-8 rounded-md bg-slate-900">
             <FiltersPanel />
@@ -293,6 +286,15 @@ export function MediaEditor({
           <Log className="rounded-md border bg-white p-3 shadow-md dark:border-slate-600 dark:bg-slate-700" />
         </div>
       )}
+    </div>
+  )
+}
+
+function MediaEditorSkeleton() {
+  return (
+    <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+      <Skeleton className="col-span-1 aspect-4/3 max-h-[calc(100dvh-10rem)] rounded-md shadow-md md:col-span-3" />
+      <Skeleton className="hidden min-h-48 rounded-md md:block" />
     </div>
   )
 }
