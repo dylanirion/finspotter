@@ -51,6 +51,7 @@ import {
 } from "app/_actions/pipeline"
 import { Skeleton } from "components/ui/skeleton/Skeleton"
 import {
+  cn,
   humanReadableBytes,
   parseDate,
   shortDateFormat,
@@ -195,6 +196,8 @@ export function MediaEditor({
     ...media,
     src: `/api/media/${media.id}`,
   }
+  const isPortrait =
+    Number(media.exif?.height ?? 0) > Number(media.exif?.width ?? 0)
 
   //TODO add instructions to user, circle icon?
   //TODO consider admin nav offset in breakpoints, can tailwind do arbitrary breakpoints?
@@ -203,7 +206,13 @@ export function MediaEditor({
       <Canvas
         key={id}
         id={id}
-        className="col-span-1 max-h-[calc(100dvh-10rem)] justify-center rounded-md shadow-md md:col-span-3"
+        className={cn(
+          "col-span-1 justify-center rounded-md shadow-md md:col-span-3",
+          {
+            "h-[calc(100dvh-10rem)] w-auto": isPortrait,
+            "w-full": !isPortrait,
+          }
+        )}
         width={media.exif?.width}
         height={media.exif?.height}
       >
