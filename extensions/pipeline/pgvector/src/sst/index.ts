@@ -92,7 +92,7 @@ export const indexed = ({
         bucket: "$.detail.dynamodb.NewImage.uri.M.features.M.bucket.S",
         key: "$.detail.dynamodb.NewImage.uri.M.features.M.key.S",
       },
-      inputTemplate: `{"pk":"<pk>","id":"<annotationId>","type":"<type>","category":"<category>","bucket":"<bucket>","key":"<key>"}`,
+      inputTemplate: `{"id":"<annotationId>","type":"<type>","category":"<category>","bucket":"<bucket>","key":"<key>"}`,
     },
     roleArn: autoAddRole.arn,
   })

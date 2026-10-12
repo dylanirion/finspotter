@@ -54,6 +54,36 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Function"
     }
+    "PgVector": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "PgVectorAddFunction": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
+    "PgVectorAddMachine": {
+      "arn": string
+      "id": string
+      "name": string
+      "roleArn": string
+      "type": "sst.aws.StateMachine"
+    }
+    "PgVectorAutoAdd": {
+      "arn": string
+      "id": string
+      "name": string
+      "roleArn": string
+      "type": "sst.aws.StateMachine"
+    }
+    "PgVectorDatabase": {
+      "host": string
+      "type": "sst.sst.Linkable"
+    }
+    "PgVectorRemove": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
     "PipelineAlertsEmail": {
       "type": "sst.sst.Secret"
       "value": string
@@ -67,14 +97,21 @@ declare module "sst" {
       "value": string
     }
     "SimilaritySearchPipeline": {
+      "addFunctions": {
+        "pgvector": string
+      }
       "pipeline": string
       "refineFunctions": {
         "homog": string
         "ratio": string
         "sum": string
       }
+      "removeFunctions": {
+        "pgvector": string
+      }
       "searchFunctions": {
         "faiss:pairwise": string
+        "pgvector:indexed": string
       }
       "type": "finspotter.pipeline.SimilaritySearchPipeline"
     }
