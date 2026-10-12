@@ -33,20 +33,13 @@ export async function sendMail(
   subject: string,
   template: ReactElement<unknown, string | JSXElementConstructor<unknown>>
 ) {
-  return await transporter
-    .sendMail({
-      to,
-      from,
-      subject,
-      html: await render(template, {
-        minify: true,
-        inlineCss: true,
-      }),
-    })
-    .then((result) => {
-      const failed = result.rejected
-      if (failed.length) {
-        throw new Error(`Email(s) (${failed.join(", ")}) could not be sent`)
-      }
-    })
+  await transporter.sendMail({
+    to,
+    from,
+    subject,
+    html: await render(template, {
+      minify: true,
+      inlineCss: true,
+    }),
+  })
 }
