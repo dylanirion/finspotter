@@ -341,8 +341,10 @@ export async function claimReviewItem(id: string) {
 }
 
 export async function getReviewClaim(id: string): Promise<ReviewClaim | null> {
+  const parsedId = z.uuid().safeParse(id)
+  if (!parsedId.success) return null
   const reviewerId = await requireReviewer()
-  const claimed = await pipelineResults.findClaimed(id, reviewerId)
+  const claimed = await pipelineResults.findClaimed(parsedId.data, reviewerId)
   if (!claimed) return null
   return {
     ...toReviewQueueItem(claimed),

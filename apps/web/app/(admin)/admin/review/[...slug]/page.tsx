@@ -14,6 +14,7 @@ import {
 import { Compare } from "components/ui/compare/Compare"
 import { MediaEditor } from "components/ui/media/MediaEditor"
 import { Toaster } from "react-hot-toast"
+import { z } from "zod"
 
 import { ReviewLease } from "./ReviewLease"
 
@@ -38,6 +39,7 @@ export default async function SingleMediaReviewPage({
   const { slug: [mediaId, detectionId] = [] } = await params
   const { review: reviewId } = await searchParams
   if (!mediaId) notFound()
+  if (reviewId && !z.uuid().safeParse(reviewId).success) redirect("/dashboard")
   const selectedDetectionId =
     detectionId === undefined ? undefined : Number(detectionId)
   if (
