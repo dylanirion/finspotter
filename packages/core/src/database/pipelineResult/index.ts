@@ -18,7 +18,6 @@ import {
   annotationsTable,
 } from "../annotation/sql"
 import { detectionsTable } from "../detection/sql"
-import { createIndividualSummaryRepository } from "../individualSummary"
 import { mediaTable } from "../media/sql"
 import { pipelineResultLinksTable, pipelineResultsTable } from "./sql"
 
@@ -452,6 +451,8 @@ export function createPipelineResultRepository(): PipelineResultRepository {
           .returning()
 
         if (annotation.individualId) {
+          const { createIndividualSummaryRepository } =
+            await import("../individualSummary")
           await createIndividualSummaryRepository().refresh(
             [annotation.individualId],
             tx
