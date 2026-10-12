@@ -14,6 +14,7 @@ import {
   type SearchFunction,
 } from "@finspotter/config/pipeline"
 
+import { type ExifData } from "../database/exif"
 import { createStorageRepository, type StorageRepository } from "../storage"
 
 export {
@@ -74,6 +75,7 @@ export type MediaItem = {
   uploaded_at?: string
   updated_at?: string
   superseded_by?: string
+  exif?: ExifData
   uri: {
     bucket: string
     key: string
@@ -243,6 +245,7 @@ export interface RegisterMediaInput {
     bucket: string
     key: string
   }
+  exif: ExifData
 }
 
 export interface CloseSubmissionResult {
@@ -300,7 +303,7 @@ export function createPipelineLifecycleRepository({
       })
     },
 
-    async registerMedia({ submissionId, mediaId, type, uri }) {
+    async registerMedia({ submissionId, mediaId, type, uri, exif }) {
       const now = new Date().toISOString()
       await storage.updateItem(table, {
         Key: { pk: submissionId, sk: `media#${mediaId}` },
@@ -311,6 +314,7 @@ export function createPipelineLifecycleRepository({
           "#UPLOADSTATUS": "upload_status",
           "#PROCESSINGSTATUS": "processing_status",
           "#URI": "uri",
+          "#EXIF": "exif",
           "#GSI1PK": "gsi1pk",
           "#CREATEDAT": "created_at",
           "#UPDATEDAT": "updated_at",
@@ -323,11 +327,12 @@ export function createPipelineLifecycleRepository({
           ":uploadStatus": "registered",
           ":processingStatus": "pending",
           ":uri": uri,
+          ":exif": exif,
           ":gsi1pk": "result",
           ":now": now,
         },
         UpdateExpression:
-          "SET #ITEMTYPE = if_not_exists(#ITEMTYPE, :itemType), media_id = if_not_exists(media_id, :mediaId), #TYPE = :type, #ACCEPTED = if_not_exists(#ACCEPTED, :accepted), #UPLOADSTATUS = if_not_exists(#UPLOADSTATUS, :uploadStatus), #PROCESSINGSTATUS = if_not_exists(#PROCESSINGSTATUS, :processingStatus), #URI = :uri, #GSI1PK = if_not_exists(#GSI1PK, :gsi1pk), #CREATEDAT = if_not_exists(#CREATEDAT, :now), #UPDATEDAT = :now",
+          "SET #ITEMTYPE = if_not_exists(#ITEMTYPE, :itemType), media_id = if_not_exists(media_id, :mediaId), #TYPE = :type, #ACCEPTED = if_not_exists(#ACCEPTED, :accepted), #UPLOADSTATUS = if_not_exists(#UPLOADSTATUS, :uploadStatus), #PROCESSINGSTATUS = if_not_exists(#PROCESSINGSTATUS, :processingStatus), #URI = :uri, #EXIF = if_not_exists(#EXIF, :exif), #GSI1PK = if_not_exists(#GSI1PK, :gsi1pk), #CREATEDAT = if_not_exists(#CREATEDAT, :now), #UPDATEDAT = :now",
       })
     },
 

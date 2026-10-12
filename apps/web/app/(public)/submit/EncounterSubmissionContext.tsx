@@ -14,6 +14,7 @@ import {
   type RefObject,
 } from "react"
 import Link from "next/link"
+import { type ExifData } from "@finspotter/core/exif"
 import { completeMediaUpload, getUploadUrl } from "app/_actions/submit"
 import { SmallProgressBar } from "components/ui/spinners/SmallProgressBar"
 import exifr from "exifr/dist/lite.esm.mjs"
@@ -194,12 +195,28 @@ export function fileListToEncounterSubmissionData(
   const response = fileList.map(async (file: File) => {
     const id = await generateUuidFromFile(file)
     //TODO: https://github.com/mattiasw/ExifReader?
-    const exif = await exifr.parse(file).catch(() => ({}))
+    const exif = (await exifr.parse(file).catch(() => undefined)) ?? {}
     const token = await getRecaptchaToken(`upload_image`)
     const presignedUrl = getPresignedURL(submissionId, {
       id,
       file,
       token,
+      exif: {
+        camera_make: toExifValue(exif.Make),
+        camera_model: toExifValue(exif.Model),
+        content_type: file.type,
+        date_time: toExifDateTime(exif.DateTimeOriginal),
+        depth: toExifValue(exif.BitsPerSample),
+        height: toExifValue(
+          exif.ExifImageHeight ?? exif.PixelYDimension ?? exif.ImageHeight
+        ),
+        width: toExifValue(
+          exif.ExifImageWidth ?? exif.PixelXDimension ?? exif.ImageWidth
+        ),
+        length: String(file.size),
+        temperature: toExifValue(exif.CameraTemperature),
+        time_zone: toExifValue(exif.OffsetTimeOriginal),
+      },
     }).catch(() => undefined)
     console.debug("parsed exif:", exif)
     return {
@@ -237,6 +254,7 @@ async function getPresignedURL(
     id: string
     file: File
     token?: string
+    exif: ExifData
   }
 ) {
   const { bucket, key, url, fields } = await getUploadUrl(
@@ -247,6 +265,7 @@ async function getPresignedURL(
     {
       submissionId: pipelineId,
       mediaId: encounter.id,
+      exif: encounter.exif,
     }
   ).catch((e) => {
     throw new Error(e)
@@ -262,4 +281,32 @@ async function getPresignedURL(
     bucket,
     key,
   }
+}
+
+function toExifValue(value: unknown) {
+  if (typeof value === "string") return value
+  if (typeof value === "number")
+    return Number.isFinite(value) ? String(value) : undefined
+  if (
+    Array.isArray(value) &&
+    value.every(
+      (item): item is string | number =>
+        typeof item === "string" ||
+        (typeof item === "number" && Number.isFinite(item))
+    )
+  )
+    return value.join(",")
+  return undefined
+}
+
+function toExifDateTime(value: unknown) {
+  if (
+    typeof value === "string" &&
+    /^\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
+  )
+    return value
+  if (!(value instanceof Date) || Number.isNaN(value.getTime()))
+    return undefined
+  const pad = (part: number) => String(part).padStart(2, "0")
+  return `${value.getFullYear()}:${pad(value.getMonth() + 1)}:${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`
 }

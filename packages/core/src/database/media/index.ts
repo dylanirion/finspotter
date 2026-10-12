@@ -21,6 +21,7 @@ import {
 } from "../annotation"
 import { annotationsTable } from "../annotation/sql"
 import { exifCTEs, jsonExifSubQuery, type ExifData } from "../exif"
+import { exifTable } from "../exif/sql"
 import { createIndividualSummaryRepository } from "../individualSummary"
 import { mediaTable } from "./sql"
 
@@ -34,7 +35,11 @@ export interface Media {
 
 export type MediaColumns = keyof typeof mediaTable.$inferSelect
 type MediaRepository = Repository<Media> & {
-  register: (media: { id: string; src: string }) => Promise<void>
+  register: (media: {
+    id: string
+    src: string
+    exif?: ExifData
+  }) => Promise<void>
   setSource: (id: string, src: string) => Promise<void>
 }
 
@@ -259,21 +264,31 @@ const drizzleMediaRepository: MediaRepository = {
   },
 
   async register(media) {
-    const [registered] = await db
-      .insert(mediaTable)
-      .values({ ...media, state: "pending" })
-      .onConflictDoNothing()
-      .returning({ id: mediaTable.id })
-    if (registered) return
+    await db.transaction(async (tx) => {
+      const [registered] = await tx
+        .insert(mediaTable)
+        .values({ id: media.id, src: media.src, state: "pending" })
+        .onConflictDoNothing()
+        .returning({ id: mediaTable.id })
 
-    const [existing] = await db
-      .select({ src: mediaTable.src, state: mediaTable.state })
-      .from(mediaTable)
-      .where(eq(mediaTable.id, media.id))
-      .limit(1)
-    if (existing?.state !== "pending" || existing.src !== media.src) {
-      throw new Error(`Media ${media.id} is already registered`)
-    }
+      if (!registered) {
+        const [existing] = await tx
+          .select({ src: mediaTable.src, state: mediaTable.state })
+          .from(mediaTable)
+          .where(eq(mediaTable.id, media.id))
+          .limit(1)
+        if (existing?.state !== "pending" || existing.src !== media.src) {
+          throw new Error(`Media ${media.id} is already registered`)
+        }
+      }
+
+      const exif = Object.entries(media.exif ?? {}).flatMap(([key, value]) =>
+        value === undefined ? [] : [{ mediaId: media.id, key, value }]
+      )
+      if (exif.length) {
+        await tx.insert(exifTable).values(exif).onConflictDoNothing()
+      }
+    })
   },
 
   async setSource(id, src) {

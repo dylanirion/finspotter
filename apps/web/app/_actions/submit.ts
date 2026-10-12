@@ -7,6 +7,7 @@ import { headers } from "next/headers"
 import { ALLOWEDCONTENTTYPES, site } from "@finspotter/config/site"
 import { submissionVerification } from "@finspotter/core/auth/plugin"
 import { getEmailFrom, sendMail } from "@finspotter/core/email"
+import { type ExifData } from "@finspotter/core/exif"
 import { createMediaRepository } from "@finspotter/core/media"
 import { createPipelineLifecycleRepository } from "@finspotter/core/pipeline"
 import { validateReCaptcha } from "@finspotter/core/recaptcha"
@@ -25,6 +26,26 @@ interface UserData {
   email?: string
   emailOthers?: string[] | string
 }
+
+const positiveIntegerString = z.string().regex(/^[1-9]\d*$/)
+
+const exifDataSchema = z
+  .object({
+    camera_make: z.string().max(256).optional(),
+    camera_model: z.string().max(256).optional(),
+    content_type: z.string().max(256).optional(),
+    date_time: z
+      .string()
+      .regex(/^\d{4}:\d{2}:\d{2} \d{2}:\d{2}:\d{2}$/)
+      .optional(),
+    depth: z.string().max(64).optional(),
+    height: positiveIntegerString.optional(),
+    width: positiveIntegerString.optional(),
+    length: z.string().regex(/^\d+$/).optional(),
+    temperature: z.string().max(64).optional(),
+    time_zone: z.string().max(64).optional(),
+  })
+  .strict()
 
 const { getPresignedPostUrl, putItem, copyObject } = createStorageRepository()
 const mediaRepository = createMediaRepository()
@@ -72,7 +93,6 @@ export async function doSubmission({
   //TODO: add dynamo entry for submssion meta
   //TODO: add dynamo entry for submitter/subscriber info
   // -- think about possiblity for collision when verification happens during review?
-  //TODO: add dynamo entry for exif, image meta
   //TODO: automate clustering to indexed search?
 
   console.debug(encounters, formData)
@@ -164,6 +184,7 @@ export async function getUploadUrl(
   media?: {
     submissionId: string
     mediaId: string
+    exif?: ExifData
   }
 ) {
   const session = await getSession({ headers: await headers() })
@@ -196,9 +217,15 @@ export async function getUploadUrl(
   })
 
   if (media) {
+    const exif = exifDataSchema.parse({
+      ...media.exif,
+      content_type: contentType,
+      length: String(contentLength),
+    })
     await mediaRepository.register({
       id: media.mediaId,
       src: upload.key,
+      exif,
     })
     await lifecycle.registerSubmission(media.submissionId)
     await lifecycle.registerMedia({
@@ -206,6 +233,7 @@ export async function getUploadUrl(
       mediaId: media.mediaId,
       type: contentType,
       uri: { bucket: upload.bucket, key: upload.key },
+      exif,
     })
   }
 
