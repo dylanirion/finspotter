@@ -35,6 +35,12 @@ export type SearchFunction = ({
   bus: aws.cloudwatch.EventBus
 }) => $util.Output<aws.lambda.Function>
 
+export type IndexedSearchFunction = (args: Parameters<SearchFunction>[0]) => {
+  search: ReturnType<SearchFunction>
+  add: ReturnType<SearchFunction>
+  remove: ReturnType<SearchFunction>
+}
+
 export type MatchRefinementFunction = ({
   bucket,
   table,
@@ -52,6 +58,10 @@ export type ScoringFunction = ({
 }) => $util.Output<aws.lambda.Function>
 
 type SearchType = "pairwise" | "indexed"
+type SearchFunctions = {
+  pairwise?: SearchFunction
+  indexed?: IndexedSearchFunction
+}
 
 interface BasePipelineConfig {
   pkg: string
@@ -63,7 +73,7 @@ export type PipelineConfig =
   | (BasePipelineConfig & { detect: DetectionFunction })
   | (BasePipelineConfig & { extract: ExtractionFunction })
   | (Omit<BasePipelineConfig, "configType"> & {
-      search: Partial<Record<SearchType, SearchFunction>>
+      search: SearchFunctions
       config?: Partial<Record<SearchType, ZodType>>
     })
   | (BasePipelineConfig & { refine: MatchRefinementFunction })
@@ -75,7 +85,7 @@ export class PipelinePackage {
   public readonly name: string
   public detect?: DetectionFunction
   public extract?: ExtractionFunction
-  public search?: Partial<Record<SearchType, SearchFunction>>
+  public search?: SearchFunctions
   public refine?: MatchRefinementFunction
   public score?: ScoringFunction
   public config?: ZodType | Partial<Record<SearchType, ZodType>>

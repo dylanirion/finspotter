@@ -1,9 +1,5 @@
-import {
-  BatchExecuteStatementCommand,
-  RDSDataClient,
-} from "@aws-sdk/client-rds-data"
 import { createStorageRepository } from "@finspotter/core/storage"
-import { Resource } from "sst"
+import { Pool } from "@neondatabase/serverless"
 import { z } from "zod"
 
 const TWO_MEGABYTES = 2 * 1024 * 1024
@@ -16,19 +12,32 @@ type Event = {
   key: string
 }
 
-const rds = new RDSDataClient({
-  logger: {
-    ...console,
-    debug(..._args: unknown[]) {},
-    trace(..._args: unknown[]) {},
-  },
-  requestHandler: {
-    requestTimeout: 3_000,
-    httpsAgent: { maxSockets: 25 },
-  },
-})
 const storage = createStorageRepository()
 const featuresSchema = z.array(z.array(z.number()))
+
+declare const globalThis: {
+  pgVectorPool: Pool | undefined
+} & typeof global
+
+function getPool() {
+  if (!globalThis.pgVectorPool) {
+    const connectionString = process.env.DATABASE_URL
+    if (!connectionString) throw new Error("DATABASE_URL is required")
+    globalThis.pgVectorPool = new Pool({
+      connectionString,
+    })
+  }
+
+  return globalThis.pgVectorPool
+}
+
+function escapeIdentifier(identifier: string) {
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(identifier)) {
+    throw new Error(`Invalid table name: ${identifier}`)
+  }
+
+  return identifier
+}
 
 export async function handler(event: Event) {
   const allowedTables = JSON.parse(process.env.ALLOWED_TABLES || "[]")
@@ -52,39 +61,49 @@ async function batchInsertFeatures(
   table: string
 ) {
   const chunks = chunkFeatures(features, id, category)
+  const safeTable = escapeIdentifier(table)
+  const client = await getPool().connect()
 
-  for (const chunk of chunks) {
-    const parameterSets = chunk.map((feature) => [
-      {
-        name: ":annotation_id",
-        value: { stringValue: feature.annotation_id },
-      },
-      { name: ":feature_id", value: { longValue: feature.feature_id } },
-      {
-        name: ":category",
-        value: { stringValue: feature.category },
-      },
-      {
-        name: ":embedding",
-        value: { stringValue: `[${feature.embedding.join(",")}]` },
-      },
+  try {
+    await client.query("begin")
+    await client.query(`delete from ${safeTable} where annotation_id = $1`, [
+      id,
     ])
-
-    const result = await rds.send(
-      new BatchExecuteStatementCommand({
-        secretArn: Resource.Vector.secretArn,
-        resourceArn: Resource.Vector.clusterArn,
-        database: Resource.Vector.database,
-        sql: `insert into ${table} (annotation_id, feature_id, category, embedding) values (:annotation_id, :feature_id, :category, cast(:embedding as vector)) on conflict (annotation_id, feature_id) do update set category = excluded.category, embedding = excluded.embedding`,
-        parameterSets,
+    for (const chunk of chunks) {
+      const parameters: unknown[] = []
+      const rows = chunk.map((feature) => {
+        const offset = parameters.length
+        parameters.push(
+          feature.annotation_id,
+          feature.feature_id,
+          feature.category,
+          `[${feature.embedding.join(",")}]`
+        )
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3}, $${offset + 4}::vector)`
       })
-    )
-    console.log(result)
+
+      await client.query(
+        `
+          insert into ${safeTable} (annotation_id, feature_id, category, embedding)
+          values ${rows.join(", ")}
+          on conflict (annotation_id, feature_id) do update
+          set category = excluded.category,
+              embedding = excluded.embedding
+        `,
+        parameters
+      )
+    }
+    await client.query("commit")
+  } catch (error) {
+    await client.query("rollback")
+    throw error
+  } finally {
+    client.release()
   }
 }
 
 function estimateRowSize(embedding: number[]) {
-  return embedding.length * 8 + 200 // 8 bytes per float + overhead
+  return embedding.length * 8 + 200
 }
 
 type Chunk = {

@@ -1,3 +1,4 @@
+import { InvokeCommand, LambdaClient } from "@aws-sdk/client-lambda"
 import {
   SFNClient,
   StartExecutionCommand,
@@ -28,6 +29,35 @@ const sfn = new SFNClient({
     trace(..._args) {},
   },
 })
+const lambda = new LambdaClient({
+  logger: {
+    ...console,
+    debug(..._args) {},
+    trace(..._args) {},
+  },
+})
+
+export async function invokePipelineFunction<T>(
+  functionName: string,
+  payload: unknown,
+  client: LambdaClient = lambda
+): Promise<T> {
+  const response = await client.send(
+    new InvokeCommand({
+      FunctionName: functionName,
+      Payload: JSON.stringify(payload),
+    })
+  )
+  const body = response.Payload
+    ? JSON.parse(new TextDecoder().decode(response.Payload))
+    : undefined
+  if (response.FunctionError) {
+    throw new Error(
+      `Pipeline function ${functionName} failed: ${JSON.stringify(body)}`
+    )
+  }
+  return body as T
+}
 
 async function startExecution<
   D extends string | undefined = undefined,

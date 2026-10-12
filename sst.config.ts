@@ -46,9 +46,8 @@ export default $config({
     const { default: ratio } = await import("@finspotter/ratio")
     const { default: homog } = await import("@finspotter/homog")
     const { default: sum } = await import("@finspotter/sum")
-    /*
     const { default: pgvector } = await import("@finspotter/pgvector")
-    */
+    //const { db } = await import("./infra/database")
 
     const { defineInfra } = await import("./infra")
     const { web } = defineInfra({
@@ -59,9 +58,8 @@ export default $config({
         ratio,
         homog,
         sum,
-        /*
+        //pgvector.vector({ hesaff: 128 }, db),
         pgvector.vector({ hesaff: 128 }),
-        */
       ],
     })
 

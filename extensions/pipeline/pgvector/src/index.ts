@@ -1,36 +1,38 @@
 /** @module @finspotter/pgvector */
-import {
-  ExecuteStatementCommand,
-  RDSDataClient,
-  type ExecuteStatementCommandOutput,
-} from "@aws-sdk/client-rds-data"
+import path from "node:path"
 import {
   PipelinePackage,
-  type SearchFunction,
+  type IndexedSearchFunction,
 } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
 import { type ZodType } from "zod"
 
 import { pgVectorConfigSchema } from "./schema"
 import { indexed } from "./sst"
-import { db } from "./sst/db"
 
-const rds = new RDSDataClient({})
+type DatabaseLink = sst.Linkable<{ host: $util.Output<string> }>
 
-//TODO: toggle data api during build only
-//TODO: EnableHttpEndpointCommand, DisableHttpEndpointCommand @aws-sdk/client-rds
+function createOwnedDatabase(): DatabaseLink {
+  const project = new neon.Project("PgVectorNeonProject", {
+    name: `${$app.name}-${$app.stage}-pgvector`,
+    pgVersion: 18,
+    regionId: "aws-eu-central-1",
+    historyRetentionSeconds: 0,
+  })
 
-//TODO: functions for adding and removing vectors
+  return new sst.Linkable("PgVectorDatabase", {
+    properties: {
+      host: project.connectionUri,
+    },
+  })
+}
 
-class PGVectorPipelinePackage
-  implements
-    Omit<
-      PipelinePackage,
-      "annotationType" | "setAnnotationType" | "search" | "configType"
-    >
-{
+class PGVectorPipelinePackage implements Omit<
+  PipelinePackage,
+  "annotationType" | "setAnnotationType" | "search" | "configType"
+> {
   public readonly pkg: string
   public readonly name: string
-  public search?: Record<"indexed", SearchFunction>
+  public search?: { indexed: IndexedSearchFunction }
   public config: ZodType | Partial<Record<"indexed", ZodType>>
   private embeddings: Record<string, number> = {}
 
@@ -40,99 +42,41 @@ class PGVectorPipelinePackage
     this.config = pgVectorConfigSchema
   }
 
-  vector(embeddings: Record<string, number>) {
+  vector(embeddings: Record<string, number>, database?: DatabaseLink) {
+    const resolvedDatabase = database ?? createOwnedDatabase()
     this.embeddings = embeddings
 
     this.search = {
       indexed: ({ bucket, table, bus }) => {
-        const dbReady = $util
-          .all([db.database, db.secretArn, db.clusterArn])
-          .apply(async ([database, secretArn, clusterArn]) => {
-            //TODO: can this be managed with pulumi?
-            await executeWithRetry(() =>
-              rds.send(
-                new ExecuteStatementCommand({
-                  secretArn,
-                  resourceArn: clusterArn,
-                  database,
-                  sql: "create extension if not exists vector",
-                })
-              )
-            )
-            return { database, secretArn, clusterArn }
-          })
-
         const keys = Object.keys(this.embeddings)
-        const tables = $util
-          .all(
-            keys.map((key) =>
-              dbReady.apply(async ({ database, secretArn, clusterArn }) => {
-                await executeWithRetry(() =>
-                  rds.send(
-                    new ExecuteStatementCommand({
-                      secretArn,
-                      resourceArn: clusterArn,
-                      database,
-                      sql: `create table if not exists ${key} (id bigserial primary key, annotation_id varchar(255) not null, feature_id integer not null, category varchar(255), embedding vector(${embeddings[key]}), unique (annotation_id, feature_id))`,
-                    })
-                  )
-                )
-                await Promise.all([
-                  executeWithRetry(() =>
-                    rds.send(
-                      new ExecuteStatementCommand({
-                        secretArn,
-                        resourceArn: clusterArn,
-                        database,
-                        sql: `create index if not exists idx_hnsw on ${key} using hnsw (embedding vector_l2_ops)`,
-                      })
-                    )
-                  ),
-                  executeWithRetry(() =>
-                    rds.send(
-                      new ExecuteStatementCommand({
-                        secretArn,
-                        resourceArn: clusterArn,
-                        database,
-                        sql: `create unique index if not exists idx_${key}_annotation_feature on ${key} (annotation_id, feature_id)`,
-                      })
-                    )
-                  ),
-                  executeWithRetry(() =>
-                    rds.send(
-                      new ExecuteStatementCommand({
-                        secretArn,
-                        resourceArn: clusterArn,
-                        database,
-                        sql: `create index if not exists idx_category on ${key} (category)`,
-                      })
-                    )
-                  ),
-                ])
-              })
-            )
-          )
-          .apply(() => keys)
+        const schema = new command.local.Command(
+          "ConfigurePgVector",
+          {
+            create: "node scripts/configure-pgvector.mjs",
+            dir: path.join($cli.paths.root, "extensions/pipeline/pgvector"),
+            environment: {
+              DATABASE_URL: resolvedDatabase.properties.host,
+              VECTOR_TABLES: JSON.stringify(embeddings),
+            },
+            triggers: [JSON.stringify(embeddings), "pgvector-schema-v1"],
+          },
+          {
+            dependsOn: resolvedDatabase,
+            additionalSecretOutputs: ["stdout", "stderr"],
+          }
+        )
+        const tables = schema.urn.apply(() => keys)
 
-        return indexed({ bucket, table, bus, tables })
+        return indexed({
+          bucket,
+          table,
+          bus,
+          tables,
+          database: resolvedDatabase,
+        })
       },
     }
     return this
-  }
-}
-
-async function executeWithRetry(
-  executeFn: () => Promise<ExecuteStatementCommandOutput>,
-  retries = 10,
-  delay = 1000
-) {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    try {
-      return await executeFn()
-    } catch (err) {
-      if (attempt === retries - 1) throw err
-      await new Promise((r) => setTimeout(r, delay * Math.pow(2, attempt)))
-    }
   }
 }
 

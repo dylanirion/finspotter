@@ -55,7 +55,7 @@ type AnnotationUpdate =
   Annotation | Pick<Annotation, "id" | "individualId" | "updatedAt">
 type AnnotationWriteResult = Pick<
   typeof annotationsTable.$inferSelect,
-  "id" | "individualId"
+  "id" | "mediaId" | "detectionId" | "individualId" | "updatedAt"
 >
 type AnnotationInsertResult = Pick<
   typeof annotationsTable.$inferSelect,
@@ -311,7 +311,10 @@ export function createAnnotationRepository(client: DatabaseClient = db) {
           )
           .returning({
             id: annotationsTable.id,
+            mediaId: annotationsTable.mediaId,
+            detectionId: annotationsTable.detectionId,
             individualId: annotationsTable.individualId,
+            updatedAt: annotationsTable.updatedAt,
           })
 
         if (updated.length === 0)
@@ -338,7 +341,10 @@ export function createAnnotationRepository(client: DatabaseClient = db) {
           .where(buildWhereClause(annotationsTable, where))
           .returning({
             id: annotationsTable.id,
+            mediaId: annotationsTable.mediaId,
+            detectionId: annotationsTable.detectionId,
             individualId: annotationsTable.individualId,
+            updatedAt: annotationsTable.updatedAt,
           })
         await createIndividualSummaryRepository().refresh(
           [

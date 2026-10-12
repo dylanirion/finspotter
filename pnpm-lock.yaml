@@ -402,15 +402,15 @@ importers:
 
   extensions/pipeline/pgvector:
     dependencies:
-      '@aws-sdk/client-rds-data':
-        specifier: ^3.1130.0
-        version: 3.1146.0
       '@finspotter/core':
         specifier: workspace:*
         version: link:../../../packages/core
       '@finspotter/pipeline':
         specifier: workspace:*
         version: link:../../../packages/pipeline
+      '@neondatabase/serverless':
+        specifier: ^1.2.0
+        version: 1.2.0
       zod:
         specifier: ^4.1.12
         version: 4.6.5
@@ -663,6 +663,9 @@ importers:
   packages/pipeline:
     dependencies:
       '@aws-sdk/client-dynamodb':
+        specifier: ^3.1130.0
+        version: 3.1146.0
+      '@aws-sdk/client-lambda':
         specifier: ^3.1130.0
         version: 3.1146.0
       '@aws-sdk/client-sfn':
@@ -7822,6 +7825,7 @@ snapshots:
       '@smithy/node-http-handler': 4.12.1
       '@smithy/types': 4.19.0
       tslib: 2.8.1
+    optional: true
 
   '@aws-sdk/client-s3@3.1146.0':
     dependencies:

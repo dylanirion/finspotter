@@ -1,9 +1,5 @@
-import {
-  ExecuteStatementCommand,
-  RDSDataClient,
-} from "@aws-sdk/client-rds-data"
 import { requireObjectPayload } from "@finspotter/pipeline/validation"
-import { Resource } from "sst"
+import { Pool } from "@neondatabase/serverless"
 
 export type QueryEvent = {
   pk: string
@@ -31,7 +27,21 @@ type Event = {
   expires: string
 }
 
-const rds = new RDSDataClient({})
+declare const globalThis: {
+  pgVectorPool: Pool | undefined
+} & typeof global
+
+function getPool() {
+  if (!globalThis.pgVectorPool) {
+    const connectionString = process.env.DATABASE_URL
+    if (!connectionString) throw new Error("DATABASE_URL is required")
+    globalThis.pgVectorPool = new Pool({
+      connectionString,
+    })
+  }
+
+  return globalThis.pgVectorPool
+}
 
 //TODO: this will take a list of embeddings and return n closest matches to each in the vector store
 export async function handler(event: Event) {
@@ -42,20 +52,6 @@ export async function handler(event: Event) {
     "key",
   ])
   const { pk, sk, bucket, key } = payload
-  console.log("test")
-  /*
-  db.execute(
-    sql.raw(
-      `create table if not exists ${key} (id bigserial primary key, annotation_id uuid not null, category varchar(255), embedding vector(${value}))`
-    )
-  )
-  const similarity = sql<number>`1 - (${l2Distance(guides.embedding, embedding)})`
-  const similarGuides = await db
-    .select({ name: guides.title, url: guides.url, similarity })
-    .from(guides)
-    .where(gt(similarity, 0.5))
-    .orderBy((t) => desc(t.similarity))
-    .limit(4)
-  */
+  await getPool().query("select 1")
   return { pk, sk, bucket, key }
 }

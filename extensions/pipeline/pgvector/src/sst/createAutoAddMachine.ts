@@ -1,37 +1,13 @@
 import {
   $,
-  Choice,
-  Dynamo,
   Pass,
   StateMachine,
   StepFunctionInvoke,
 } from "@finspotter/pipeline/StepFunction"
 import { physicalName } from "@finspotter/pipeline/StepFunction/sst-helpers"
 
-export function createAutoAddMachine(
-  table: sst.aws.Dynamo,
-  addMachine: StateMachine
-) {
+export function createAutoAddMachine(addMachine: StateMachine) {
   const logGroup = createLogGroup()
-
-  const checkAutoReview = new Dynamo(
-    "Check for Auto-Review Attribute",
-    "getItem",
-    table,
-    {
-      Parameters: {
-        Key: {
-          pk: {
-            "S.$": $.stringAt("$.pk"),
-          },
-          sk: {
-            S: "status",
-          },
-        },
-      },
-      ResultPath: $.stringAt("$.status"),
-    }
-  )
 
   const invokeAddMachine = new StepFunctionInvoke(
     "Invoke Add Machine",
@@ -48,27 +24,13 @@ export function createAutoAddMachine(
       },
     }
   )
-
-  const doNotAddToIndex = new Pass("Do Not Add to Index")
-
-  const addOrPass = new Choice("Add to Index or Pass", {
-    Choices: [
-      {
-        Variable: $.stringAt("$.status.Item.auto_review.BOOL"),
-        BooleanEquals: true,
-        Next: invokeAddMachine,
-      },
-    ],
-    Default: doNotAddToIndex,
-  })
-
-  const definition = checkAutoReview.next(addOrPass)
+  const definition = invokeAddMachine.next(new Pass("Index Added"))
 
   return new StateMachine(
     "PgVectorAutoAdd",
     {
       type: "EXPRESS",
-      definition: definition,
+      definition,
       loggingConfiguration: {
         logDestination: $util.interpolate`${logGroup.arn}:*`,
         includeExecutionData: true,

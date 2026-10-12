@@ -2,6 +2,7 @@
 /// <reference path="../../../../.sst/platform/config.d.ts" />
 
 import {
+  type IndexedSearchFunction,
   type MatchRefinementFunction,
   type PipelineBucket,
   type PipelinePackage,
@@ -13,6 +14,8 @@ import { createStateMachine } from "./createStateMachine"
 
 export class SimilaritySearchPipeline extends $util.ComponentResource {
   private _searchFunctions: Record<string, ReturnType<SearchFunction>>
+  private _addFunctions: Record<string, ReturnType<SearchFunction>>
+  private _removeFunctions: Record<string, ReturnType<SearchFunction>>
   private _refineFunctions: Record<string, ReturnType<MatchRefinementFunction>>
   private _pipeline: ReturnType<typeof createStateMachine>
 
@@ -30,16 +33,24 @@ export class SimilaritySearchPipeline extends $util.ComponentResource {
 
     // TODO: persist extension function registrations in db instead of linking them as properties?
     const { bucket, bus, packages, table } = args
-    const searchFunctions = packages.reduce(
-      (acc, { name, search }) => {
-        if (search)
-          for (const [type, fn] of Object.entries(search)) {
-            acc[`${name}:${type}`] = fn({ bucket, table, bus })
-          }
-        return acc
-      },
-      {} as Record<string, ReturnType<SearchFunction>>
-    )
+    const searchFunctions: Record<string, ReturnType<SearchFunction>> = {}
+    const addFunctions: Record<string, ReturnType<SearchFunction>> = {}
+    const removeFunctions: Record<string, ReturnType<SearchFunction>> = {}
+    for (const { name, search } of packages) {
+      if (search?.pairwise) {
+        searchFunctions[`${name}:pairwise`] = search.pairwise({
+          bucket,
+          table,
+          bus,
+        })
+      }
+      if (search?.indexed) {
+        const indexed = createIndexedFunctions(search.indexed)
+        searchFunctions[`${name}:indexed`] = indexed.search
+        addFunctions[name] = indexed.add
+        removeFunctions[name] = indexed.remove
+      }
+    }
     const refineFunctions = packages.reduce(
       (acc, { name, refine }) => {
         if (refine) acc[name] = refine({ bucket, table })
@@ -49,12 +60,19 @@ export class SimilaritySearchPipeline extends $util.ComponentResource {
     )
 
     this._searchFunctions = searchFunctions
+    this._addFunctions = addFunctions
+    this._removeFunctions = removeFunctions
     this._refineFunctions = refineFunctions
     this._pipeline = createStateMachine(name, table)
     createRolePolicy(this._pipeline.role)
 
     function createRolePolicy(role: aws.iam.Role) {
-      const functions = { ...searchFunctions, ...refineFunctions }
+      const functions = {
+        ...searchFunctions,
+        ...refineFunctions,
+        ...addFunctions,
+        ...removeFunctions,
+      }
       if (!Object.keys(functions).length) return
 
       new aws.iam.RolePolicy(
@@ -81,6 +99,10 @@ export class SimilaritySearchPipeline extends $util.ComponentResource {
         },
         { parent: role }
       )
+    }
+
+    function createIndexedFunctions(fn: IndexedSearchFunction) {
+      return fn({ bucket, table, bus })
     }
 
     new aws.iam.RolePolicy(`${name}ReviewReadySfnRolePolicy`, {
@@ -118,6 +140,25 @@ export class SimilaritySearchPipeline extends $util.ComponentResource {
       Object.entries(this._refineFunctions).map(([type, fn]) => [type, fn.name])
     ) as Record<string, $util.Output<string>>
   }
+
+  public get addFunctions() {
+    return Object.fromEntries(
+      Object.entries(this._addFunctions).map(([type, fn]) => [type, fn.name])
+    ) as Record<string, $util.Output<string>>
+  }
+
+  public get removeFunctions() {
+    return Object.fromEntries(
+      Object.entries(this._removeFunctions).map(([type, fn]) => [type, fn.name])
+    ) as Record<string, $util.Output<string>>
+  }
+
+  public get indexFunctionArns() {
+    return [
+      ...Object.values(this._addFunctions),
+      ...Object.values(this._removeFunctions),
+    ].map((fn) => fn.arn)
+  }
 }
 
 sst.Linkable.wrap(
@@ -127,11 +168,17 @@ sst.Linkable.wrap(
       pipeline: resource.pipeline,
       searchFunctions: resource.searchFunctions,
       refineFunctions: resource.refineFunctions,
+      addFunctions: resource.addFunctions,
+      removeFunctions: resource.removeFunctions,
     },
     include: [
       sst.aws.permission({
         actions: ["states:StartExecution"],
         resources: [resource.pipeline],
+      }),
+      sst.aws.permission({
+        actions: ["lambda:InvokeFunction"],
+        resources: resource.indexFunctionArns,
       }),
     ],
   })

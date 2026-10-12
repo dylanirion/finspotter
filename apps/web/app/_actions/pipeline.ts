@@ -18,6 +18,7 @@ import {
   type MediaItem,
   type StatusItem,
 } from "@finspotter/pipeline/invoke"
+import { startAutoReviewedExtractionForAnnotation } from "lib/annotationIndex"
 import { getSession } from "lib/auth"
 import { createMediaCapability } from "lib/mediaAccess"
 import { Resource } from "sst"
@@ -146,6 +147,13 @@ export async function createDemoJob({
     await validateReCaptcha(token)
   }
 
+  const searchFunctions: Record<string, string> =
+    Resource.SimilaritySearchPipeline.searchFunctions
+  const indexedSearchFunction = searchFunctions["pgvector:indexed"]
+  if (!indexedSearchFunction) {
+    throw new Error("The pgvector indexed search function is not configured.")
+  }
+
   const now = new Date()
   const createdAt = now.toISOString()
   const expires = Math.floor((now.getTime() + 1 * 24 * 60 * 60 * 1000) / 1000)
@@ -213,8 +221,7 @@ export async function createDemoJob({
     },
     search: {
       type: "indexed",
-      functionName:
-        Resource.SimilaritySearchPipeline.searchFunctions["pgvector:indexed"],
+      functionName: indexedSearchFunction,
       config: null,
     },
     expires,
@@ -460,8 +467,13 @@ export async function approveDetectionReview(
     reviewerId,
     input
   )
-  if (!approved) throw new Error("Your detection review claim has expired.")
-  return [{ id: approved.annotationId! }]
+  if (!approved?.annotationId)
+    throw new Error("Your detection review claim has expired.")
+  await startAutoReviewedExtractionForAnnotation(
+    approved.annotationId,
+    reviewerId
+  )
+  return [{ id: approved.annotationId }]
 }
 
 async function requireReviewer() {

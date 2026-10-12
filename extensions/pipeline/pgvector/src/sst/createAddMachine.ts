@@ -6,16 +6,10 @@ import {
 } from "@finspotter/pipeline/StepFunction"
 import { physicalName } from "@finspotter/pipeline/StepFunction/sst-helpers"
 
-import { createAddFunction } from "./createAddFunction"
-
-export function createAddMachine(
-  tables: $util.Output<string[]>,
-  bucket: aws.s3.Bucket
-) {
+export function createAddMachine(add: $util.Output<aws.lambda.Function>) {
   const logGroup = createLogGroup()
-  const add = createAddFunction(tables, bucket)
 
-  const addToIndex = new LambdaInvoke("Add to Index", add.nodes.function, {
+  const addToIndex = new LambdaInvoke("Add to Index", add, {
     Parameters: {
       Payload: {
         "id.$": $.stringAt("$.id"),
