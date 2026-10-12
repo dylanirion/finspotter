@@ -27,14 +27,17 @@ export default $config({
     const bbox_xywh = await import("@finspotter/annotation-bbox_xywh")
     const bbox_xywha = await import("@finspotter/annotation-bbox_xywha")
     const segmentation = await import("@finspotter/annotation-segmentation")
-    const bbox_xywha_segmentation =
+    const bbox_xywhaSegmentation =
       await import("@finspotter/annotation-bbox_xywha_segmentation")
-    const annotations = [
+    const annotationExtensions = [
       bbox_xywh,
       bbox_xywha,
       segmentation,
-      bbox_xywha_segmentation,
-    ]
+      bbox_xywhaSegmentation,
+    ] as const
+    const { generateAnnotationConfigs } =
+      await import("@finspotter/annotations/generator")
+    await generateAnnotationConfigs(annotationExtensions)
 
     //TODO: expose a notify() function or similar( event?) to display warning when no model or index exists? (ask to upload or train/create)
     const { default: yolact } = await import("@finspotter/yolact")
@@ -49,9 +52,8 @@ export default $config({
 
     const { defineInfra } = await import("./infra")
     const { web } = defineInfra({
-      annotations,
       pipeline: [
-        yolact.setAnnotationType(segmentation.name),
+        yolact.setAnnotationType(segmentation.annotation.name),
         hesaff, //TODO: register ellipse? (separate class from Annotation, just needs draw method)
         faiss,
         ratio,

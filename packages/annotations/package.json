@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "exports": {
-    "./init": "./src/init.ts",
+    "./generator": "./src/generator.ts",
     "./null/*": "./src/null/*.ts",
     "./react": "./src/react/index.tsx",
     "./react/*": "./src/react/*.tsx",

@@ -1,7 +1,3 @@
-import {
-  generateExports,
-  type AnnotationPackage,
-} from "@finspotter/annotations/init"
 import { MediaProcessingPipeline } from "@finspotter/pipeline/MediaProcessingPipeline"
 import { type PipelinePackage } from "@finspotter/pipeline/MediaProcessingPipeline/PipelinePackage"
 import { SimilaritySearchPipeline } from "@finspotter/pipeline/SimilaritySearchPipeline"
@@ -16,15 +12,9 @@ import { bucket } from "./storage"
 
 export interface InfraConfig {
   pipeline?: PipelinePackage[]
-  annotations?: AnnotationPackage[]
 }
 
-export function defineInfra({
-  pipeline: packages = [],
-  annotations = [],
-}: InfraConfig = {}) {
-  //generateExports(annotations)
-
+export function defineInfra({ pipeline: packages = [] }: InfraConfig = {}) {
   const submissionReview = new SubmissionReviewPipeline(
     "SubmissionReviewPipeline",
     {
