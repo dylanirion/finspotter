@@ -18,26 +18,5 @@ export function createPipelineFunction(
       .apply((links) => [...links, bucket, table]),
   })
 
-  return "nodes" in fn ? fn.nodes.function : $util.output(fn)
-}
-
-export type Transform<T> =
-  | Partial<T>
-  | ((args: T, name: string, opts?: $util.CustomResourceOptions) => undefined)
-
-export function transform<T extends object>(
-  transform: Transform<T> | undefined,
-  name: string,
-  args: T,
-  opts?: $util.CustomResourceOptions
-) {
-  // Case: transform is a function
-  if (typeof transform === "function") {
-    transform(args, name, opts)
-    return [name, args, opts] as const
-  }
-
-  // Case: no transform
-  // Case: transform is an argument
-  return [name, { ...args, ...transform }, opts] as const
+  return fn.nodes.function
 }
