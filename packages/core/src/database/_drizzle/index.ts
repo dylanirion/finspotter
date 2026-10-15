@@ -34,7 +34,10 @@ declare const globalThis: {
 } & typeof global
 
 function connectOnceToDatabase() {
-  if (!globalThis.drizzleGlobal) {
+  if (
+    !globalThis.drizzleGlobal ||
+    globalThis.drizzleGlobal._.relations !== relations
+  ) {
     neonConfig.webSocketConstructor = ws
     globalThis.drizzleGlobal = drizzle({
       client: new Pool({
