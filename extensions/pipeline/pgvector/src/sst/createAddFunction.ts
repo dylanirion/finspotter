@@ -7,33 +7,6 @@ export function createAddFunction(
   bucket: sst.aws.Bucket,
   database: DatabaseLink
 ) {
-  const role = new aws.iam.Role("PgVectorAddRole", {
-    name: physicalName(256, "PgVectorAddRole"),
-    assumeRolePolicy: aws.iam.assumeRolePolicyForPrincipal({
-      Service: "lambda.amazonaws.com",
-    }),
-    managedPolicyArns: [
-      "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-    ],
-    inlinePolicies: [
-      {
-        name: "featuresPolicy",
-        policy: bucket.arn.apply((bucketArn) =>
-          JSON.stringify({
-            Version: "2012-10-17",
-            Statement: [
-              {
-                Effect: "Allow",
-                Action: "s3:GetObject",
-                Resource: `${bucketArn}/*`,
-              },
-            ],
-          })
-        ),
-      },
-    ],
-  })
-
   const fn = new sst.aws.Function("PgVectorAddFunction", {
     name: physicalName(256, "PgVectorAddFunction"),
     runtime: "nodejs22.x",
@@ -45,8 +18,7 @@ export function createAddFunction(
     },
     memory: "256 MB",
     timeout: "90 seconds",
-    role: role.arn,
-    link: [database],
+    link: [database, bucket],
   })
 
   return fn.nodes.function
