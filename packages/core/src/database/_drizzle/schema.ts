@@ -8,6 +8,11 @@ import {
   annotationsTable,
 } from "../annotation/sql"
 import {
+  comparisonDecisionSourceEnum,
+  comparisonDecisionsTable,
+  comparisonVerdictEnum,
+} from "../comparisonDecision/sql"
+import {
   annotationTypeEnum,
   detectionSourceEnum,
   detectionsTable,
@@ -43,6 +48,9 @@ export {
   annotationMetaTable,
   annotationsTable,
   annotationsIncrementerTable,
+  comparisonDecisionSourceEnum,
+  comparisonDecisionsTable,
+  comparisonVerdictEnum,
   detectionSourceEnum,
   annotationTypeEnum,
   detectionsTable,
@@ -94,6 +102,7 @@ export const relations = defineRelations(
     adoptionsTable,
     pipelineResultsTable,
     pipelineResultLinksTable,
+    comparisonDecisionsTable,
     locationsTable,
   },
   (r) => ({
@@ -122,10 +131,17 @@ export const relations = defineRelations(
     },
     pipelineResultsTable: {
       links: r.many.pipelineResultLinksTable(),
+      comparisonDecisions: r.many.comparisonDecisionsTable(),
     },
     pipelineResultLinksTable: {
       result: r.one.pipelineResultsTable({
         from: r.pipelineResultLinksTable.resultId,
+        to: r.pipelineResultsTable.id,
+      }),
+    },
+    comparisonDecisionsTable: {
+      result: r.one.pipelineResultsTable({
+        from: r.comparisonDecisionsTable.resultId,
         to: r.pipelineResultsTable.id,
       }),
     },
@@ -284,6 +300,9 @@ export default {
   annotationsTable,
   annotationMetaTable,
   annotationsIncrementerTable,
+  comparisonDecisionSourceEnum,
+  comparisonDecisionsTable,
+  comparisonVerdictEnum,
   detectionSourceEnum,
   annotationTypeEnum,
   detectionsTable,

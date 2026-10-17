@@ -50,7 +50,7 @@ export default async function SingleMediaReviewPage({
   const claim = reviewId ? await getReviewClaim(reviewId) : null
   if (reviewId && !claim) redirect("/dashboard")
 
-  if (claim?.kind === "pair") {
+  if (claim && (claim.kind === "pair" || claim.kind === "indexed_match")) {
     const comparison = await getReviewComparison(claim.id)
     return (
       <>

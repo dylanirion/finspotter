@@ -19,6 +19,7 @@ import { Button } from "components/ui/inputs/Button"
 import { Skeleton } from "components/ui/skeleton/Skeleton"
 import { cn } from "lib/utils"
 
+import { ComparisonDecision } from "./ComparisonDecision"
 import { MediaGroup } from "./MediaGroup"
 
 //TODO: smart select orientation, i.e. top-up, top-right
@@ -258,6 +259,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
           />
         )}
       </div>
+      {reviewId && <ComparisonDecision reviewId={reviewId} />}
     </>
   )
 }

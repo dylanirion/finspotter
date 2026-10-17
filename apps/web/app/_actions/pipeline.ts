@@ -4,9 +4,11 @@ import { randomBytes, randomUUID } from "crypto"
 import { headers } from "next/headers"
 import { type Annotation } from "@finspotter/core/annotation"
 import { can } from "@finspotter/core/auth/permissions"
+import { type ComparisonVerdict } from "@finspotter/core/comparisonDecision"
 import { createMediaRepository, Media } from "@finspotter/core/media"
 import {
   createPipelineResultRepository,
+  isComparisonReviewKind,
   type PipelineResult,
   type PipelineResultKind,
 } from "@finspotter/core/pipelineResult"
@@ -101,7 +103,9 @@ const pairReviewPayloadSchema = z.object({
     media_id: z.string(),
     detection_id: z.coerce.number().int(),
   }),
-  uri: z.object({ bucket: z.string(), key: z.string() }),
+  // Indexed matches carry no local keypoint-match artifact, so the comparison
+  // flow treats the evidence URI as optional and simply omits the overlay.
+  uri: z.object({ bucket: z.string(), key: z.string() }).optional(),
   source_query: z.object({ pk: z.string(), sk: z.string() }),
   source_ref: z.object({ pk: z.string(), sk: z.string() }),
 })
@@ -355,7 +359,7 @@ export async function getReviewClaim(id: string): Promise<ReviewClaim | null> {
 export async function getReviewComparison(
   id: string
 ): Promise<ReviewComparisonData> {
-  const { claimed, payload } = await getClaimedPairReview(id)
+  const { claimed, payload } = await getClaimedComparisonReview(id)
   const [queryExtraction, referenceExtraction] = await Promise.all([
     getItem<ReviewExtraction>(Resource.SubmissionReviewPipeline.table, {
       pk: payload.source_query.pk,
@@ -399,7 +403,10 @@ export async function getReviewComparison(
 export async function getReviewComparisonArtifacts(
   id: string
 ): Promise<ReviewComparisonArtifacts> {
-  const { payload } = await getClaimedPairReview(id)
+  const { payload } = await getClaimedComparisonReview(id)
+  if (!payload.uri)
+    return { queryFeatures: [], referenceFeatures: [], matches: [] }
+  const matchesUri = payload.uri
   const [queryExtraction, referenceExtraction] = await Promise.all([
     getItem<ReviewExtraction>(Resource.SubmissionReviewPipeline.table, {
       pk: payload.source_query.pk,
@@ -420,7 +427,7 @@ export async function getReviewComparisonArtifacts(
         referenceExtraction.uri.keypoints.bucket,
         referenceExtraction.uri.keypoints.key
       ),
-      getObjectText(payload.uri.bucket, payload.uri.key),
+      getObjectText(matchesUri.bucket, matchesUri.key),
     ])
   return {
     queryFeatures: toFeaturePoints(
@@ -433,12 +440,50 @@ export async function getReviewComparisonArtifacts(
   }
 }
 
-async function getClaimedPairReview(id: string) {
+async function getClaimedComparisonReview(id: string) {
   const reviewerId = await requireReviewer()
-  const claimed = await pipelineResults.findClaimed(id, reviewerId)
-  if (!claimed || claimed.kind !== "pair")
-    throw new Error("Pair review claim not found.")
-  return { claimed, payload: pairReviewPayloadSchema.parse(claimed.payload) }
+  const parsedId = z.uuid().safeParse(id)
+  if (!parsedId.success) throw new Error("Comparison review claim not found.")
+  const claimed = await pipelineResults.findClaimed(parsedId.data, reviewerId)
+  if (!claimed || !isComparisonReviewKind(claimed.kind))
+    throw new Error("Comparison review claim not found.")
+  return {
+    claimed,
+    reviewerId,
+    payload: pairReviewPayloadSchema.parse(claimed.payload),
+  }
+}
+
+const comparisonVerdictSchema = z.enum(["same", "different"])
+
+export async function decideReviewComparison(
+  reviewId: string,
+  verdict: ComparisonVerdict
+) {
+  const parsedVerdict = comparisonVerdictSchema.parse(verdict)
+  const { claimed, reviewerId, payload } =
+    await getClaimedComparisonReview(reviewId)
+  const decided = await pipelineResults.decideComparison(
+    claimed.id,
+    reviewerId,
+    parsedVerdict,
+    {
+      query: {
+        mediaId: payload.query.media_id,
+        detectionId: payload.query.detection_id,
+      },
+      reference: {
+        mediaId: payload.ref.media_id,
+        detectionId: payload.ref.detection_id,
+      },
+    }
+  )
+  if (!decided) throw new Error("Your comparison review claim has expired.")
+  return {
+    id: decided.id,
+    verdict: parsedVerdict,
+    reviewStatus: decided.reviewStatus,
+  }
 }
 
 export async function renewReviewClaim(id: string) {

@@ -17,6 +17,13 @@ import {
   annotationsIncrementerTable,
   annotationsTable,
 } from "../annotation/sql"
+import {
+  canonicalizeComparisonPair,
+  comparisonDecisionValues,
+  type ComparisonPair,
+  type ComparisonVerdict,
+} from "../comparisonDecision"
+import { comparisonDecisionsTable } from "../comparisonDecision/sql"
 import { detectionsTable } from "../detection/sql"
 import { mediaTable } from "../media/sql"
 import { pipelineResultLinksTable, pipelineResultsTable } from "./sql"
@@ -62,6 +69,20 @@ export type PipelineReviewCursor = {
 }
 
 export type PipelineReviewDecision = "approved" | "rejected" | "inferred"
+export const COMPARISON_REVIEW_KINDS = [
+  "pair",
+  "indexed_match",
+] as const satisfies readonly PipelineResultKind[]
+export type ComparisonReviewKind = (typeof COMPARISON_REVIEW_KINDS)[number]
+
+export function isComparisonReviewKind(
+  kind: PipelineResultKind
+): kind is ComparisonReviewKind {
+  return (COMPARISON_REVIEW_KINDS as readonly PipelineResultKind[]).includes(
+    kind
+  )
+}
+
 export type DetectionApproval = Omit<
   Annotation,
   "id" | "detectionId" | "updatedAt"
@@ -90,6 +111,12 @@ export interface PipelineResultRepository {
     reviewerId: string,
     decision: PipelineReviewDecision,
     annotationId?: string | null
+  ): Promise<PipelineResult | null>
+  decideComparison(
+    id: string,
+    reviewerId: string,
+    verdict: ComparisonVerdict,
+    pair: ComparisonPair
   ): Promise<PipelineResult | null>
   approveDetection(
     id: string,
@@ -379,6 +406,57 @@ export function createPipelineResultRepository(): PipelineResultRepository {
             })
             .where(eq(mediaTable.id, decided.mediaId))
         }
+
+        return decided ?? null
+      })
+    },
+
+    async decideComparison(id, reviewerId, verdict, pair) {
+      const now = new Date()
+      return db.transaction(async (tx) => {
+        const [claimed] = await tx
+          .select()
+          .from(pipelineResultsTable)
+          .where(
+            and(
+              eq(pipelineResultsTable.id, id),
+              inArray(pipelineResultsTable.kind, [...COMPARISON_REVIEW_KINDS]),
+              eq(pipelineResultsTable.reviewStatus, "claimed"),
+              eq(pipelineResultsTable.claimedBy, reviewerId),
+              or(
+                gt(pipelineResultsTable.claimExpiresAt, now),
+                eq(pipelineResultsTable.claimExpiresAt, now)
+              )
+            )
+          )
+          .for("update")
+
+        if (!claimed) return null
+
+        const [decided] = await tx
+          .update(pipelineResultsTable)
+          .set({
+            reviewStatus: verdict === "same" ? "approved" : "rejected",
+            reviewedBy: reviewerId,
+            reviewedAt: now,
+            claimExpiresAt: null,
+            updatedAt: now,
+          })
+          .where(eq(pipelineResultsTable.id, id))
+          .returning()
+
+        const { values, conflict } = comparisonDecisionValues({
+          ...canonicalizeComparisonPair(pair),
+          resultId: id,
+          source: claimed.kind === "indexed_match" ? "indexed_match" : "pair",
+          verdict,
+          score: claimed.reviewScore,
+          decidedBy: reviewerId,
+        })
+        await tx
+          .insert(comparisonDecisionsTable)
+          .values(values)
+          .onConflictDoUpdate(conflict)
 
         return decided ?? null
       })
