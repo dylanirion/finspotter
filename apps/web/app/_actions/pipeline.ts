@@ -469,7 +469,7 @@ async function getClaimedComparisonReview(id: string) {
   }
 }
 
-const comparisonVerdictSchema = z.enum(["same", "different"])
+const comparisonVerdictSchema = z.enum(["same", "different", "inconclusive"])
 
 export async function decideReviewComparison(
   reviewId: string,

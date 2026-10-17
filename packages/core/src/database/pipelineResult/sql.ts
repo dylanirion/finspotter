@@ -29,6 +29,7 @@ export const pipelineReviewStatusEnum = pgEnum("pipeline_review_status", [
   "claimed",
   "approved",
   "rejected",
+  "inconclusive",
   "inferred",
 ])
 

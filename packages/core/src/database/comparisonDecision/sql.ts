@@ -21,6 +21,7 @@ export const comparisonDecisionSourceEnum = pgEnum(
 export const comparisonVerdictEnum = pgEnum("comparison_verdict", [
   "same",
   "different",
+  "inconclusive",
 ])
 
 export const comparisonDecisionsTable = pgTable(

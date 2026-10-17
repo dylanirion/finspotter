@@ -68,7 +68,8 @@ export type PipelineReviewCursor = {
   id: string
 }
 
-export type PipelineReviewDecision = "approved" | "rejected" | "inferred"
+export type PipelineReviewDecision =
+  "approved" | "rejected" | "inconclusive" | "inferred"
 export const COMPARISON_REVIEW_KINDS = [
   "pair",
   "indexed_match",
@@ -174,22 +175,22 @@ export function createPipelineResultRepository(): PipelineResultRepository {
             reviewScore: sql`excluded.review_score`,
             reviewReadyAt: sql`excluded.review_ready_at`,
             reviewStatus: sql`case
-              when ${pipelineResultsTable.reviewStatus} in ('claimed', 'approved', 'rejected', 'inferred')
+              when ${pipelineResultsTable.reviewStatus} in ('claimed', 'approved', 'rejected', 'inconclusive', 'inferred')
                 then ${pipelineResultsTable.reviewStatus}
               else excluded.review_status
             end`,
             reviewedBy: sql`case
-              when ${pipelineResultsTable.reviewStatus} in ('claimed', 'approved', 'rejected', 'inferred')
+              when ${pipelineResultsTable.reviewStatus} in ('claimed', 'approved', 'rejected', 'inconclusive', 'inferred')
                 then ${pipelineResultsTable.reviewedBy}
               else excluded.reviewed_by
             end`,
             reviewedAt: sql`case
-              when ${pipelineResultsTable.reviewStatus} in ('claimed', 'approved', 'rejected', 'inferred')
+              when ${pipelineResultsTable.reviewStatus} in ('claimed', 'approved', 'rejected', 'inconclusive', 'inferred')
                 then ${pipelineResultsTable.reviewedAt}
               else excluded.reviewed_at
             end`,
             annotationId: sql`case
-              when ${pipelineResultsTable.reviewStatus} in ('claimed', 'approved', 'rejected', 'inferred')
+              when ${pipelineResultsTable.reviewStatus} in ('claimed', 'approved', 'rejected', 'inconclusive', 'inferred')
                 then ${pipelineResultsTable.annotationId}
               else excluded.annotation_id
             end`,
@@ -441,7 +442,12 @@ export function createPipelineResultRepository(): PipelineResultRepository {
         const [decided] = await tx
           .update(pipelineResultsTable)
           .set({
-            reviewStatus: verdict === "same" ? "approved" : "rejected",
+            reviewStatus:
+              verdict === "same"
+                ? "approved"
+                : verdict === "different"
+                  ? "rejected"
+                  : "inconclusive",
             reviewedBy: reviewerId,
             reviewedAt: now,
             claimExpiresAt: null,
