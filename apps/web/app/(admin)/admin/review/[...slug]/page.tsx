@@ -81,7 +81,14 @@ export default async function SingleMediaReviewPage({
         <MediaEditor
           id={mediaId}
           detectionId={selectedDetectionId}
-          reviewId={claim?.kind === "detection" ? claim.id : undefined}
+          reviewId={claim?.id}
+          reviewKind={
+            claim?.kind === "media" ||
+            claim?.kind === "detection" ||
+            claim?.kind === "extraction"
+              ? claim.kind
+              : undefined
+          }
           variant="review"
         />
       </HydrationBoundary>

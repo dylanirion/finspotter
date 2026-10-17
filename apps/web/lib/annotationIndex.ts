@@ -25,32 +25,87 @@ type ExtractionAnnotation = Pick<
 const { findMany: findMedia } = createMediaRepository()
 const { putItem } = createStorageRepository()
 
-export async function removeAnnotationFromIndexes(id: string) {
+function getIndexFunctions(
+  property: "addFunctions" | "removeFunctions",
+  operation: string
+) {
   const pipeline: unknown = Resource.SimilaritySearchPipeline
-  if (
-    typeof pipeline !== "object" ||
-    pipeline === null ||
-    !("removeFunctions" in pipeline) ||
-    typeof pipeline.removeFunctions !== "object" ||
-    pipeline.removeFunctions === null
-  ) {
-    throw new Error("No indexed search removal functions are configured")
+  if (typeof pipeline !== "object" || pipeline === null) {
+    throw new Error(`No indexed search ${operation} functions are configured`)
   }
-  const removeFunctions = Object.values(pipeline.removeFunctions)
+  const configured = (
+    pipeline as Partial<
+      Record<"addFunctions" | "removeFunctions", Record<string, unknown>>
+    >
+  )[property]
+  if (typeof configured !== "object" || configured === null) {
+    throw new Error(`No indexed search ${operation} functions are configured`)
+  }
+  const functions = Object.values(configured)
   if (
-    removeFunctions.length === 0 ||
-    !removeFunctions.every(
-      (value): value is string => typeof value === "string"
+    functions.length === 0 ||
+    !functions.every((value): value is string => typeof value === "string")
+  ) {
+    throw new Error(
+      `Invalid indexed search ${operation} function configuration`
     )
-  ) {
-    throw new Error("Invalid indexed search removal function configuration")
   }
+  return functions
+}
 
-  await Promise.all(
-    removeFunctions.map((functionName) =>
-      invokePipelineFunction(functionName, { id })
+export async function removeAnnotationFromIndexes(id: string) {
+  await invokeIndexFunctions(
+    getIndexFunctions("removeFunctions", "removal"),
+    { id },
+    "remove annotation from"
+  )
+}
+
+export async function addExtractionToIndexes({
+  annotationId,
+  type,
+  category,
+  bucket,
+  key,
+}: {
+  annotationId: string
+  type: string
+  category: string
+  bucket: string
+  key: string
+}) {
+  await invokeIndexFunctions(
+    getIndexFunctions("addFunctions", "add"),
+    {
+      id: annotationId,
+      type,
+      category,
+      bucket,
+      key,
+    },
+    "add extraction to"
+  )
+}
+
+async function invokeIndexFunctions(
+  functions: string[],
+  payload: unknown,
+  operation: string
+) {
+  const results = await Promise.allSettled(
+    functions.map((functionName) =>
+      invokePipelineFunction(functionName, payload)
     )
   )
+  const failures = results.flatMap((result) =>
+    result.status === "rejected" ? [result.reason] : []
+  )
+  if (failures.length > 0) {
+    throw new AggregateError(
+      failures,
+      `Failed to ${operation} ${failures.length} indexed search extension${failures.length === 1 ? "" : "s"}.`
+    )
+  }
 }
 
 export async function startAutoReviewedExtractions(

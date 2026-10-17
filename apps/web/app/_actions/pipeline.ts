@@ -20,7 +20,11 @@ import {
   type MediaItem,
   type StatusItem,
 } from "@finspotter/pipeline/invoke"
-import { startAutoReviewedExtractionForAnnotation } from "lib/annotationIndex"
+import {
+  addExtractionToIndexes,
+  removeAnnotationFromIndexes,
+  startAutoReviewedExtractionForAnnotation,
+} from "lib/annotationIndex"
 import { getSession } from "lib/auth"
 import { createMediaCapability } from "lib/mediaAccess"
 import { Resource } from "sst"
@@ -108,6 +112,17 @@ const pairReviewPayloadSchema = z.object({
   uri: z.object({ bucket: z.string(), key: z.string() }).optional(),
   source_query: z.object({ pk: z.string(), sk: z.string() }),
   source_ref: z.object({ pk: z.string(), sk: z.string() }),
+})
+
+const extractionReviewPayloadSchema = z.object({
+  media_id: z.uuid(),
+  detection_id: z.coerce.number().int(),
+  type: z.string().min(1),
+  category: z.string().min(1),
+  uri: z.object({
+    features: z.object({ bucket: z.string().min(1), key: z.string().min(1) }),
+  }),
+  source_detection: z.object({ pk: z.string(), sk: z.string() }),
 })
 
 const keypointsSchema = z.array(z.array(z.number()).min(2))
@@ -496,6 +511,82 @@ export async function renewReviewClaim(id: string) {
 export async function releaseReviewClaim(id: string) {
   const reviewerId = await requireReviewer()
   await pipelineResults.releaseClaim(id, reviewerId)
+}
+
+export async function decideReview(
+  reviewId: string,
+  decision: "approved" | "rejected"
+) {
+  const reviewerId = await requireReviewer()
+  const parsedReviewId = z.uuid().parse(reviewId)
+  const parsedDecision = z.enum(["approved", "rejected"]).parse(decision)
+  const claimed = await pipelineResults.findClaimed(parsedReviewId, reviewerId)
+  if (!claimed || (claimed.kind !== "media" && claimed.kind !== "extraction"))
+    throw new Error("Media or extraction review claim not found.")
+
+  if (claimed.kind === "extraction" && parsedDecision === "approved") {
+    const extraction = extractionReviewPayloadSchema.parse(claimed.payload)
+    const sourceDetection = await getItem<DetectionItem>(
+      Resource.SubmissionReviewPipeline.table,
+      extraction.source_detection
+    )
+    if (
+      sourceDetection.media_id !== extraction.media_id ||
+      Number(sourceDetection.detection_id) !== extraction.detection_id
+    ) {
+      throw new Error("Extraction source detection does not match the claim.")
+    }
+
+    const {
+      id: _id,
+      detectionId: _detectionId,
+      updatedAt: _updatedAt,
+      ...annotation
+    } = toReviewAnnotation(sourceDetection)
+    try {
+      await addExtractionToIndexes({
+        annotationId: claimed.id,
+        type: extraction.type,
+        category: extraction.category,
+        bucket: extraction.uri.features.bucket,
+        key: extraction.uri.features.key,
+      })
+      const approved = await pipelineResults.approveExtraction(
+        claimed.id,
+        reviewerId,
+        annotation
+      )
+      if (!approved?.annotationId)
+        throw new Error("Your extraction review claim has expired.")
+      return {
+        id: approved.id,
+        decision: parsedDecision,
+        reviewStatus: approved.reviewStatus,
+      }
+    } catch (approvalError) {
+      try {
+        await removeAnnotationFromIndexes(claimed.id)
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [approvalError, cleanupError],
+          "Extraction approval failed and its indexed features could not be removed."
+        )
+      }
+      throw approvalError
+    }
+  }
+
+  const decided = await pipelineResults.decide(
+    claimed.id,
+    reviewerId,
+    parsedDecision
+  )
+  if (!decided) throw new Error("Your review claim has expired.")
+  return {
+    id: decided.id,
+    decision: parsedDecision,
+    reviewStatus: decided.reviewStatus,
+  }
 }
 
 export async function approveDetectionReview(

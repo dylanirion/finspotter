@@ -123,6 +123,11 @@ export interface PipelineResultRepository {
     reviewerId: string,
     annotation: DetectionApproval
   ): Promise<PipelineResult | null>
+  approveExtraction(
+    id: string,
+    reviewerId: string,
+    annotation: DetectionApproval
+  ): Promise<PipelineResult | null>
 }
 
 export function createPipelineResultRepository(): PipelineResultRepository {
@@ -536,6 +541,81 @@ export function createPipelineResultRepository(): PipelineResultRepository {
             tx
           )
         }
+        return decided ?? null
+      })
+    },
+
+    async approveExtraction(id, reviewerId, annotation) {
+      const now = new Date()
+      return db.transaction(async (tx) => {
+        const [claimed] = await tx
+          .select()
+          .from(pipelineResultsTable)
+          .where(
+            and(
+              eq(pipelineResultsTable.id, id),
+              eq(pipelineResultsTable.kind, "extraction"),
+              eq(pipelineResultsTable.reviewStatus, "claimed"),
+              eq(pipelineResultsTable.claimedBy, reviewerId),
+              or(
+                gt(pipelineResultsTable.claimExpiresAt, now),
+                eq(pipelineResultsTable.claimExpiresAt, now)
+              )
+            )
+          )
+          .for("update")
+
+        if (!claimed || claimed.mediaId !== annotation.mediaId) return null
+
+        const [counter] = await tx
+          .insert(annotationsIncrementerTable)
+          .values({ mediaId: annotation.mediaId, lastId: 1 })
+          .onConflictDoUpdate({
+            target: annotationsIncrementerTable.mediaId,
+            set: {
+              lastId: sql`${annotationsIncrementerTable.lastId} + 1`,
+            },
+          })
+          .returning({ detectionId: annotationsIncrementerTable.lastId })
+        if (!counter) throw new Error("Failed to allocate detection ID")
+
+        await tx.insert(detectionsTable).values({
+          mediaId: annotation.mediaId,
+          detectionId: counter.detectionId,
+          source: annotation.source,
+          category: annotation.category,
+          type: annotation.type,
+          score: annotation.score,
+          data: annotation.data,
+          createdAt: now,
+          createdBy: reviewerId,
+        })
+        await tx.insert(annotationsTable).values({
+          id,
+          mediaId: annotation.mediaId,
+          detectionId: counter.detectionId,
+          individualId: annotation.individualId,
+          updatedAt: now,
+        })
+
+        const [decided] = await tx
+          .update(pipelineResultsTable)
+          .set({
+            reviewStatus: "approved",
+            reviewedBy: reviewerId,
+            reviewedAt: now,
+            annotationId: id,
+            claimExpiresAt: null,
+            updatedAt: now,
+          })
+          .where(eq(pipelineResultsTable.id, id))
+          .returning()
+
+        await tx
+          .update(mediaTable)
+          .set({ state: "reviewed" })
+          .where(eq(mediaTable.id, annotation.mediaId))
+
         return decided ?? null
       })
     },

@@ -9,6 +9,7 @@ import {
   type Dispatch,
   type SetStateAction,
 } from "react"
+import { useRouter } from "next/navigation"
 import {
   AnnotationTypes,
   type AnnotationDataTypes,
@@ -32,7 +33,11 @@ import {
   MenuItems,
   Switch,
 } from "@headlessui/react"
-import { ChevronDownIcon } from "@heroicons/react/24/outline"
+import {
+  CheckIcon,
+  ChevronDownIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline"
 import {
   useMutation,
   useQuery,
@@ -47,8 +52,10 @@ import {
 import { getSingleMedia as getPersistedMedia } from "app/_actions/media"
 import {
   approveDetectionReview,
+  decideReview,
   getSingleMedia as getPipelineMedia,
 } from "app/_actions/pipeline"
+import { Button } from "components/ui/inputs/Button"
 import { Skeleton } from "components/ui/skeleton/Skeleton"
 import {
   cn,
@@ -58,16 +65,19 @@ import {
   twCols,
   type PartialBy,
 } from "lib/utils"
+import { toast } from "react-hot-toast"
 
 export function MediaEditor({
   id,
   detectionId,
   reviewId,
+  reviewKind,
   variant = "media",
 }: {
   id: string
   detectionId?: number
   reviewId?: string
+  reviewKind?: "media" | "detection" | "extraction"
   variant?: "media" | "review"
 }) {
   //TODO: this needs to cache annotation infinitely, otherwise it refires on tab refocus
@@ -198,6 +208,8 @@ export function MediaEditor({
   }
   const isPortrait =
     Number(media.exif?.height ?? 0) > Number(media.exif?.width ?? 0)
+  const showReviewDecision =
+    variant === "review" && reviewId && reviewKind && reviewKind !== "detection"
 
   //TODO add instructions to user, circle icon?
   //TODO consider admin nav offset in breakpoints, can tailwind do arbitrary breakpoints?
@@ -278,6 +290,14 @@ export function MediaEditor({
             })}
         </MediaLayer>
       </Canvas>
+      {showReviewDecision && (
+        <div className="col-span-full">
+          <MediaReviewDecision
+            reviewId={reviewId}
+            reviewKind={reviewKind as "media" | "extraction"}
+          />
+        </div>
+      )}
       {variant === "media" && (
         <div className="grid auto-cols-auto grid-flow-col gap-3 md:block md:space-y-3">
           <MediaMeta
@@ -295,6 +315,63 @@ export function MediaEditor({
           <Log className="rounded-md border bg-white p-3 shadow-md dark:border-slate-600 dark:bg-slate-700" />
         </div>
       )}
+    </div>
+  )
+}
+
+function MediaReviewDecision({
+  reviewId,
+  reviewKind,
+}: {
+  reviewId: string
+  reviewKind: "media" | "extraction"
+}) {
+  const router = useRouter()
+  const decide = useMutation({
+    mutationFn: (decision: "approved" | "rejected") =>
+      decideReview(reviewId, decision),
+    onSuccess: (_, decision) => {
+      toast.success(
+        decision === "approved"
+          ? `Recorded as ${reviewKind === "media" ? "approved media" : "approved extraction"}.`
+          : `Recorded as rejected ${reviewKind === "media" ? "media" : "extraction"}.`
+      )
+      router.push("/dashboard")
+    },
+    onError: (error) =>
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Unable to record this review decision."
+      ),
+  })
+
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
+      <Button
+        intent="none"
+        size="small"
+        className="inline-flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 font-medium text-emerald-900 shadow-sm hover:bg-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
+        disabled={decide.isPending}
+        onClick={() => decide.mutate("approved")}
+      >
+        <CheckIcon className="size-4" />
+        Approve {reviewKind === "media" ? "media" : "extraction"}
+      </Button>
+      <Button
+        intent="none"
+        size="small"
+        className="inline-flex items-center gap-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 font-medium text-rose-900 shadow-sm hover:bg-rose-100 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none disabled:opacity-50 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900"
+        disabled={decide.isPending}
+        onClick={() => decide.mutate("rejected")}
+      >
+        <XMarkIcon className="size-4" />
+        Reject {reviewKind === "media" ? "media" : "extraction"}
+      </Button>
+      <p className="w-full text-center text-xs text-gray-500 dark:text-slate-400">
+        Unsure? Use <span className="font-medium">Back to queue</span> to
+        release this item without recording a decision.
+      </p>
     </div>
   )
 }
