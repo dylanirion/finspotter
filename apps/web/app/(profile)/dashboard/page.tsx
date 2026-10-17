@@ -1,5 +1,6 @@
 import { type Metadata } from "next"
 import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 import { can } from "@finspotter/core/auth/permissions"
 import { getSession } from "lib/auth"
 import { Toaster } from "react-hot-toast"
@@ -19,7 +20,9 @@ export const metadata: Metadata = {
 //TODO: pipeline pending list if allowed to review, anly admins and org admins can delete.
 export default async function DashboardPage() {
   const session = await getSession({ headers: await headers() })
-  const user = session!.user
+  if (!session) redirect("/signin")
+
+  const user = session?.user ?? undefined
 
   return (
     <>
