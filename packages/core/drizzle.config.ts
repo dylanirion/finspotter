@@ -5,6 +5,7 @@ export default defineConfig({
   out: "./_migrations/",
   schema: "./src/database/_drizzle/schema.ts",
   dialect: "postgresql",
+  extensionsFilters: ["postgis"],
   dbCredentials: {
     url: Resource.Database.host,
   },
