@@ -88,6 +88,16 @@ export type DetectionApproval = Omit<
   Annotation,
   "id" | "detectionId" | "updatedAt"
 >
+export type ComparisonObservationApproval = Pick<
+  Annotation,
+  "mediaId" | "detectionId" | "source" | "category" | "type" | "data" | "score"
+> & {
+  createdAt?: Date
+}
+export type ComparisonReviewResult = {
+  result: PipelineResult
+  createdAnnotationIds: string[]
+}
 
 export interface PipelineResultRepository {
   project(result: PipelineResultProjection): Promise<PipelineResult>
@@ -117,8 +127,9 @@ export interface PipelineResultRepository {
     id: string,
     reviewerId: string,
     verdict: ComparisonVerdict,
-    pair: ComparisonPair
-  ): Promise<PipelineResult | null>
+    pair: ComparisonPair,
+    observations: [ComparisonObservationApproval, ComparisonObservationApproval]
+  ): Promise<ComparisonReviewResult | null>
   approveDetection(
     id: string,
     reviewerId: string,
@@ -417,7 +428,7 @@ export function createPipelineResultRepository(): PipelineResultRepository {
       })
     },
 
-    async decideComparison(id, reviewerId, verdict, pair) {
+    async decideComparison(id, reviewerId, verdict, pair, observations) {
       const now = new Date()
       return db.transaction(async (tx) => {
         const [claimed] = await tx
@@ -438,6 +449,135 @@ export function createPipelineResultRepository(): PipelineResultRepository {
           .for("update")
 
         if (!claimed) return null
+
+        const pairObservations = [pair.query, pair.reference]
+        for (const [index, observation] of observations.entries()) {
+          const expected = pairObservations[index]
+          if (
+            observation.mediaId !== expected.mediaId ||
+            observation.detectionId !== expected.detectionId
+          ) {
+            throw new Error("Comparison observation does not match its pair.")
+          }
+        }
+
+        const mediaIds = [
+          ...new Set(observations.map(({ mediaId }) => mediaId)),
+        ]
+        const lockedMedia = await tx
+          .select({ id: mediaTable.id, state: mediaTable.state })
+          .from(mediaTable)
+          .where(inArray(mediaTable.id, mediaIds))
+          .orderBy(asc(mediaTable.id))
+          .for("update")
+        if (lockedMedia.length !== mediaIds.length)
+          throw new Error("Comparison media is missing.")
+        if (lockedMedia.some(({ state }) => state === "rejected"))
+          throw new Error(
+            "A rejected media item cannot be approved by comparison."
+          )
+
+        const createdAnnotationIds: string[] = []
+        for (const observation of observations) {
+          const [existingAnnotation] = await tx
+            .select({ id: annotationsTable.id })
+            .from(annotationsTable)
+            .where(
+              and(
+                eq(annotationsTable.mediaId, observation.mediaId),
+                eq(annotationsTable.detectionId, observation.detectionId),
+                observation.createdAt
+                  ? eq(annotationsTable.updatedAt, observation.createdAt)
+                  : undefined
+              )
+            )
+            .limit(1)
+          if (existingAnnotation) continue
+
+          await tx
+            .insert(annotationsIncrementerTable)
+            .values({
+              mediaId: observation.mediaId,
+              lastId: observation.detectionId,
+            })
+            .onConflictDoUpdate({
+              target: annotationsIncrementerTable.mediaId,
+              set: {
+                lastId: sql`greatest(${annotationsIncrementerTable.lastId}, excluded.last_id)`,
+              },
+            })
+
+          let [detection] = await tx
+            .select({ createdAt: detectionsTable.createdAt })
+            .from(detectionsTable)
+            .where(
+              and(
+                eq(detectionsTable.mediaId, observation.mediaId),
+                eq(detectionsTable.detectionId, observation.detectionId),
+                observation.createdAt
+                  ? eq(detectionsTable.createdAt, observation.createdAt)
+                  : undefined
+              )
+            )
+            .orderBy(asc(detectionsTable.createdAt))
+            .limit(1)
+          if (!detection) {
+            const [insertedDetection] = await tx
+              .insert(detectionsTable)
+              .values({
+                mediaId: observation.mediaId,
+                detectionId: observation.detectionId,
+                source: observation.source,
+                category: observation.category,
+                type: observation.type,
+                score: observation.score,
+                data: observation.data,
+                createdAt: observation.createdAt ?? now,
+                createdBy: reviewerId,
+              })
+              .onConflictDoNothing()
+              .returning({ createdAt: detectionsTable.createdAt })
+            if (insertedDetection) {
+              detection = insertedDetection
+            } else {
+              const [existingDetection] = await tx
+                .select({ createdAt: detectionsTable.createdAt })
+                .from(detectionsTable)
+                .where(
+                  and(
+                    eq(detectionsTable.mediaId, observation.mediaId),
+                    eq(detectionsTable.detectionId, observation.detectionId),
+                    observation.createdAt
+                      ? eq(detectionsTable.createdAt, observation.createdAt)
+                      : undefined
+                  )
+                )
+                .orderBy(asc(detectionsTable.createdAt))
+                .limit(1)
+              detection = existingDetection
+            }
+          }
+          if (!detection)
+            throw new Error("Failed to persist a comparison detection.")
+
+          const [annotation] = await tx
+            .insert(annotationsTable)
+            .values({
+              mediaId: observation.mediaId,
+              detectionId: observation.detectionId,
+              individualId: null,
+              updatedAt: detection.createdAt,
+            })
+            .returning({ id: annotationsTable.id })
+          if (!annotation)
+            throw new Error("Failed to approve a comparison annotation.")
+          createdAnnotationIds.push(annotation.id)
+        }
+
+        await tx
+          .update(mediaTable)
+          .set({ state: "reviewed" })
+          .where(inArray(mediaTable.id, mediaIds))
 
         const [decided] = await tx
           .update(pipelineResultsTable)
@@ -469,7 +609,7 @@ export function createPipelineResultRepository(): PipelineResultRepository {
           .values(values)
           .onConflictDoUpdate(conflict)
 
-        return decided ?? null
+        return decided ? { result: decided, createdAnnotationIds } : null
       })
     },
 

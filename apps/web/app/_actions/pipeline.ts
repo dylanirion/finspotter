@@ -9,6 +9,7 @@ import { createMediaRepository, Media } from "@finspotter/core/media"
 import {
   createPipelineResultRepository,
   isComparisonReviewKind,
+  type ComparisonObservationApproval,
   type PipelineResult,
   type PipelineResultKind,
 } from "@finspotter/core/pipelineResult"
@@ -478,6 +479,8 @@ export async function decideReviewComparison(
   const parsedVerdict = comparisonVerdictSchema.parse(verdict)
   const { claimed, reviewerId, payload } =
     await getClaimedComparisonReview(reviewId)
+  const [queryDetection, referenceDetection] =
+    await getComparisonSourceDetections(payload)
   const decided = await pipelineResults.decideComparison(
     claimed.id,
     reviewerId,
@@ -491,13 +494,86 @@ export async function decideReviewComparison(
         mediaId: payload.ref.media_id,
         detectionId: payload.ref.detection_id,
       },
-    }
+    },
+    [
+      toComparisonObservation(queryDetection),
+      toComparisonObservation(referenceDetection),
+    ]
   )
   if (!decided) throw new Error("Your comparison review claim has expired.")
+  const extractionResults = await Promise.allSettled(
+    decided.createdAnnotationIds.map((annotationId) =>
+      startAutoReviewedExtractionForAnnotation(annotationId, reviewerId)
+    )
+  )
+  const extractionErrors = extractionResults.flatMap((result) =>
+    result.status === "rejected" ? [result.reason] : []
+  )
+  if (extractionErrors.length) {
+    throw new AggregateError(
+      extractionErrors,
+      "The comparison was recorded, but extraction could not be started for every approved annotation."
+    )
+  }
   return {
-    id: decided.id,
+    id: decided.result.id,
     verdict: parsedVerdict,
-    reviewStatus: decided.reviewStatus,
+    reviewStatus: decided.result.reviewStatus,
+  }
+}
+
+async function getComparisonSourceDetections(
+  payload: z.infer<typeof pairReviewPayloadSchema>
+): Promise<[DetectionItem, DetectionItem]> {
+  const [queryExtraction, referenceExtraction] = await Promise.all([
+    getItem<ReviewExtraction>(Resource.SubmissionReviewPipeline.table, {
+      pk: payload.source_query.pk,
+      sk: payload.source_query.sk,
+    }),
+    getItem<ReviewExtraction>(Resource.SubmissionReviewPipeline.table, {
+      pk: payload.source_ref.pk,
+      sk: payload.source_ref.sk,
+    }),
+  ])
+  const [queryDetection, referenceDetection] = await Promise.all([
+    getItem<DetectionItem>(Resource.SubmissionReviewPipeline.table, {
+      pk: queryExtraction.source_detection.pk,
+      sk: queryExtraction.source_detection.sk,
+    }),
+    getItem<DetectionItem>(Resource.SubmissionReviewPipeline.table, {
+      pk: referenceExtraction.source_detection.pk,
+      sk: referenceExtraction.source_detection.sk,
+    }),
+  ])
+  if (
+    queryDetection.media_id !== payload.query.media_id ||
+    Number(queryDetection.detection_id) !== payload.query.detection_id ||
+    referenceDetection.media_id !== payload.ref.media_id ||
+    Number(referenceDetection.detection_id) !== payload.ref.detection_id
+  ) {
+    throw new Error("Comparison source detections do not match the claim.")
+  }
+  return [queryDetection, referenceDetection]
+}
+
+function toComparisonObservation(
+  detection: DetectionItem
+): ComparisonObservationApproval {
+  const annotation = toReviewAnnotation(detection)
+  const createdAt = detection.created_at
+    ? new Date(detection.created_at)
+    : undefined
+  if (createdAt && Number.isNaN(createdAt.getTime()))
+    throw new Error("Comparison source detection has an invalid timestamp.")
+  return {
+    mediaId: annotation.mediaId,
+    detectionId: annotation.detectionId,
+    source: annotation.source,
+    category: annotation.category,
+    type: annotation.type,
+    score: annotation.score,
+    data: annotation.data,
+    createdAt,
   }
 }
 
