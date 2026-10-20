@@ -29,7 +29,7 @@ export const Template = (props: {
           <Section className="text-center">
             <Button
               href={url}
-              width={60}
+              width={120}
               height={20}
               className="rounded-md bg-indigo-600 px-4 py-2 text-base font-medium text-white"
               //borderRadius={6}
@@ -42,7 +42,9 @@ export const Template = (props: {
           </Section>
           <Section className="text-center text-base font-medium">
             <Text>
-              If you did not request this email you can safely ignore it.
+              {role === "submitter"
+                ? "If you didn't submit this encounter, you can ignore this email. Your submission won't be verified unless you use the link above."
+                : "If you don't want to receive updates about this encounter, you can ignore this email. You won't be subscribed unless you use the link above."}
             </Text>
           </Section>
         </Container>
