@@ -13,17 +13,12 @@ import {
   type IndividualName,
 } from "@finspotter/core/name"
 import { getSession } from "lib/auth"
-import { mediaUrlForViewer, signedMediaUrl } from "lib/mediaAccess"
+import { signedMediaUrl } from "lib/mediaAccess"
 import { z } from "zod"
 
 const { findOne, findAll } = createIndividualRepository()
 const { findOne: findOneName } = createNamesRepository()
 const identification = createIdentificationService()
-
-async function getViewer() {
-  const session = await getSession({ headers: await headers() })
-  return session?.user
-}
 
 async function requireIdentificationWriter() {
   const session = await getSession({ headers: await headers() })
@@ -109,17 +104,14 @@ export async function getAllIndividuals({
   where?: Where
 }) {
   //TODO: check permissions? inject filter based on permissions
-  const [result, viewer] = await Promise.all([
-    findAll({ limit, offset, sort, where }),
-    getViewer(),
-  ])
+  const result = await findAll({ limit, offset, sort, where })
   if (!result) return result
   return {
     ...result,
     items: result.items.map((individual) => ({
       ...individual,
       // Summary `src` is the representative media ID.
-      src: individual.src ? mediaUrlForViewer(viewer, individual.src) : null,
+      src: individual.src ? signedMediaUrl(individual.src) : null,
     })),
   }
 }
@@ -139,10 +131,9 @@ export async function getIndividualsForAssignment(): Promise<
 }
 
 export async function getSingleIndividual(id: string) {
-  const [individual, viewer] = await Promise.all([
-    findOne({ id: await identification.resolveIndividualId(id) }),
-    getViewer(),
-  ])
+  const individual = await findOne({
+    id: await identification.resolveIndividualId(id),
+  })
   if (!individual) return individual
   return {
     ...individual,
@@ -151,7 +142,7 @@ export async function getSingleIndividual(id: string) {
       // Replaces the storage key with a URL the client can render.
       media: {
         ...encounter.media,
-        src: mediaUrlForViewer(viewer, encounter.media.id),
+        src: signedMediaUrl(encounter.media.id),
       },
     })),
   }
