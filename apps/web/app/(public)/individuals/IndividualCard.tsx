@@ -14,22 +14,22 @@ export function IndividualCard({ props }: { props: IndividualSummary }) {
       <div className="w-80 shrink-0 grow-0 space-y-2 rounded-xl border px-6 py-2 text-left shadow group-hover:text-blue-600 group-focus:text-blue-600 sm:w-56 dark:border-gray-500 dark:bg-slate-700">
         <div className="flex items-center space-x-1">
           <h3 className="text-2xl font-bold">
-            {canonicalNames &&
-              canonicalNames.map((name) => <span key={name}>{name}</span>)}
+            {canonicalNames.length > 0
+              ? canonicalNames.map((name) => <span key={name}>{name}</span>)
+              : id.slice(0, 8)}
           </h3>
           <div>
             {/* TODO: How to handle long names (HE_035)? maybe abbreviate all but last e.g H. B. de La Bath */}
-            {nickNames &&
-              nickNames.map((name) => (
-                //TODO: user chosen badge colours
-                <Badge
-                  key={name}
-                  variant="indigo"
-                  className="text-xs font-medium"
-                >
-                  {name}
-                </Badge>
-              ))}
+            {nickNames.map((name) => (
+              //TODO: user chosen badge colours
+              <Badge
+                key={name}
+                variant="indigo"
+                className="text-xs font-medium"
+              >
+                {name}
+              </Badge>
+            ))}
           </div>
         </div>
         <Img
@@ -70,7 +70,7 @@ export function IndividualCardSkeleton() {
         role="status"
       >
         <Skeleton className="h-6 w-6/12 dark:bg-slate-700"></Skeleton>
-        <Skeleton className="aspect-[4/3] w-full dark:bg-slate-500">
+        <Skeleton className="aspect-4/3 w-full dark:bg-slate-500">
           <div className="flex size-full items-center justify-center">
             <PhotoIcon className="size-16 text-white" />
           </div>

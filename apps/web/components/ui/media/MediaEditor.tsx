@@ -349,9 +349,9 @@ function MediaReviewDecision({
   return (
     <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
       <Button
-        intent="none"
+        intent="approve"
         size="small"
-        className="inline-flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 font-medium text-emerald-900 shadow-sm hover:bg-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
+        className="inline-flex items-center gap-2 disabled:opacity-50"
         disabled={decide.isPending}
         onClick={() => decide.mutate("approved")}
       >
@@ -359,9 +359,9 @@ function MediaReviewDecision({
         Approve {reviewKind === "media" ? "media" : "extraction"}
       </Button>
       <Button
-        intent="none"
+        intent="reject"
         size="small"
-        className="inline-flex items-center gap-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 font-medium text-rose-900 shadow-sm hover:bg-rose-100 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none disabled:opacity-50 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900"
+        className="inline-flex items-center gap-2 disabled:opacity-50"
         disabled={decide.isPending}
         onClick={() => decide.mutate("rejected")}
       >
@@ -516,7 +516,7 @@ function AnnotationSelector({
           <ChevronDownIcon className="size-5 text-white/60" />
         </MenuButton>
         <MenuItems
-          className="w-[var(--button-width)] origin-top rounded-md bg-indigo-500 py-1 transition duration-100 ease-out [--anchor-gap:8px] data-closed:scale-95 data-closed:opacity-0"
+          className="w-(--button-width) origin-top rounded-md bg-indigo-500 py-1 transition duration-100 ease-out [--anchor-gap:8px] data-closed:scale-95 data-closed:opacity-0"
           transition
           anchor="bottom"
         >

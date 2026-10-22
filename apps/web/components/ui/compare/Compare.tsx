@@ -179,7 +179,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
             id={a.media.id}
             ref={setCanvasA}
             className={cn("rounded-md shadow-md", {
-              "h-[calc(100dvh_-_10rem)] w-auto":
+              "h-[calc(100dvh-10rem)] w-auto":
                 viewportA.transform.height > viewportA.transform.width,
             })}
             width={viewportA.transform.width}
@@ -201,7 +201,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
             <Button
               intent="none"
               size="icon"
-              className="absolute top-1 right-1 z-[60] grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
+              className="absolute top-1 right-1 z-60 grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
               onClick={rotateAClockwise}
               title="Rotate query image clockwise"
               aria-label="Rotate query image clockwise"
@@ -213,7 +213,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
             id={b.media.id}
             ref={setCanvasB}
             className={cn("rounded-md shadow-md", {
-              "h-[calc(100dvh_-_10rem)] w-auto":
+              "h-[calc(100dvh-10rem)] w-auto":
                 viewportB.transform.height > viewportB.transform.width,
             })}
             width={viewportB.transform.width}
@@ -235,7 +235,7 @@ export function Compare({ ids, comparison, reviewId }: CompareProps) {
             <Button
               intent="none"
               size="icon"
-              className="absolute top-1 right-1 z-[60] grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
+              className="absolute top-1 right-1 z-60 grid size-8 place-items-center rounded-md bg-slate-950/80 text-white shadow hover:bg-slate-950 focus-visible:ring-2 focus-visible:ring-cyan-400 focus-visible:outline-none"
               onClick={rotateBClockwise}
               title="Rotate reference image clockwise"
               aria-label="Rotate reference image clockwise"
@@ -308,7 +308,7 @@ function CompareSkeleton({
                 aspectRatio: `${viewport.width ?? 4} / ${viewport.height ?? 3}`,
               }}
               className={cn("w-full rounded-md shadow-md dark:bg-slate-700", {
-                "h-[calc(100dvh_-_10rem)] w-auto":
+                "h-[calc(100dvh-10rem)] w-auto":
                   (viewport.height ?? 0) > (viewport.width ?? 0),
               })}
             />

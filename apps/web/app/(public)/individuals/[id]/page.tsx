@@ -22,7 +22,7 @@ export const generateMetadata = async ({
   const { id } = await params
   const names = await getCanonicalNames(id)
   return {
-    title: `Individual ${names ? `- ${names.canonical[0]}` : ""}`,
+    title: `Individual - ${names?.canonical?.[0] || id.slice(0, 8)}`,
   }
 }
 

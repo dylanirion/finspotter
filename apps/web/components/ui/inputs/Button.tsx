@@ -10,6 +10,12 @@ const buttonStyles = cva([], {
         "bg-indigo-600 text-white hover:bg-indigo-700 focus:ring-indigo-500",
       secondary:
         "bg-indigo-200 text-indigo-600 hover:bg-indigo-300 focus:ring-indigo-100",
+      approve:
+        "bg-green-700 text-white hover:bg-green-800 focus:ring-green-600",
+      reject:
+        "bg-red-700 text-white hover:bg-red-800 focus:ring-red-600",
+      abstain:
+        "bg-yellow-700 text-white hover:bg-yellow-800 focus:ring-yellow-600",
       none: [],
     },
     size: {
@@ -25,7 +31,7 @@ const buttonStyles = cva([], {
   },
   compoundVariants: [
     {
-      intent: ["primary", "secondary"],
+      intent: ["primary", "secondary", "approve", "reject", "abstain"],
       size: ["large", "medium", "small"],
       className:
         "rounded-md border border-transparent font-medium shadow focus:outline-hidden focus:ring-2 focus:ring-offset-2",

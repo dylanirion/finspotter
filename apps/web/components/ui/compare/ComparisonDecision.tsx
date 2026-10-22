@@ -46,9 +46,9 @@ export function ComparisonDecision({ reviewId }: { reviewId: string }) {
   return (
     <div className="mt-4 flex flex-wrap items-center justify-center gap-3">
       <Button
-        intent="none"
+        intent="approve"
         size="small"
-        className="inline-flex items-center gap-2 rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 font-medium text-emerald-900 shadow-sm hover:bg-emerald-100 focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:outline-none disabled:opacity-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-100 dark:hover:bg-emerald-900"
+        className="inline-flex items-center gap-2 disabled:opacity-50"
         disabled={decide.isPending}
         onClick={() => decide.mutate("same")}
       >
@@ -56,9 +56,9 @@ export function ComparisonDecision({ reviewId }: { reviewId: string }) {
         Same individual
       </Button>
       <Button
-        intent="none"
+        intent="reject"
         size="small"
-        className="inline-flex items-center gap-2 rounded-md border border-rose-300 bg-rose-50 px-3 py-2 font-medium text-rose-900 shadow-sm hover:bg-rose-100 focus-visible:ring-2 focus-visible:ring-rose-500 focus-visible:outline-none disabled:opacity-50 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-100 dark:hover:bg-rose-900"
+        className="inline-flex items-center gap-2 disabled:opacity-50"
         disabled={decide.isPending}
         onClick={() => decide.mutate("different")}
       >
@@ -66,9 +66,9 @@ export function ComparisonDecision({ reviewId }: { reviewId: string }) {
         Different individuals
       </Button>
       <Button
-        intent="none"
+        intent="abstain"
         size="small"
-        className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 font-medium text-amber-900 shadow-sm hover:bg-amber-100 focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:outline-none disabled:opacity-50 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100 dark:hover:bg-amber-900"
+        className="inline-flex items-center gap-2 disabled:opacity-50"
         disabled={decide.isPending}
         onClick={() => decide.mutate("inconclusive")}
       >

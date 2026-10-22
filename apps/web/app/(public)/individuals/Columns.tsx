@@ -25,17 +25,17 @@ export const columns = [
             href={`/individuals/${id}`}
           >
             <div className="flex flex-col space-x-1">
-              {canonicalNames &&
-                canonicalNames.map((name) => <span key={name}>{name}</span>)}
+              {canonicalNames.length > 0
+                ? canonicalNames.map((name) => <span key={name}>{name}</span>)
+                : id.slice(0, 8)}
             </div>
           </Link>
-          {nickNames &&
-            nickNames.map((name) => (
-              //TODO: user chosen badge colours
-              <Badge key={name} variant="indigo">
-                {name}
-              </Badge>
-            ))}
+          {nickNames.map((name) => (
+            //TODO: user chosen badge colours
+            <Badge key={name} variant="indigo">
+              {name}
+            </Badge>
+          ))}
         </div>
       )
     },

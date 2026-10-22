@@ -3,6 +3,7 @@
 //import { AnnotationLayer } from "components/ui/canvas/AnnotationLayer"
 import { type PropsWithChildren } from "react"
 import { Canvas } from "@finspotter/canvas"
+import { cn } from "lib/utils"
 
 //import { AnnotationTransformerProvider } from "hooks/useAnnotationTransformer"
 //import { useMediaCanvas } from "hooks/useMediaCanvas"
@@ -16,6 +17,9 @@ export function IndividualCanvas({
   media,
   children,
 }: PropsWithChildren<CanvasProps>) {
+  const isPortrait =
+    Number(media.exif?.height ?? 0) > Number(media.exif?.width ?? 0)
+
   /*
   const {
     canvasRef: { current: canvas },
@@ -44,7 +48,10 @@ export function IndividualCanvas({
     <Canvas
       key={media?.id}
       id={media?.id}
-      className="h-[calc(100dvh_-_15rem)] justify-center rounded-md shadow-md"
+      className={cn("justify-center rounded-md shadow-md", {
+        "h-[calc(100dvh-15rem)] w-auto": isPortrait,
+        "w-full": !isPortrait,
+      })}
       width={media.exif?.width}
       height={media.exif?.height}
     >

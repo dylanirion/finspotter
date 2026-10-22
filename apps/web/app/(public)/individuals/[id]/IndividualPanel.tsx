@@ -1,3 +1,4 @@
+"use client"
 import { useState } from "react"
 import { getImageProps } from "next/image"
 import { MediaLayer } from "@finspotter/canvas/media"
