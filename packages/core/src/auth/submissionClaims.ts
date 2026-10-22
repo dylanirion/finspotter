@@ -17,7 +17,7 @@ export type SubmissionContact = SubmissionClaim & {
 }
 
 type Transaction = {
-  execute: (query: SQL) => Promise<{ rows: Record<string, unknown>[] }>
+  execute: (query: SQL) => PromiseLike<{ rows: Record<string, unknown>[] }>
 }
 type Database = Transaction & {
   transaction: <Result>(

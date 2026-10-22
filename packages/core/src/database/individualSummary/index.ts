@@ -1,6 +1,6 @@
 import "server-only"
 
-import { sql } from "drizzle-orm"
+import { eq, sql } from "drizzle-orm"
 
 import { type Repository } from "../"
 import {
@@ -13,6 +13,7 @@ import {
   omitWhereColumn,
 } from "../_drizzle"
 import { individualsTable } from "../individual/sql"
+import { mediaTable } from "../media/sql"
 import { individualSummariesTable } from "./sql"
 
 type SummaryExecutor = Pick<typeof db, "execute">
@@ -21,6 +22,7 @@ export interface IndividualSummary {
   id: string
   canonicalNames: string[]
   nickNames: string[]
+  /** Representative media ID; the summary table stores its storage key. */
   src: string | null
   species: string | null
   totalEncounters: number
@@ -48,7 +50,11 @@ const drizzleIndividualSummaryRepository: SummaryRepository = {
           totalEncounters: individualSummariesTable.totalEncounters,
           lastSeen: individualSummariesTable.lastSeen,
           // lastSeenLocation: individualSummariesTable.lastSeenLocation,
-          src: individualSummariesTable.src,
+          src: sql<string | null>`(${db
+            .select({ id: mediaTable.id })
+            .from(mediaTable)
+            .where(eq(mediaTable.src, individualSummariesTable.src))
+            .limit(1)})`.as("src"),
         })
         .from(individualSummariesTable)
         .where(buildWhereClause(individualSummariesTable, where))

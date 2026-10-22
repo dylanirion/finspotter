@@ -7,9 +7,18 @@ import { z } from "zod"
 import { db } from "../database/_drizzle"
 import { createSubmissionVerificationRepository } from "./submissionClaims"
 
+type Row = Record<string, unknown>
+
 export const submissionVerification = () =>
   createSubmissionVerificationRepository({
-    database: db,
+    // Explicit row types select drizzle's single-result execute overload
+    database: {
+      execute: (query) => db.execute<Row>(query),
+      transaction: (callback) =>
+        db.transaction((transaction) =>
+          callback({ execute: (query) => transaction.execute<Row>(query) })
+        ),
+    },
   })
 
 const nodeENV: string =
