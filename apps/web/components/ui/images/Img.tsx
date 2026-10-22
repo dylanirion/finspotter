@@ -3,7 +3,9 @@ import Image, { ImageProps } from "next/image"
 import { ExclamationTriangleIcon, PhotoIcon } from "@heroicons/react/24/solid"
 import { cn, rgbDataURL } from "lib/utils"
 
-export function Img(props: ImageProps & HTMLProps<HTMLImageElement>) {
+export function Img(
+  props: ImageProps & Omit<HTMLProps<HTMLImageElement>, keyof ImageProps>
+) {
   const { ref, src, alt, className, ...other } = props
   const [isLoading, setLoading] = useState(true)
   const [isError, setError] = useState(false)
@@ -18,7 +20,7 @@ export function Img(props: ImageProps & HTMLProps<HTMLImageElement>) {
 
   if (!src || isError) {
     return (
-      <div className="relative aspect-[4/3] rounded bg-gray-200 dark:bg-slate-500">
+      <div className="relative aspect-4/3 rounded bg-gray-200 dark:bg-slate-500">
         <div className="absolute z-10 flex size-full items-center justify-center">
           <ExclamationTriangleIcon className="size-16 text-white" />
         </div>
@@ -27,7 +29,7 @@ export function Img(props: ImageProps & HTMLProps<HTMLImageElement>) {
   }
 
   return (
-    <div className="relative aspect-[4/3] rounded">
+    <div className="relative aspect-4/3 rounded">
       <div
         className={cn(
           "absolute z-10 flex h-full w-full animate-pulse items-center justify-center rounded bg-gray-200 dark:bg-slate-500",

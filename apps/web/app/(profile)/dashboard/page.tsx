@@ -1,5 +1,6 @@
 import { type Metadata } from "next"
 import { headers } from "next/headers"
+import Link from "next/link"
 import { redirect } from "next/navigation"
 import { can } from "@finspotter/core/auth/permissions"
 import { getSession } from "lib/auth"
@@ -29,6 +30,14 @@ export default async function DashboardPage() {
       <h2 className="text-2xl font-bold tracking-tight">
         Welcome back, {user.firstName}!
       </h2>
+      {can(user, "update", "Annotation") && (
+        <Link
+          className="mt-2 inline-flex text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-300 dark:hover:text-indigo-200"
+          href="/admin/identification"
+        >
+          Review identities awaiting identification
+        </Link>
+      )}
       <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 xl:grid-cols-4">
         <MyEncounters userId={user.id} />
         <MyOrganization />

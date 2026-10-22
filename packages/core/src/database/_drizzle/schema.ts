@@ -18,7 +18,7 @@ import {
   detectionsTable,
 } from "../detection/sql"
 import { exifTable } from "../exif/sql"
-import { individualsTable } from "../individual/sql"
+import { individualRedirectsTable, individualsTable } from "../individual/sql"
 import { individualSummariesTable } from "../individualSummary/sql"
 import { locationsTable } from "../location/sql"
 import { mediaMetaTable, mediaStateEnum, mediaTable } from "../media/sql"
@@ -55,6 +55,7 @@ export {
   annotationTypeEnum,
   detectionsTable,
   individualsTable,
+  individualRedirectsTable,
   individualSummariesTable,
   exifTable,
   mediaTable,
@@ -84,6 +85,7 @@ export const relations = defineRelations(
     mediaTable,
     annotationsTable,
     individualsTable,
+    individualRedirectsTable,
     individualSummariesTable,
     detectionsTable,
     annotationMetaTable,
@@ -160,6 +162,16 @@ export const relations = defineRelations(
       names: r.many.namesTable(),
       tags: r.many.tagsTable(),
       adoptions: r.many.adoptionsTable(),
+    },
+    individualRedirectsTable: {
+      target: r.one.individualsTable({
+        from: r.individualRedirectsTable.targetId,
+        to: r.individualsTable.id,
+      }),
+      mergedByUser: r.one.usersTable({
+        from: r.individualRedirectsTable.mergedBy,
+        to: r.usersTable.id,
+      }),
     },
     individualSummariesTable: {
       individual: r.one.individualsTable({
@@ -307,6 +319,7 @@ export default {
   annotationTypeEnum,
   detectionsTable,
   individualsTable,
+  individualRedirectsTable,
   individualSummariesTable,
   exifTable,
   mediaTable,

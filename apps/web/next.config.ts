@@ -5,6 +5,11 @@ export default {
   images: {
     dangerouslyAllowSVG: true,
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
+    localPatterns: [
+      // Protected media is authorised via a `?token=` capability.
+      { pathname: "/api/media/**" },
+      { pathname: "**", search: "" },
+    ],
     remotePatterns: [
       {
         protocol: "https",

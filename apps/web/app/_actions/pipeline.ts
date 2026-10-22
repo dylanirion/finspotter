@@ -27,7 +27,7 @@ import {
   startAutoReviewedExtractionForAnnotation,
 } from "lib/annotationIndex"
 import { getSession } from "lib/auth"
-import { createMediaCapability } from "lib/mediaAccess"
+import { signedMediaUrl } from "lib/mediaAccess"
 import { Resource } from "sst"
 import { z } from "zod"
 
@@ -730,10 +730,9 @@ function toReviewMedia(
   media: Media,
   claimExpiresAt: Date
 ): Pick<Media, "id" | "src" | "exif"> {
-  const token = createMediaCapability(media.id, claimExpiresAt)
   return {
     id: media.id,
-    src: `/api/media/${media.id}?token=${encodeURIComponent(token)}`,
+    src: signedMediaUrl(media.id, claimExpiresAt),
     exif: media.exif,
   }
 }

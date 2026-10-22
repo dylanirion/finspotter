@@ -1,6 +1,38 @@
 import "server-only"
 
 import { createHmac, timingSafeEqual } from "node:crypto"
+import { can } from "@finspotter/core/auth/permissions"
+
+const MEDIA_URL_WINDOW_MS = 60 * 60 * 1_000
+
+type MediaViewer = Parameters<typeof can>[0] | null | undefined
+
+/*
+ * next/image fetches originals server-side without the viewer's cookies, so
+ * protected media needs a capability in the URL. Expiry is aligned to an
+ * hourly window (valid for 1-2h) so URLs, and the optimizer cache, are stable
+ * across requests.
+ */
+export function mediaUrlExpiry(now = Date.now()) {
+  return new Date(
+    (Math.floor(now / MEDIA_URL_WINDOW_MS) + 2) * MEDIA_URL_WINDOW_MS
+  )
+}
+
+export function signedMediaUrl(
+  mediaId: string,
+  expiresAt: Date = mediaUrlExpiry()
+) {
+  const token = createMediaCapability(mediaId, expiresAt)
+  return `/api/media/${mediaId}?token=${encodeURIComponent(token)}`
+}
+
+/** Only signs for viewers the media route would already authorise by session. */
+export function mediaUrlForViewer(viewer: MediaViewer, mediaId: string) {
+  return viewer && can(viewer, "read", "Media")
+    ? signedMediaUrl(mediaId)
+    : `/api/media/${mediaId}`
+}
 
 export function createMediaCapability(
   mediaId: string,

@@ -4,37 +4,87 @@ import { headers } from "next/headers"
 import { can } from "@finspotter/core/auth/permissions"
 import { type Sort, type Where } from "@finspotter/core/database"
 import { createIdentificationService } from "@finspotter/core/identification"
-import { createIndividualRepository } from "@finspotter/core/individual"
+import {
+  createIndividualRepository,
+  type IndividualSummary,
+} from "@finspotter/core/individual"
 import {
   createNamesRepository,
   type IndividualName,
 } from "@finspotter/core/name"
 import { getSession } from "lib/auth"
+import { mediaUrlForViewer, signedMediaUrl } from "lib/mediaAccess"
+import { z } from "zod"
 
 const { findOne, findAll } = createIndividualRepository()
 const { findOne: findOneName } = createNamesRepository()
 const identification = createIdentificationService()
 
+async function getViewer() {
+  const session = await getSession({ headers: await headers() })
+  return session?.user
+}
+
 async function requireIdentificationWriter() {
   const session = await getSession({ headers: await headers() })
   if (!session?.user || !can(session.user, "update", "Annotation"))
     throw new Error("Unauthorized access.")
+  return session.user.id
 }
 
 export async function identifyEncounter(
   annotationId: string,
   individualId: string | null
 ) {
-  await requireIdentificationWriter()
-  return identification.identifyEncounter(annotationId, individualId)
+  const reviewerId = await requireIdentificationWriter()
+  return identification.identifyEncounter(
+    annotationId,
+    individualId,
+    reviewerId
+  )
 }
 
 export async function createIndividualForEncounter(
   annotationId: string,
   name?: Omit<IndividualName, "individualId">
 ) {
+  const reviewerId = await requireIdentificationWriter()
+  return identification.createIndividualForEncounter(
+    annotationId,
+    reviewerId,
+    name
+  )
+}
+
+export async function getAwaitingIdentification() {
   await requireIdentificationWriter()
-  return identification.createIndividualForEncounter(annotationId, name)
+  const groups = await identification.findAwaitingIdentification()
+  return groups.map((group) => ({
+    ...group,
+    observations: group.observations.map((observation) => ({
+      ...observation,
+      src: signedMediaUrl(observation.mediaId),
+    })),
+  }))
+}
+
+export async function assignProvisionalIdentity(
+  mediaId: string,
+  detectionId: number,
+  targetIndividualId: string | null,
+  mergeExisting = false
+) {
+  const reviewerId = await requireIdentificationWriter()
+  const parsedMediaId = z.uuid().parse(mediaId)
+  const parsedDetectionId = z.number().int().positive().parse(detectionId)
+  const parsedTargetId =
+    targetIndividualId === null ? null : z.uuid().parse(targetIndividualId)
+  return identification.assignProvisionalGroup(
+    { mediaId: parsedMediaId, detectionId: parsedDetectionId },
+    parsedTargetId,
+    reviewerId,
+    z.boolean().parse(mergeExisting)
+  )
 }
 
 export async function setIndividualName(name: IndividualName) {
@@ -59,13 +109,57 @@ export async function getAllIndividuals({
   where?: Where
 }) {
   //TODO: check permissions? inject filter based on permissions
-  return await findAll({ limit, offset, sort, where })
+  const [result, viewer] = await Promise.all([
+    findAll({ limit, offset, sort, where }),
+    getViewer(),
+  ])
+  if (!result) return result
+  return {
+    ...result,
+    items: result.items.map((individual) => ({
+      ...individual,
+      // Summary `src` is the representative media ID.
+      src: individual.src ? mediaUrlForViewer(viewer, individual.src) : null,
+    })),
+  }
+}
+
+export async function getIndividualsForAssignment(): Promise<
+  IndividualSummary[]
+> {
+  await requireIdentificationWriter()
+  const result = await findAll({
+    limit: 500,
+    offset: 0,
+    sort: [],
+    where: {},
+  })
+  if (!result) throw new Error("Unable to load individuals for assignment.")
+  return result.items
 }
 
 export async function getSingleIndividual(id: string) {
-  return await findOne({ id: id })
+  const [individual, viewer] = await Promise.all([
+    findOne({ id: await identification.resolveIndividualId(id) }),
+    getViewer(),
+  ])
+  if (!individual) return individual
+  return {
+    ...individual,
+    encounters: individual.encounters.map((encounter) => ({
+      ...encounter,
+      // Replaces the storage key with a URL the client can render.
+      media: {
+        ...encounter.media,
+        src: mediaUrlForViewer(viewer, encounter.media.id),
+      },
+    })),
+  }
 }
 
 export async function getCanonicalNames(id: string) {
-  return await findOneName({ individualId: id, type: "canonical" })
+  return await findOneName({
+    individualId: await identification.resolveIndividualId(id),
+    type: "canonical",
+  })
 }

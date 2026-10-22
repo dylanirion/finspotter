@@ -23,6 +23,12 @@ import {
   type ComparisonPair,
   type ComparisonVerdict,
 } from "../comparisonDecision"
+import {
+  comparisonComponents,
+  comparisonObservationKey,
+  hasDifferentIdentityConflict,
+  parseComparisonObservationKey,
+} from "../comparisonDecision/graph"
 import { comparisonDecisionsTable } from "../comparisonDecision/sql"
 import { detectionsTable } from "../detection/sql"
 import { mediaTable } from "../media/sql"
@@ -608,6 +614,87 @@ export function createPipelineResultRepository(): PipelineResultRepository {
           .insert(comparisonDecisionsTable)
           .values(values)
           .onConflictDoUpdate(conflict)
+
+        if (verdict === "same") {
+          const decisions = await tx.select().from(comparisonDecisionsTable)
+          const graph = comparisonComponents(decisions)
+          const component = graph.componentFor(
+            comparisonObservationKey(pair.query.mediaId, pair.query.detectionId)
+          )
+          if (!component.hasDifferentConflict) {
+            const observations = [...component.members].map(
+              parseComparisonObservationKey
+            )
+            const annotationCondition = or(
+              ...observations.map(({ mediaId, detectionId }) =>
+                and(
+                  eq(annotationsTable.mediaId, mediaId),
+                  eq(annotationsTable.detectionId, detectionId)
+                )
+              )
+            )
+            const groupAnnotations = await tx
+              .select({
+                id: annotationsTable.id,
+                individualId: annotationsTable.individualId,
+              })
+              .from(annotationsTable)
+              .innerJoin(
+                mediaTable,
+                eq(mediaTable.id, annotationsTable.mediaId)
+              )
+              .where(and(annotationCondition, eq(mediaTable.state, "reviewed")))
+            const individualIds = [
+              ...new Set(
+                groupAnnotations.flatMap(({ individualId }) =>
+                  individualId ? [individualId] : []
+                )
+              ),
+            ]
+            if (individualIds.length === 1) {
+              const assignedObservations = await tx
+                .select({
+                  mediaId: annotationsTable.mediaId,
+                  detectionId: annotationsTable.detectionId,
+                })
+                .from(annotationsTable)
+                .where(eq(annotationsTable.individualId, individualIds[0]))
+              const assignedMembers = new Set(
+                assignedObservations.map(({ mediaId, detectionId }) =>
+                  comparisonObservationKey(mediaId, detectionId)
+                )
+              )
+              if (
+                !hasDifferentIdentityConflict(
+                  decisions,
+                  component.members,
+                  assignedMembers
+                )
+              ) {
+                const unassignedIds = groupAnnotations.flatMap(
+                  ({ id, individualId }) => (individualId ? [] : [id])
+                )
+                if (unassignedIds.length) {
+                  await tx
+                    .update(annotationsTable)
+                    .set({ individualId: individualIds[0] })
+                    .where(
+                      and(
+                        inArray(annotationsTable.id, unassignedIds),
+                        isNull(annotationsTable.individualId)
+                      )
+                    )
+                  const { createIndividualSummaryRepository } =
+                    await import("../individualSummary")
+                  await createIndividualSummaryRepository().refresh(
+                    individualIds,
+                    tx
+                  )
+                }
+              }
+            }
+          }
+        }
 
         return decided ? { result: decided, createdAnnotationIds } : null
       })
