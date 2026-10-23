@@ -10,6 +10,7 @@ import { resetPassword } from "hooks/useSession"
 import { cn } from "lib/utils"
 import { useFormStatus } from "react-dom"
 import toast, { Toaster } from "react-hot-toast"
+import { Password } from "components/ui/inputs/Password"
 
 //TODO: form clears on submit, maybe hide the form instead?
 //TODO: this should be a small popup window that instead of redirecting, says it is safe to close
@@ -84,10 +85,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
                 <label htmlFor="new-password" className="sr-only">
                   New Password
                 </label>
-                <input
+                <Password
                   id="password"
                   name="password"
-                  type="password"
                   required
                   className={cn(
                     "relative block w-full rounded-md border border-gray-300 px-3 py-2 placeholder:text-gray-500 focus:border-indigo-500 focus:ring-indigo-500 focus:outline-hidden sm:text-sm dark:border-slate-500 dark:bg-slate-700",
@@ -113,10 +113,9 @@ export function ResetPasswordForm({ token }: { token: string }) {
                 <label htmlFor="re-enter-password" className="sr-only">
                   Re-enter New Password
                 </label>
-                <input
+                <Password
                   id="confirmPassword"
                   name="confirmPassword"
-                  type="password"
                   required
                   className={cn(
                     "relative block w-full rounded-md border border-gray-300 px-3 py-2 placeholder:text-gray-500 focus:border-indigo-500 focus:ring-indigo-500 focus:outline-hidden sm:text-sm dark:border-slate-500 dark:bg-slate-700",

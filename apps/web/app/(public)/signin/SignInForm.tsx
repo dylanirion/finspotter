@@ -19,6 +19,7 @@ import { useCaptchaAction } from "hooks/useCaptchaAction"
 import { requestPasswordReset, signIn } from "hooks/useSession"
 import { cn } from "lib/utils"
 import toast, { Toaster } from "react-hot-toast"
+import { Password } from "components/ui/inputs/Password"
 
 //TODO: useActionState with signIn? even thought It's not a server action?
 export function SignInForm() {
@@ -168,11 +169,10 @@ export function SignInForm() {
                   <label htmlFor="password" className="sr-only">
                     Password
                   </label>
-                  <input
+                  <Password
                     ref={passwordRef}
                     id="password"
                     name="password"
-                    type="password"
                     autoComplete="current-password"
                     required
                     className="relative block w-full appearance-none rounded-none rounded-b-md border border-gray-300 px-3 py-2 placeholder:text-gray-500 focus:z-10 focus:border-indigo-500 focus:ring-indigo-500 focus:outline-hidden sm:text-sm md:rounded-md dark:border-slate-500 dark:bg-slate-700"
