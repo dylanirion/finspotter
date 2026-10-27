@@ -67,6 +67,7 @@ interface TableProviderProps<TData extends RowData> {
     facetCounts?: Record<string, Map<string, number>>
   }>
   defaultSort: SortingState
+  refetchInterval?: number | false
 }
 
 export function TableProvider<TData extends { id: string | number }>({
@@ -75,6 +76,7 @@ export function TableProvider<TData extends { id: string | number }>({
   queryFn,
   children,
   defaultSort,
+  refetchInterval,
 }: PropsWithChildren<TableProviderProps<TData>>) {
   const {
     page,
@@ -88,7 +90,8 @@ export function TableProvider<TData extends { id: string | number }>({
     rowSelection,
     setRowSelection,
   } = useTableState(name, columns, defaultSort)
-  const { data, isLoading, isFetching } = useQuery({
+  const { data, isLoading, isFetching, error, refetch } = useQuery({
+    refetchInterval,
     queryKey: [name, { page, offset }, sorting, columnFilters],
     queryFn: (): Promise<{
       items: TData[]
@@ -171,6 +174,8 @@ export function TableProvider<TData extends { id: string | number }>({
     total: data?.total ?? 0,
     isLoading,
     isFetching,
+    error,
+    refetch,
   } as TableContextProps<TData>
 
   return (
@@ -205,6 +210,8 @@ export interface TableContextProps<TData> {
   total: number
   isLoading: boolean
   isFetching: boolean
+  error: Error | null
+  refetch: () => void
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- allow any table data

@@ -1,6 +1,7 @@
 import {
   and,
   asc,
+  count,
   eq,
   gt,
   inArray,
@@ -40,6 +41,20 @@ export type PipelineReviewStatus = PipelineResult["reviewStatus"]
 export type PipelineResultRelation =
   typeof pipelineResultLinksTable.$inferInsert.relation
 
+function reviewReadyCondition(now: Date) {
+  return and(
+    or(
+      eq(pipelineResultsTable.reviewStatus, "ready"),
+      and(
+        eq(pipelineResultsTable.reviewStatus, "claimed"),
+        lt(pipelineResultsTable.claimExpiresAt, now)
+      )
+    ),
+    isNull(pipelineResultsTable.supersededBy),
+    isNotNull(pipelineResultsTable.reviewReadyAt)
+  )
+}
+
 export type PipelineResultLinkInput = {
   relation: PipelineResultRelation
   relatedSourceSystem?: string
@@ -72,6 +87,11 @@ export type PipelineReviewCursor = {
   score: number | null
   readyAt: Date
   id: string
+}
+
+export type PipelineReviewSort = {
+  id: "kind" | "score" | "readyAt"
+  desc: boolean
 }
 
 export type PipelineReviewDecision =
@@ -111,6 +131,11 @@ export interface PipelineResultRepository {
     limit: number,
     cursor?: PipelineReviewCursor
   ): Promise<{ items: PipelineResult[]; cursor?: PipelineReviewCursor }>
+  findReviewReadyPage(
+    limit: number,
+    offset: number,
+    sorting?: PipelineReviewSort[]
+  ): Promise<{ items: PipelineResult[]; total: number }>
   claim(
     id: string,
     reviewerId: string,
@@ -268,20 +293,7 @@ export function createPipelineResultRepository(): PipelineResultRepository {
       const items = await db
         .select()
         .from(pipelineResultsTable)
-        .where(
-          and(
-            or(
-              eq(pipelineResultsTable.reviewStatus, "ready"),
-              and(
-                eq(pipelineResultsTable.reviewStatus, "claimed"),
-                lt(pipelineResultsTable.claimExpiresAt, now)
-              )
-            ),
-            isNull(pipelineResultsTable.supersededBy),
-            isNotNull(pipelineResultsTable.reviewReadyAt),
-            cursorCondition
-          )
-        )
+        .where(and(reviewReadyCondition(now), cursorCondition))
         .orderBy(
           sql`${pipelineResultsTable.reviewScore} desc nulls last`,
           asc(pipelineResultsTable.reviewReadyAt),
@@ -302,6 +314,40 @@ export function createPipelineResultRepository(): PipelineResultRepository {
             }
           : {}),
       }
+    },
+
+    async findReviewReadyPage(limit, offset, sorting) {
+      const condition = reviewReadyCondition(new Date())
+      const columns = {
+        kind: sql`${pipelineResultsTable.kind}::text`,
+        score: pipelineResultsTable.reviewScore,
+        readyAt: pipelineResultsTable.reviewReadyAt,
+      }
+      const order = (
+        sorting?.length ? sorting : [{ id: "score", desc: true } as const]
+      ).map(
+        ({ id, desc }) =>
+          sql`${columns[id]} ${desc ? sql`desc` : sql`asc`} nulls last`
+      )
+      const [items, [totals]] = await Promise.all([
+        db
+          .select()
+          .from(pipelineResultsTable)
+          .where(condition)
+          .orderBy(
+            ...order,
+            asc(pipelineResultsTable.reviewReadyAt),
+            asc(pipelineResultsTable.id)
+          )
+          .limit(limit)
+          .offset(offset),
+        db
+          .select({ total: count() })
+          .from(pipelineResultsTable)
+          .where(condition),
+      ])
+
+      return { items, total: totals.total }
     },
 
     async claim(id, reviewerId, leaseDurationMs = 5 * 60 * 1000) {

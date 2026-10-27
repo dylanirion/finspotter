@@ -5,6 +5,7 @@ import { headers } from "next/headers"
 import { type Annotation } from "@finspotter/core/annotation"
 import { can } from "@finspotter/core/auth/permissions"
 import { type ComparisonVerdict } from "@finspotter/core/comparisonDecision"
+import { type Sort } from "@finspotter/core/database"
 import { createMediaRepository, Media } from "@finspotter/core/media"
 import {
   createPipelineResultRepository,
@@ -12,6 +13,7 @@ import {
   type ComparisonObservationApproval,
   type PipelineResult,
   type PipelineResultKind,
+  type PipelineReviewSort,
 } from "@finspotter/core/pipelineResult"
 import { validateReCaptcha } from "@finspotter/core/recaptcha"
 import { createStorageRepository } from "@finspotter/core/storage"
@@ -358,6 +360,46 @@ export async function claimReviewItem(id: string) {
     id: claimed.id,
     claimExpiresAt: claimed.claimExpiresAt!.toISOString(),
   }
+}
+
+export async function getReviewQueuePage({
+  limit,
+  offset,
+  sort,
+}: {
+  limit: number
+  offset: number
+  sort?: Sort
+}) {
+  await requireReviewer()
+  const direction = z.object({ desc: z.boolean().optional() }).strict()
+  const pagination = z
+    .object({
+      limit: z.number().int().min(1).max(100),
+      offset: z.number().int().min(0),
+      sort: z
+        .array(
+          z.union([
+            z.object({ kind: direction }).strict(),
+            z.object({ score: direction }).strict(),
+            z.object({ readyAt: direction }).strict(),
+          ])
+        )
+        .optional(),
+    })
+    .parse({ limit, offset, sort })
+  const sorting = pagination.sort?.map((entry): PipelineReviewSort => {
+    if ("kind" in entry) return { id: "kind", desc: entry.kind.desc ?? false }
+    if ("score" in entry)
+      return { id: "score", desc: entry.score.desc ?? false }
+    return { id: "readyAt", desc: entry.readyAt.desc ?? false }
+  })
+  const page = await pipelineResults.findReviewReadyPage(
+    pagination.limit,
+    pagination.offset,
+    sorting
+  )
+  return { items: page.items.map(toReviewQueueItem), total: page.total }
 }
 
 export async function getReviewClaim(id: string): Promise<ReviewClaim | null> {
