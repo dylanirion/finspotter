@@ -52,8 +52,9 @@ export class SimilaritySearchPipeline extends $util.ComponentResource {
       }
     }
     const refineFunctions = packages.reduce(
-      (acc, { name, refine }) => {
-        if (refine) acc[name] = refine({ bucket, table })
+      (acc, { name, refine, score }) => {
+        const fn = refine ?? score
+        if (fn) acc[name] = fn({ bucket, table })
         return acc
       },
       {} as Record<string, ReturnType<MatchRefinementFunction>>

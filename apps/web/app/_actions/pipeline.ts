@@ -175,6 +175,11 @@ export async function createDemoJob({
   if (!indexedSearchFunction) {
     throw new Error("The pgvector indexed search function is not configured.")
   }
+  const lnbnnFunction =
+    Resource.SimilaritySearchPipeline.refineFunctions["lnbnn"]
+  if (!lnbnnFunction) {
+    throw new Error("The LNBNN scoring function is not configured.")
+  }
 
   const now = new Date()
   const createdAt = now.toISOString()
@@ -202,7 +207,7 @@ export async function createDemoJob({
     },
   ])
 
-  return invoke<"yolact", "hesaff", "pgvector:indexed">({
+  return invoke<"yolact", "hesaff", "pgvector:indexed", ["lnbnn"]>({
     submissionId,
     payload: [
       {
@@ -246,6 +251,7 @@ export async function createDemoJob({
       functionName: indexedSearchFunction,
       config: null,
     },
+    refine: [{ functionName: lnbnnFunction, config: null }],
     expires,
   })
 }

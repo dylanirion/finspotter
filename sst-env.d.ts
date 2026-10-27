@@ -36,6 +36,10 @@ declare module "sst" {
       "name": string
       "type": "sst.aws.Function"
     }
+    "Lnbnn": {
+      "name": string
+      "type": "sst.aws.Function"
+    }
     "MapId": {
       "type": "sst.sst.Secret"
       "value": string
@@ -103,6 +107,7 @@ declare module "sst" {
       "pipeline": string
       "refineFunctions": {
         "homog": string
+        "lnbnn": string
         "ratio": string
         "sum": string
       }

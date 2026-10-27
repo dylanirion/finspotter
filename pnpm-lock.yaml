@@ -32,6 +32,9 @@ importers:
       '@finspotter/homog':
         specifier: workspace:*
         version: link:extensions/pipeline/homog
+      '@finspotter/lnbnn':
+        specifier: workspace:*
+        version: link:extensions/pipeline/lnbnn
       '@finspotter/pgvector':
         specifier: workspace:*
         version: link:extensions/pipeline/pgvector
@@ -393,6 +396,18 @@ importers:
 
   extensions/pipeline/homog:
     dependencies:
+      '@finspotter/pipeline':
+        specifier: workspace:*
+        version: link:../../../packages/pipeline
+      zod:
+        specifier: ^4.1.12
+        version: 4.6.5
+
+  extensions/pipeline/lnbnn:
+    dependencies:
+      '@finspotter/core':
+        specifier: workspace:*
+        version: link:../../../packages/core
       '@finspotter/pipeline':
         specifier: workspace:*
         version: link:../../../packages/pipeline

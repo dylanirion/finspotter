@@ -24,6 +24,7 @@
     "@finspotter/faiss": "workspace:*",
     "@finspotter/hesaff": "workspace:*",
     "@finspotter/homog": "workspace:*",
+    "@finspotter/lnbnn": "workspace:*",
     "@finspotter/pgvector": "workspace:*",
     "@finspotter/pipeline": "workspace:*",
     "@finspotter/ratio": "workspace:*",
